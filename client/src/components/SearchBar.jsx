@@ -1,66 +1,80 @@
-// src/components/SearchBar.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Search, MapPin } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
+import { api } from '../services/api';
 
-/**
- * props:
- *  - cities: array of { Code, Name }
- *  - onCitySelect: function(city)
- */
-export default function SearchBar({ cities = [], onCitySelect }) {
-  const [text, setText] = useState('');
+export function SearchBar({ onCitySelect }) {
+  const { state, dispatch } = useAppContext();
+  const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredCities, setFilteredCities] = useState([]);
 
-  const suggestions = useMemo(() => {
-    if (!text) return [];
-    const q = text.toLowerCase();
-    // match anywhere in name; also allow partial word starts
-    return cities
-      .filter(c => c.Name && c.Name.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [text, cities]);
+  useEffect(() => {
+    // Fetch cities only once if not already in Redux
+    if (state.cities.length === 0) {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      api.getCityList()
+        .then(data => {
+          if (data.Status && data.Status.Code === 200) {
+            dispatch({ type: 'SET_CITIES', payload: data.CityList });
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching cities:', err);
+          dispatch({ type: 'SET_ERROR', payload: err.message });
+        })
+        .finally(() => dispatch({ type: 'SET_LOADING', payload: false }));
+    }
+  }, [state.cities.length, dispatch]);
 
-  const handleSelect = (c) => {
-    setText(c.Name);
+  useEffect(() => {
+    if (searchTerm.length >= 2) {
+      const filtered = state.cities
+        .filter(city =>
+          city.Name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .slice(0, 5);
+      setFilteredCities(filtered);
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  }, [searchTerm, state.cities]);
+
+  const handleCitySelect = (city) => {
+    setSearchTerm(city.Name);
     setShowSuggestions(false);
-    onCitySelect(c);
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // If there's an exact match, pick it; if there's at least one suggestion, pick first
-    const exact = cities.find(c => c.Name.toLowerCase() === text.trim().toLowerCase());
-    if (exact) return handleSelect(exact);
-    if (suggestions.length > 0) return handleSelect(suggestions[0]);
-    alert('City not found. Try typing something else or wait for list to load.');
+    onCitySelect(city);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-xl">
+    <div className="relative w-full max-w-2xl">
       <div className="relative">
+        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input
-          className="w-full p-3 rounded-lg border bg-white"
-          placeholder="Search city (country = India). Try 'ra' for Rajasthan or 'bang' for Bangalore"
-          value={text}
-          onChange={(e) => { setText(e.target.value); setShowSuggestions(true); }}
-          onFocus={() => setShowSuggestions(true)}
-          onBlur={() => setTimeout(()=>setShowSuggestions(false), 150)}
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search for cities in India (e.g., Bangalore, Delhi, Mumbai)"
+          className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-lg"
         />
-        <button className="absolute right-2 top-2 bg-blue-600 text-white px-3 py-1 rounded">Search</button>
-        {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute z-20 bg-white w-full mt-12 rounded shadow max-h-60 overflow-auto">
-            {suggestions.map(s => (
-              <div
-                key={s.Code}
-                className="p-3 hover:bg-gray-100 cursor-pointer"
-                onMouseDown={() => handleSelect(s)}
-              >
-                <div className="text-sm font-medium text-gray-800">{s.Name}</div>
-                <div className="text-xs text-gray-500">Code: {s.Code}</div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
-    </form>
+      
+      {showSuggestions && filteredCities.length > 0 && (
+        <div className="absolute w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+          {filteredCities.map((city) => (
+            <button
+              key={city.Code}
+              onClick={() => handleCitySelect(city)}
+              className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center gap-2 border-b last:border-b-0"
+            >
+              <MapPin className="w-4 h-4 text-gray-400" />
+              <span>{city.Name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
+

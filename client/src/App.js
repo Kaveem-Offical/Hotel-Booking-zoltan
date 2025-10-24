@@ -1,102 +1,111 @@
-// src/App.jsx
-import React, { useEffect, useState } from 'react';
-import { Provider, useDispatch, useSelector } from 'react-redux';
-import store from './store';
-import { loadCityList } from './store/slices/citiesSlice';
-import { loadHotelsForCity } from './store/slices/hotelsSlice';
-import { loadHotelDetails } from './store/slices/hotelDetailsSlice';
-import SearchBar from './components/SearchBar';
-import HotelList from './components/HotelList';
-import HotelDetails from './components/HotelDetails';
+import React, { useState, useCallback } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useAppContext } from './context/AppContext';
+import { SearchBar } from './components/SearchBar';
+import { HotelCard } from './components/HotelCard';
+import { HotelDetails } from './components/HotelDetails';
+import { api } from './services/api';
 
-function MainApp() {
-  const dispatch = useDispatch();
-  const cities = useSelector(s => s.cities.list);
-  const citiesStatus = useSelector(s => s.cities.status);
-  const hotelsByCity = useSelector(s => s.hotels.byCity);
-  const hotelDetailsByCode = useSelector(s => s.hotelDetails.byCode);
+function App() {
+  const { state, dispatch } = useAppContext();
+  const [selectedCity, setSelectedCity] = useState(null);
+  const [selectedHotel, setSelectedHotel] = useState(null);
+  const [loadingHotels, setLoadingHotels] = useState(false);
 
-  const [selectedCity, setSelectedCity] = useState(null); // { Code, Name }
-  const [selectedHotelCode, setSelectedHotelCode] = useState(null);
-
-  useEffect(() => {
-    if (citiesStatus === 'idle') dispatch(loadCityList());
-  }, [citiesStatus, dispatch]);
-
-  const handleCityChosen = async (city) => {
+  const handleCitySelect = useCallback((city) => {
     setSelectedCity(city);
-    setSelectedHotelCode(null);
+    setSelectedHotel(null);
 
-    if (!hotelsByCity[city.Code]) {
-      // not in redux -> fetch
-      dispatch(loadHotelsForCity(city.Code));
+    // Check if hotels for this city are already in Redux
+    if (!state.hotels[city.Code]) {
+      setLoadingHotels(true);
+      api.getHotelCodeList(city.Code)
+        .then(data => {
+          if (data.Status && data.Status.Code === 200) {
+            dispatch({ 
+              type: 'SET_HOTELS', 
+              cityCode: city.Code,
+              payload: data.Hotels || []
+            });
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching hotels:', err);
+          dispatch({ type: 'SET_ERROR', payload: err.message });
+        })
+        .finally(() => setLoadingHotels(false));
     }
+  }, [state.hotels, dispatch]);
+
+  const handleHotelClick = (hotel) => {
+    setSelectedHotel(hotel);
   };
 
-  const handleHotelClick = (hotelCode) => {
-    setSelectedHotelCode(hotelCode);
-    if (!hotelDetailsByCode[hotelCode]) {
-      dispatch(loadHotelDetails({ hotelCode }));
-    }
+  const handleBack = () => {
+    setSelectedHotel(null);
   };
 
-  const hotelsForSelectedCity = selectedCity ? (hotelsByCity[selectedCity.Code]?.list || []) : [];
+  const currentHotels = selectedCity ? state.hotels[selectedCity.Code] || [] : [];
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 p-6">
-      <h1 className="text-2xl font-bold text-blue-600 mb-6">TBO Hotels Demo (Redux cached)</h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="container mx-auto px-4 py-8">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">TBO Hotels</h1>
+          <p className="text-gray-600">Find the perfect hotel in India</p>
+        </header>
 
-      <SearchBar
-        cities={cities}
-        onCitySelect={handleCityChosen}
-      />
-
-      {!selectedCity && (
-        <p className="mt-6 text-gray-600">Search a city (country fixed to India) to list hotels.</p>
-      )}
-
-      {selectedCity && (
-        <>
-          <div className="mt-6 mb-4">
-            <button
-              className="text-sm text-blue-600 hover:underline"
-              onClick={() => { setSelectedCity(null); setSelectedHotelCode(null); }}
-            >
-              ← Change city
-            </button>
-            <h2 className="text-lg font-semibold mt-2">{selectedCity.Name}</h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <HotelList
-                hotels={hotelsForSelectedCity}
-                loading={hotelsByCity[selectedCity.Code]?.status === 'loading'}
-                onSelect={handleHotelClick}
-              />
+        {!selectedHotel ? (
+          <>
+            <div className="flex justify-center mb-8">
+              <SearchBar onCitySelect={handleCitySelect} />
             </div>
 
-            <div>
-              {selectedHotelCode ? (
-                <HotelDetails
-                  hotel={hotelDetailsByCode[selectedHotelCode]?.data}
-                  status={hotelDetailsByCode[selectedHotelCode]?.status}
-                />
-              ) : (
-                <div className="p-4 bg-white rounded shadow">Click a hotel card to view details</div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+            {state.loading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              </div>
+            )}
+
+            {loadingHotels && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-600">Loading hotels...</span>
+              </div>
+            )}
+
+            {selectedCity && !loadingHotels && currentHotels.length > 0 && (
+              <div className="max-w-6xl mx-auto">
+                <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+                  Hotels in {selectedCity.Name}
+                  <span className="text-sm font-normal text-gray-500 ml-2">
+                    ({currentHotels.length} hotels found)
+                  </span>
+                </h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {currentHotels.map((hotel) => (
+                    <HotelCard 
+                      key={hotel.HotelCode} 
+                      hotel={hotel}
+                      onClick={handleHotelClick}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedCity && !loadingHotels && currentHotels.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-600">No hotels found in {selectedCity.Name}</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <HotelDetails hotel={selectedHotel} onBack={handleBack} />
+        )}
+      </div>
     </div>
   );
 }
 
-export default function AppWrapper() {
-  return (
-    <Provider store={store}>
-      <MainApp />
-    </Provider>
-  );
-}
+export default App;

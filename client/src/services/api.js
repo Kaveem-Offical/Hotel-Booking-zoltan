@@ -1,0 +1,29 @@
+import axios from 'axios';
+
+const API_BASE = '/api/hotels';
+
+export const api = {
+  getCityList: async (countryCode = 'IN') => {
+    const response = await axios.post(`${API_BASE}/cities`, { 
+      countryCode 
+    });
+    return response.data;
+  },
+
+  getHotelCodeList: async (cityCode) => {
+    const response = await axios.post(`${API_BASE}/hotels`, { 
+      cityCode 
+    });
+    return response.data;
+  },
+
+  getHotelDetails: async (hotelCode) => {
+    const response = await axios.post(`${API_BASE}/hotel-details`, { 
+      hotelCode,
+      language: 'EN',
+      isRoomDetailRequired: true
+    });
+    return response.data;
+  }
+};
+
