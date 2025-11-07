@@ -6,6 +6,7 @@ const initialState = {
   cities: [],
   hotels: {},
   hotelDetails: {},
+  hotelPricing: {}, // NEW: Store pricing data by hotel code
   loading: false,
   error: null
 };
@@ -23,6 +24,11 @@ function appReducer(state, action) {
       return { 
         ...state, 
         hotelDetails: { ...state.hotelDetails, [action.hotelCode]: action.payload }
+      };
+    case 'SET_HOTEL_PRICING':
+      return {
+        ...state,
+        hotelPricing: { ...state.hotelPricing, [action.hotelCode]: action.payload }
       };
     case 'SET_LOADING':
       return { ...state, loading: action.payload };

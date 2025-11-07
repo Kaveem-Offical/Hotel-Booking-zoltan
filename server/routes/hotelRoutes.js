@@ -8,5 +8,7 @@ router.post('/cities', hotelController.getCityList);
 router.post('/hotels', hotelController.getHotelCodeList);
 router.post('/hotel-details', hotelController.getHotelDetails);
 
-module.exports = router;
+// Search route (with pricing and availability)
+router.post('/search', hotelController.searchHotel);
 
+module.exports = router;

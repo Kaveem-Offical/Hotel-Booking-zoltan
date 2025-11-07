@@ -24,6 +24,10 @@ export const api = {
       isRoomDetailRequired: true
     });
     return response.data;
+  },
+
+  searchHotel: async (searchParams) => {
+    const response = await axios.post(`${API_BASE}/search`, searchParams);
+    return response.data;
   }
 };
-

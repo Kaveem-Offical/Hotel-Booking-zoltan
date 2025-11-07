@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, MapPin, Phone, Mail, Globe, Star, Loader2 } from 'lucide-react';
+import { ChevronLeft, MapPin, Phone, Mail, Globe, Star, Loader2, AlertCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { api } from '../services/api';
+import { SearchForm } from './SearchForm';
+import { RoomList } from './RoomList';
 
 export function HotelDetails({ hotel, onBack }) {
   const { state, dispatch } = useAppContext();
   const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchError, setSearchError] = useState(null);
   const hotelCode = hotel.HotelCode;
   const details = state.hotelDetails[hotelCode];
 
   useEffect(() => {
-    // Fetch hotel details only if not already in Redux
     if (!details) {
       setLoading(true);
       api.getHotelDetails(hotelCode)
@@ -30,6 +34,31 @@ export function HotelDetails({ hotel, onBack }) {
         .finally(() => setLoading(false));
     }
   }, [hotelCode, details, dispatch]);
+
+  const handleSearch = async (searchParams) => {
+    setSearchLoading(true);
+    setSearchResults(null);
+    setSearchError(null);
+    
+    console.log('Searching with params:', searchParams);
+    
+    try {
+      const data = await api.searchHotel(searchParams);
+      console.log('Search response:', data);
+      
+      if (data.Status && data.Status.Code !== 200) {
+        setSearchError(data.Status.Description || 'Search failed');
+      } else {
+        setSearchResults(data);
+      }
+    } catch (err) {
+      console.error('Error searching hotel:', err);
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to search availability';
+      setSearchError(errorMsg);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -57,7 +86,7 @@ export function HotelDetails({ hotel, onBack }) {
   const stars = details.HotelRating || 0;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <button
         onClick={onBack}
         className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4 font-medium"
@@ -66,7 +95,8 @@ export function HotelDetails({ hotel, onBack }) {
         Back to Hotels
       </button>
 
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+      {/* Hotel Information */}
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
         {details.Images && details.Images.length > 0 && (
           <img 
             src={details.Images[0]} 
@@ -160,7 +190,37 @@ export function HotelDetails({ hotel, onBack }) {
           )}
         </div>
       </div>
+
+      {/* Search Form */}
+      <SearchForm 
+        hotelCode={hotelCode}
+        onSearch={handleSearch}
+        loading={searchLoading}
+      />
+
+      {/* Error Message */}
+      {searchError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-semibold text-red-800 mb-1">Search Failed</h4>
+            <p className="text-red-700 text-sm">{searchError}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {searchLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <span className="ml-2 text-gray-600">Searching for available rooms...</span>
+        </div>
+      )}
+
+      {/* Search Results */}
+      {searchResults && !searchLoading && !searchError && (
+        <RoomList searchResults={searchResults} />
+      )}
     </div>
   );
 }
-
