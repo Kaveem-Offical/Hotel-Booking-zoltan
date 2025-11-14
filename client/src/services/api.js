@@ -3,6 +3,11 @@ import axios from 'axios';
 const API_BASE = '/api/hotels';
 
 export const api = {
+  getCountryList: async () => {
+    const response = await axios.get(`${API_BASE}/countries`);
+    return response.data;
+  },
+
   getCityList: async (countryCode = 'IN') => {
     const response = await axios.post(`${API_BASE}/cities`, { 
       countryCode 
