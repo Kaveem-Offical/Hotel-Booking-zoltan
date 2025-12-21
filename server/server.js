@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const config = require('./config/config');
 const hotelRoutes = require('./routes/hotelRoutes');
+const syncRoutes = require('./routes/syncRoutes');
 
 const app = express();
 
@@ -19,11 +20,12 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/api/hotels', hotelRoutes);
+app.use('/api/sync', syncRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
     service: 'TBO Hotels Proxy Server'
   });
@@ -31,7 +33,7 @@ app.get('/health', (req, res) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Not Found',
     message: `Cannot ${req.method} ${req.path}`
   });
@@ -40,9 +42,9 @@ app.use((req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Server Error:', err);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Internal server error',
-    message: err.message 
+    message: err.message
   });
 });
 

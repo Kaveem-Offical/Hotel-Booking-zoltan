@@ -1,4 +1,10 @@
 import axios from 'axios';
+import {
+  getCachedCountries,
+  getCachedCities,
+  getCachedHotels,
+  getCachedHotelDetails
+} from './staticDataService';
 
 const API_BASE_URL = 'http://localhost:5000/api/hotels';
 
@@ -9,8 +15,20 @@ const api = axios.create({
   },
 });
 
+/**
+ * Fetch countries - Firebase cache first, then API
+ */
 export const fetchCountries = async () => {
   try {
+    // Try Firebase cache first
+    const cached = await getCachedCountries();
+    if (cached) {
+      console.log('Using cached countries from Firebase');
+      return { CountryList: cached, source: 'cache' };
+    }
+
+    // Fallback to API (which will cache to Firebase)
+    console.log('Fetching countries from API');
     const response = await api.get('/countries');
     return response.data;
   } catch (error) {
@@ -19,8 +37,20 @@ export const fetchCountries = async () => {
   }
 };
 
+/**
+ * Fetch cities - Firebase cache first, then API
+ */
 export const fetchCities = async (countryCode) => {
   try {
+    // Try Firebase cache first
+    const cached = await getCachedCities(countryCode);
+    if (cached) {
+      console.log(`Using cached cities for ${countryCode} from Firebase`);
+      return { CityList: cached, source: 'cache' };
+    }
+
+    // Fallback to API (which will cache to Firebase)
+    console.log(`Fetching cities for ${countryCode} from API`);
     const response = await api.post('/cities', { countryCode });
     return response.data;
   } catch (error) {
@@ -29,8 +59,20 @@ export const fetchCities = async (countryCode) => {
   }
 };
 
+/**
+ * Fetch hotels - Firebase cache first, then API
+ */
 export const fetchHotels = async (cityCode) => {
   try {
+    // Try Firebase cache first
+    const cached = await getCachedHotels(cityCode);
+    if (cached) {
+      console.log(`Using cached hotels for city ${cityCode} from Firebase`);
+      return { Hotels: cached, source: 'cache' };
+    }
+
+    // Fallback to API (which will cache to Firebase)
+    console.log(`Fetching hotels for city ${cityCode} from API`);
     const response = await api.post('/hotels', { cityCode });
     return response.data;
   } catch (error) {
@@ -39,8 +81,20 @@ export const fetchHotels = async (cityCode) => {
   }
 };
 
+/**
+ * Fetch hotel details - Firebase cache first, then API
+ */
 export const fetchHotelDetails = async (hotelCode) => {
   try {
+    // Try Firebase cache first
+    const cached = await getCachedHotelDetails(hotelCode);
+    if (cached) {
+      console.log(`Using cached hotel details for ${hotelCode} from Firebase`);
+      return { HotelDetails: [cached], source: 'cache' };
+    }
+
+    // Fallback to API (which will cache to Firebase)
+    console.log(`Fetching hotel details for ${hotelCode} from API`);
     const response = await api.post('/hotel-details', { hotelCode });
     return response.data;
   } catch (error) {
@@ -49,8 +103,13 @@ export const fetchHotelDetails = async (hotelCode) => {
   }
 };
 
+/**
+ * Search hotels - ALWAYS calls API for live pricing/availability
+ * This should NEVER be cached as prices change frequently
+ */
 export const searchHotels = async (searchParams) => {
   try {
+    console.log('Searching hotels (live pricing - no cache)');
     const response = await api.post('/search', searchParams);
     return response.data;
   } catch (error) {
