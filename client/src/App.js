@@ -8,7 +8,7 @@ import SignUpPage from './pages/SignUpPage';
 import SignInPage from './pages/SignInPage';
 import AdminPage from './pages/AdminPage';
 import ProtectedRoute from './components/ProtectedRoute';
-import { Hotel, LogOut, Shield } from 'lucide-react';
+import { Hotel, LogOut, Shield, Heart, HelpCircle, User } from 'lucide-react';
 import './styles/Auth.css';
 
 // Navigation Header Component
@@ -38,37 +38,65 @@ const NavHeader = () => {
   return (
     <header className="nav-header">
       <Link to="/" className="nav-logo">
-        <Hotel size={28} />
-        Zoltan Hotels
+        <Hotel size={24} />
+        <span>Zoltan Hotels</span>
       </Link>
+
       <div className="nav-links">
         {currentUser ? (
           <>
+            {/* Help Link */}
+            <Link to="/help" className="nav-link">
+              <HelpCircle size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              Help
+            </Link>
+
+            {/* Wishlist Link */}
+            <Link to="/wishlist" className="nav-link">
+              <Heart size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              Saved
+            </Link>
+
+            {/* Admin Link */}
             {isAdmin && (
               <Link to="/admin" className="nav-link">
                 <Shield size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
                 Admin
               </Link>
             )}
+
+            {/* User Info */}
             <div className="user-info-nav">
               <div className="user-avatar-nav">
                 {getInitials(userData?.username || currentUser?.email)}
               </div>
-              <span style={{ color: 'white', fontSize: '0.875rem' }}>
+              <span style={{ color: 'var(--agoda-dark)', fontSize: '0.875rem', fontWeight: 500 }}>
                 {userData?.username || currentUser?.email?.split('@')[0]}
               </span>
             </div>
+
+            {/* Logout Button */}
             <button className="nav-button nav-button-secondary" onClick={handleLogout}>
-              <LogOut size={16} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              <LogOut size={16} />
               Logout
             </button>
           </>
         ) : (
           <>
+            {/* Help Link */}
+            <Link to="/help" className="nav-link">
+              <HelpCircle size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              Help
+            </Link>
+
+            {/* Sign In Link */}
             <Link to="/signin" className="nav-link">
               Sign In
             </Link>
+
+            {/* Sign Up Button */}
             <Link to="/signup" className="nav-button">
+              <User size={16} />
               Sign Up
             </Link>
           </>
@@ -125,6 +153,61 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {/* Placeholder routes for new features */}
+      <Route
+        path="/wishlist"
+        element={
+          <Layout>
+            <div style={{
+              minHeight: 'calc(100vh - 70px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--agoda-bg)',
+              padding: '2rem'
+            }}>
+              <div style={{
+                textAlign: 'center',
+                background: 'white',
+                padding: '3rem',
+                borderRadius: '12px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              }}>
+                <Heart size={64} style={{ color: 'var(--agoda-red)', marginBottom: '1rem' }} />
+                <h2 style={{ color: 'var(--agoda-dark)', marginBottom: '0.5rem' }}>Your Saved Hotels</h2>
+                <p style={{ color: 'var(--agoda-gray)' }}>Save your favorite hotels to easily find them later</p>
+              </div>
+            </div>
+          </Layout>
+        }
+      />
+      <Route
+        path="/help"
+        element={
+          <Layout>
+            <div style={{
+              minHeight: 'calc(100vh - 70px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--agoda-bg)',
+              padding: '2rem'
+            }}>
+              <div style={{
+                textAlign: 'center',
+                background: 'white',
+                padding: '3rem',
+                borderRadius: '12px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              }}>
+                <HelpCircle size={64} style={{ color: 'var(--agoda-blue)', marginBottom: '1rem' }} />
+                <h2 style={{ color: 'var(--agoda-dark)', marginBottom: '0.5rem' }}>Help Center</h2>
+                <p style={{ color: 'var(--agoda-gray)' }}>Need assistance? We're here to help!</p>
+              </div>
+            </div>
+          </Layout>
+        }
+      />
     </Routes>
   );
 }
@@ -140,4 +223,3 @@ function App() {
 }
 
 export default App;
-
