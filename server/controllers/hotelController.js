@@ -160,6 +160,44 @@ exports.getHotelDetails = async (req, res) => {
   }
 };
 
+// Get basic hotel info from cached hotel lists (fallback when details API fails)
+exports.getBasicHotelInfo = async (req, res) => {
+  try {
+    const { hotelCode } = req.body;
+
+    if (!hotelCode) {
+      return res.status(400).json({ error: 'Hotel code is required' });
+    }
+
+    console.log(`Looking up basic hotel info for: ${hotelCode}`);
+
+    // Search for hotel in cached city hotel lists
+    const hotelInfo = await firebaseService.findHotelByCode(hotelCode);
+
+    if (hotelInfo) {
+      console.log(`Found basic hotel info for ${hotelCode}`);
+      return res.json({
+        HotelInfo: hotelInfo,
+        source: 'cache',
+        isBasicInfo: true
+      });
+    }
+
+    // If not found in cache
+    console.log(`Hotel ${hotelCode} not found in cached hotel lists`);
+    res.status(404).json({
+      error: 'Hotel not found in cache',
+      message: 'This hotel is not available in our cached data'
+    });
+  } catch (error) {
+    console.error('Basic hotel info error:', error.message);
+    res.status(500).json({
+      error: 'Failed to fetch basic hotel info',
+      message: error.message
+    });
+  }
+};
+
 // Search hotel availability with pricing - ALWAYS hits TBO API (dynamic data)
 exports.searchHotel = async (req, res) => {
   try {

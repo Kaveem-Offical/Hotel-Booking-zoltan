@@ -156,6 +156,44 @@ const getHotelDetails = async (hotelCode) => {
 };
 
 /**
+ * Find basic hotel info by hotel code from cached hotel lists
+ * This searches through all cached city hotel lists to find the hotel
+ */
+const findHotelByCode = async (hotelCode) => {
+    try {
+        const ref = database.ref(`${STATIC_DATA_PATH}/hotels`);
+        const snapshot = await ref.once('value');
+        const allCityHotels = snapshot.val();
+
+        if (!allCityHotels) {
+            return null;
+        }
+
+        // Search through all cached cities' hotel lists
+        for (const cityCode of Object.keys(allCityHotels)) {
+            const cityData = allCityHotels[cityCode];
+            if (cityData && cityData.data && Array.isArray(cityData.data)) {
+                const hotel = cityData.data.find(h =>
+                    h.HotelCode === hotelCode ||
+                    h.HotelCode === String(hotelCode) ||
+                    String(h.HotelCode) === String(hotelCode)
+                );
+                if (hotel) {
+                    console.log(`Found hotel ${hotelCode} in cached hotels for city ${cityCode}`);
+                    return hotel;
+                }
+            }
+        }
+
+        console.log(`Hotel ${hotelCode} not found in any cached city hotel lists`);
+        return null;
+    } catch (error) {
+        console.error('Error finding hotel by code:', error);
+        return null;
+    }
+};
+
+/**
  * Get cache metadata (for admin dashboard)
  */
 const getCacheMetadata = async () => {
@@ -202,6 +240,7 @@ module.exports = {
     getHotels,
     saveHotelDetails,
     getHotelDetails,
+    findHotelByCode,
     getCacheMetadata,
     clearAllCache
 };

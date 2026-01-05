@@ -7,6 +7,7 @@ router.get('/countries', hotelController.getCountryList);
 router.post('/cities', hotelController.getCityList);
 router.post('/hotels', hotelController.getHotelCodeList);
 router.post('/hotel-details', hotelController.getHotelDetails);
+router.post('/hotel-basic-info', hotelController.getBasicHotelInfo);
 
 // Search route (with pricing and availability)
 router.post('/search', hotelController.searchHotel);

@@ -83,25 +83,35 @@ export const fetchHotels = async (cityCode) => {
 
 /**
  * Fetch hotel details - Firebase cache first, then API
+ * Returns null if unable to fetch from any source
  */
 export const fetchHotelDetails = async (hotelCode) => {
   try {
     // Try Firebase cache first
-    const cached = await getCachedHotelDetails(hotelCode);
-    if (cached) {
-      console.log(`Using cached hotel details for ${hotelCode} from Firebase`);
-      return { HotelDetails: [cached], source: 'cache' };
-    }
+    // const cached = await getCachedHotelDetails(hotelCode);
+    // if (cached) {
+    //   console.log(`Using cached hotel details for ${hotelCode} from Firebase`);
+    //   return { HotelDetails: [cached], source: 'cache' };
+    // }
 
-    // Fallback to API (which will cache to Firebase)
-    console.log(`Fetching hotel details for ${hotelCode} from API`);
+    // // Fallback to API (which will cache to Firebase)
+    // console.log(`Fetching hotel details for ${hotelCode} from API`);
     const response = await api.post('/hotel-details', { hotelCode });
+
+    // Check if API returned an error status
+    if (response.data.Status && response.data.Status.Code !== 200) {
+      console.warn(`TBO API returned error for hotel ${hotelCode}:`, response.data.Status.Description);
+      return null;
+    }
+    console.log(response.data, 'response.data')
     return response.data;
   } catch (error) {
-    console.error('Error fetching hotel details:', error);
-    throw error;
+    console.error('Error fetching hotel details:', error.message || error);
+    // Return null instead of throwing - caller can handle fallback
+    return null;
   }
 };
+
 
 /**
  * Search hotels - ALWAYS calls API for live pricing/availability
@@ -115,6 +125,21 @@ export const searchHotels = async (searchParams) => {
   } catch (error) {
     console.error('Error searching hotels:', error);
     throw error;
+  }
+};
+
+/**
+ * Fetch basic hotel info from cached hotel lists
+ * Used as fallback when the TBO hotel details API fails
+ */
+export const fetchBasicHotelInfo = async (hotelCode) => {
+  try {
+    console.log(`Fetching basic hotel info for ${hotelCode} from cached hotel lists`);
+    const response = await api.post('/hotel-basic-info', { hotelCode });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching basic hotel info:', error.message || error);
+    return null;
   }
 };
 
