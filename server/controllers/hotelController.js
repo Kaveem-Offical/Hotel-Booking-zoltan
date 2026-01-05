@@ -325,3 +325,142 @@ exports.getCountryList = async (req, res) => {
     });
   }
 };
+
+// PreBook hotel - Validates availability and returns final pricing
+exports.preBookHotel = async (req, res) => {
+  try {
+    const { BookingCode } = req.body;
+
+    if (!BookingCode) {
+      return res.status(400).json({ error: 'BookingCode is required' });
+    }
+
+    console.log(`\n=== Hotel PreBook Request ===`);
+    console.log(`BookingCode: ${BookingCode}`);
+
+    const axiosInstance = createSearchAxiosInstance();
+
+    const response = await axiosInstance.post(
+      config.tboApi.preBookUrl,
+      { BookingCode }
+    );
+
+    console.log('PreBook Response Status:', response.data.Status);
+
+    if (response.data.Status && response.data.Status.Code !== 200) {
+      return res.status(400).json({
+        error: 'PreBook failed',
+        message: response.data.Status.Description,
+        details: response.data
+      });
+    }
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('\n=== PreBook Error ===');
+    console.error('Error Message:', error.message);
+
+    if (error.response) {
+      console.error('Status Code:', error.response.status);
+      console.error('Error Data:', JSON.stringify(error.response.data, null, 2));
+
+      return res.status(error.response.status).json({
+        error: 'Hotel prebook failed',
+        message: error.response.data?.Status?.Description || error.message,
+        details: error.response.data
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to prebook hotel',
+      message: error.message
+    });
+  }
+};
+
+// Book hotel - Finalizes the booking with guest details
+exports.bookHotel = async (req, res) => {
+  try {
+    const {
+      EndUserIp,
+      BookingCode,
+      GuestNationality,
+      IsVoucherBooking = false,
+      NetAmount,
+      HotelRoomsDetails,
+      IsPackageFare = false,
+      IsPackageDetailsMandatory = false,
+      ArrivalTransport
+    } = req.body;
+
+    // Validation
+    if (!BookingCode || !GuestNationality || !NetAmount || !HotelRoomsDetails) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        required: ['BookingCode', 'GuestNationality', 'NetAmount', 'HotelRoomsDetails']
+      });
+    }
+
+    console.log(`\n=== Hotel Book Request ===`);
+    console.log(`BookingCode: ${BookingCode}`);
+    console.log(`GuestNationality: ${GuestNationality}`);
+    console.log(`NetAmount: ${NetAmount}`);
+    console.log(`Rooms: ${HotelRoomsDetails.length}`);
+
+    const bookRequest = {
+      EndUserIp: EndUserIp || req.ip || '127.0.0.1',
+      BookingCode,
+      GuestNationality,
+      IsVoucherBooking,
+      NetAmount,
+      HotelRoomsDetails,
+      IsPackageFare,
+      IsPackageDetailsMandatory
+    };
+
+    // Add arrival transport if provided
+    if (ArrivalTransport) {
+      bookRequest.ArrivalTransport = ArrivalTransport;
+    }
+
+    console.log('Book Request Body:', JSON.stringify(bookRequest, null, 2));
+
+    const axiosInstance = createSearchAxiosInstance();
+
+    const response = await axiosInstance.post(
+      config.tboApi.bookUrl,
+      bookRequest
+    );
+
+    console.log('Book Response Status:', response.data.Status);
+
+    if (response.data.Status && response.data.Status.Code !== 200) {
+      return res.status(400).json({
+        error: 'Booking failed',
+        message: response.data.Status.Description,
+        details: response.data
+      });
+    }
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('\n=== Book Error ===');
+    console.error('Error Message:', error.message);
+
+    if (error.response) {
+      console.error('Status Code:', error.response.status);
+      console.error('Error Data:', JSON.stringify(error.response.data, null, 2));
+
+      return res.status(error.response.status).json({
+        error: 'Hotel booking failed',
+        message: error.response.data?.Status?.Description || error.message,
+        details: error.response.data
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to book hotel',
+      message: error.message
+    });
+  }
+};

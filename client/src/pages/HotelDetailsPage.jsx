@@ -4,10 +4,11 @@ import {
     Wifi, Coffee, Car, Utensils, Check, User, Info
 } from 'lucide-react';
 import { fetchHotelDetails, searchHotels, fetchBasicHotelInfo } from '../services/api';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 const HotelDetailsPage = () => {
     const { hotelId } = useParams();
+    const navigate = useNavigate();
     const [hotel, setHotel] = useState(null);
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -174,6 +175,21 @@ const HotelDetailsPage = () => {
         }
     };
 
+    // Handle room reservation - navigate to checkout
+    const handleReserve = (room) => {
+        if (!room || !room.pricing) return;
+
+        // Navigate to checkout page with all necessary data
+        navigate('/checkout', {
+            state: {
+                hotel: hotel,
+                room: room.pricing,
+                searchParams: searchParams,
+                bookingCode: room.pricing.BookingCode
+            }
+        });
+    };
+
     const getImages = (hotelData) => {
         if (!hotelData) return [];
         if (Array.isArray(hotelData.Images)) return hotelData.Images.filter(img => img);
@@ -227,7 +243,7 @@ const HotelDetailsPage = () => {
         const roomDetails = hotel?.RoomDetails || [];
 
         console.log('Room Details from hotel:', roomDetails.map(r => r.RoomName));
-        console.log('Available rooms count:', rooms.length);
+        console.log('Available rooms from search:', rooms.length, rooms.map(r => r.Name?.[0]));
 
         // If we have available rooms but no room details, show available rooms directly
         if (rooms.length > 0 && roomDetails.length === 0) {
@@ -241,24 +257,25 @@ const HotelDetailsPage = () => {
             }));
         }
 
-        // If no room details, return empty
-        if (roomDetails.length === 0) return [];
+        // If no room details AND no available rooms, return empty
+        if (roomDetails.length === 0 && rooms.length === 0) return [];
 
         // Build availability map with multiple matching strategies
         const availabilityMap = {};
         const availabilityByPartialMatch = {};
+        const matchedRoomIds = new Set(); // Track which available rooms have been matched
 
-        rooms.forEach(r => {
+        rooms.forEach((r, idx) => {
             if (r?.Name?.[0]) {
                 const fullKey = normalize(r.Name[0]);
-                availabilityMap[fullKey] = r;
+                availabilityMap[fullKey] = { ...r, _idx: idx };
 
                 // Also store by partial key (first 20 chars) for fuzzy matching
                 const partialKey = fullKey.substring(0, 20);
                 if (!availabilityByPartialMatch[partialKey]) {
                     availabilityByPartialMatch[partialKey] = [];
                 }
-                availabilityByPartialMatch[partialKey].push(r);
+                availabilityByPartialMatch[partialKey].push({ ...r, _idx: idx });
             }
         });
 
@@ -280,6 +297,11 @@ const HotelDetailsPage = () => {
                     }
                 }
 
+                // Track which rooms have been matched
+                if (matchedRoom) {
+                    matchedRoomIds.add(matchedRoom._idx);
+                }
+
                 console.log(`Room "${room.RoomName}" - Available: ${!!matchedRoom}`);
 
                 return {
@@ -290,7 +312,24 @@ const HotelDetailsPage = () => {
             })
             .sort((a, b) => b.available - a.available);
 
-        console.log('Merged rooms:', merged.length, 'available:', merged.filter(r => r.available).length);
+        // Add any unmatched available rooms at the end (rooms from search that didn't match any room details)
+        const unmatchedAvailableRooms = rooms
+            .filter((_, idx) => !matchedRoomIds.has(idx))
+            .map(r => ({
+                RoomName: r.Name?.[0] || 'Room',
+                RoomDescription: r.Inclusion || '',
+                available: true,
+                pricing: r,
+                MealType: r.MealType
+            }));
+
+        if (unmatchedAvailableRooms.length > 0) {
+            console.log('Adding unmatched available rooms:', unmatchedAvailableRooms.length);
+            // Insert unmatched available rooms at the beginning (they are available)
+            merged.unshift(...unmatchedAvailableRooms);
+        }
+
+        console.log('Final merged rooms:', merged.length, 'available:', merged.filter(r => r.available).length);
         return merged;
     }, [hotel, rooms]);
 
@@ -616,6 +655,7 @@ const HotelDetailsPage = () => {
 
                                                         <button
                                                             disabled={unavailable}
+                                                            onClick={() => !unavailable && handleReserve(room)}
                                                             className={`w-full md:w-auto px-8 py-3 rounded font-bold transition ${unavailable
                                                                 ? "bg-gray-400 cursor-not-allowed text-white"
                                                                 : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -712,7 +752,10 @@ const HotelDetailsPage = () => {
                                 </div>
                             </div>
                         </div>
-                        <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700">
+                        <button
+                            onClick={() => scrollToSection('rooms')}
+                            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700"
+                        >
                             Reserve Now
                         </button>
                     </div>
@@ -726,7 +769,10 @@ const HotelDetailsPage = () => {
                         <div className="text-xs text-gray-500">Starting from</div>
                         <div className="text-xl font-bold text-red-600">₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].TotalFare) : 'N/A'}</div>
                     </div>
-                    <button className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold">
+                    <button
+                        onClick={() => scrollToSection('rooms')}
+                        className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold"
+                    >
                         Reserve
                     </button>
                 </div>

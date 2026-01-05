@@ -12,4 +12,8 @@ router.post('/hotel-basic-info', hotelController.getBasicHotelInfo);
 // Search route (with pricing and availability)
 router.post('/search', hotelController.searchHotel);
 
+// PreBook and Book routes
+router.post('/prebook', hotelController.preBookHotel);
+router.post('/book', hotelController.bookHotel);
+
 module.exports = router;

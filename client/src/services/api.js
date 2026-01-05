@@ -143,4 +143,34 @@ export const fetchBasicHotelInfo = async (hotelCode) => {
   }
 };
 
+/**
+ * PreBook hotel - Validates availability and returns final pricing
+ * Call this before showing the checkout/guest details page
+ */
+export const preBookHotel = async (bookingCode) => {
+  try {
+    console.log('PreBooking hotel with BookingCode:', bookingCode);
+    const response = await api.post('/prebook', { BookingCode: bookingCode });
+    return response.data;
+  } catch (error) {
+    console.error('Error prebooking hotel:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Book hotel - Finalizes the booking with guest details
+ * @param {Object} bookingData - Contains BookingCode, GuestNationality, NetAmount, HotelRoomsDetails, etc.
+ */
+export const bookHotel = async (bookingData) => {
+  try {
+    console.log('Booking hotel with data:', bookingData);
+    const response = await api.post('/book', bookingData);
+    return response.data;
+  } catch (error) {
+    console.error('Error booking hotel:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export default api;
