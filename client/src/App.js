@@ -10,6 +10,7 @@ import AdminPage from './pages/AdminPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Hotel, LogOut, Shield, Heart, HelpCircle, User } from 'lucide-react';
 import './styles/Auth.css';
+import logo from './assets/logo.png';
 
 // Navigation Header Component
 const NavHeader = () => {
@@ -38,8 +39,7 @@ const NavHeader = () => {
   return (
     <header className="nav-header">
       <Link to="/" className="nav-logo">
-        <Hotel size={24} />
-        <span>Zoltan Hotels</span>
+        <img style={{ height: '50px' }} src={logo} alt="Zovotel Logo" />
       </Link>
 
       <div className="nav-links">

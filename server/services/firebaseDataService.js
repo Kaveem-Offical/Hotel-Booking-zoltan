@@ -230,6 +230,86 @@ const clearAllCache = async () => {
         throw error;
     }
 };
+/**
+ * Save hotel card info to Firebase (image, amenities, rating, reviews)
+ * @param {string} hotelCode
+ * @param {object} hotelInfo - { imageUrl, amenities, rating, reviews, ratingText, description }
+ */
+const saveHotelCardInfo = async (hotelCode, hotelInfo) => {
+    try {
+        const ref = database.ref(`${STATIC_DATA_PATH}/hotelCardInfo/${hotelCode}`);
+        await ref.set({
+            ...hotelInfo,
+            lastUpdated: new Date().toISOString()
+        });
+        console.log(`Hotel card info for ${hotelCode} saved to Firebase`);
+        return true;
+    } catch (error) {
+        console.error('Error saving hotel card info to Firebase:', error);
+        return false;
+    }
+};
+
+/**
+ * Get hotel card info from Firebase
+ */
+const getHotelCardInfo = async (hotelCode) => {
+    try {
+        const ref = database.ref(`${STATIC_DATA_PATH}/hotelCardInfo/${hotelCode}`);
+        const snapshot = await ref.once('value');
+        const result = snapshot.val();
+        if (result) {
+            return result;
+        }
+        return null;
+    } catch (error) {
+        console.error('Error getting hotel card info from Firebase:', error);
+        return null;
+    }
+};
+
+/**
+ * Batch get hotel card info for multiple hotels from Firebase
+ * Returns object: { hotelCode: { imageUrl, amenities, rating, reviews, ... }, ... }
+ */
+const getHotelCardInfoBatch = async (hotelCodes) => {
+    try {
+        const hotelInfoMap = {};
+        const ref = database.ref(`${STATIC_DATA_PATH}/hotelCardInfo`);
+        const snapshot = await ref.once('value');
+        const allInfo = snapshot.val() || {};
+
+        for (const code of hotelCodes) {
+            if (allInfo[code]) {
+                hotelInfoMap[code] = allInfo[code];
+            }
+        }
+
+        console.log(`Found ${Object.keys(hotelInfoMap).length} cached hotel card info out of ${hotelCodes.length} requested`);
+        return hotelInfoMap;
+    } catch (error) {
+        console.error('Error batch getting hotel card info from Firebase:', error);
+        return {};
+    }
+};
+
+/**
+ * Get list of hotel codes that don't have cached card info
+ */
+const getMissingHotelCardInfoCodes = async (hotelCodes) => {
+    try {
+        const ref = database.ref(`${STATIC_DATA_PATH}/hotelCardInfo`);
+        const snapshot = await ref.once('value');
+        const cachedInfo = snapshot.val() || {};
+
+        const missing = hotelCodes.filter(code => !cachedInfo[code]);
+        console.log(`${missing.length} hotels out of ${hotelCodes.length} are missing cached card info`);
+        return missing;
+    } catch (error) {
+        console.error('Error checking for missing hotel card info:', error);
+        return hotelCodes; // Return all as missing if error occurs
+    }
+};
 
 module.exports = {
     saveCountries,
@@ -242,5 +322,9 @@ module.exports = {
     getHotelDetails,
     findHotelByCode,
     getCacheMetadata,
-    clearAllCache
+    clearAllCache,
+    saveHotelCardInfo,
+    getHotelCardInfo,
+    getHotelCardInfoBatch,
+    getMissingHotelCardInfoCodes
 };

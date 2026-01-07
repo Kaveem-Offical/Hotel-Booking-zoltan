@@ -129,6 +129,24 @@ export const searchHotels = async (searchParams) => {
 };
 
 /**
+ * Fetch hotel card info - Fetches and caches images, amenities, rating, reviews for hotels
+ * Returns cached info for hotels that have it, fetches from TBO API for missing ones
+ * @param {string[]} hotelCodes - Array of hotel codes to fetch info for
+ * @returns {Object} { hotelInfo: { hotelCode: { imageUrl, amenities, rating, reviews, ... }, ... } }
+ */
+export const fetchHotelCardInfo = async (hotelCodes) => {
+  try {
+    console.log(`Fetching card info for ${hotelCodes.length} hotels`);
+    const response = await api.post('/hotel-card-info', { hotelCodes });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching hotel card info:', error);
+    // Return empty object on error - hotels will show placeholder/NA values
+    return { hotelInfo: {}, source: 'error', cachedCount: 0, fetchedCount: 0 };
+  }
+};
+
+/**
  * Fetch basic hotel info from cached hotel lists
  * Used as fallback when the TBO hotel details API fails
  */

@@ -453,7 +453,7 @@ const HotelDetailsPage = () => {
             </div>
 
             {/* Sticky Navigation */}
-            <div className={`sticky top-0 z-40 bg-white shadow-md transition-transform duration-300 ${isSticky ? 'translate-y-0' : '-translate-y-full absolute opacity-0'} hidden md:block`}>
+            <div className={`sticky top-0 z-40 bg-white shadow-md transition-transform duration-300 ${isSticky ? 'translate-y-0' : '-translate-y-full absolute opacity-0'} hidden md:block`} style={{ top: '70px' }}>
                 <div className="container mx-auto px-4">
                     <div className="flex items-center justify-between py-3">
                         <div className="flex gap-6 text-sm font-medium text-gray-600">
@@ -738,7 +738,7 @@ const HotelDetailsPage = () => {
 
                 {/* Sidebar */}
                 <div className="hidden lg:block">
-                    <div className="sticky top-24 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+                    <div className="sticky top-24 bg-white rounded-lg shadow-lg border border-gray-200 p-4" style={{ top: '10rem' }}>
                         <h3 className="font-bold text-gray-800 mb-4">Your Stay</h3>
                         <div className="space-y-3 mb-4">
                             <div className="flex gap-2">

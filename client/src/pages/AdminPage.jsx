@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Users, Shield, Search, Mail, Phone, Calendar, LogOut, Home, Hotel, MoreVertical, Edit2, Trash2 } from 'lucide-react';
 import '../styles/Auth.css';
+import logo from '../assets/logo.png';
 
 const AdminPage = () => {
     const [users, setUsers] = useState([]);
@@ -96,8 +97,7 @@ const AdminPage = () => {
             {/* Navigation Header */}
             <header className="nav-header">
                 <Link to="/" className="nav-logo">
-                    <Hotel size={24} />
-                    <span>Zoltan Hotels</span>
+                    <img style={{ height: '50px' }} src={logo} alt="Zovotel Logo" />
                 </Link>
                 <div className="user-menu">
                     <Link to="/" className="nav-link">

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, User, Phone, Eye, EyeOff, AlertCircle, Hotel, Check, Gift, Tag, Shield } from 'lucide-react';
 import '../styles/Auth.css';
+import logo from '../assets/logo.png';
 
 const SignUpPage = () => {
     const [formData, setFormData] = useState({
@@ -139,10 +140,10 @@ const SignUpPage = () => {
             <div className="auth-card">
                 <div className="auth-header">
                     <div className="auth-logo">
-                        <Hotel />
+                        <img style={{ height: '50px' }} src={logo} alt="Zovotel Logo" />
                     </div>
                     <h1 className="auth-title">Create Account</h1>
-                    <p className="auth-subtitle">Join Zoltan Hotels for exclusive deals and rewards</p>
+                    <p className="auth-subtitle">Join Zovotel for exclusive deals and rewards</p>
                 </div>
 
                 {/* Benefits Section */}

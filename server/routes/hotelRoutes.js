@@ -12,6 +12,9 @@ router.post('/hotel-basic-info', hotelController.getBasicHotelInfo);
 // Search route (with pricing and availability)
 router.post('/search', hotelController.searchHotel);
 
+// Hotel card info route (fetch and cache images, amenities, rating, reviews for search results)
+router.post('/hotel-card-info', hotelController.fetchAndCacheHotelCardInfo);
+
 // PreBook and Book routes
 router.post('/prebook', hotelController.preBookHotel);
 router.post('/book', hotelController.bookHotel);

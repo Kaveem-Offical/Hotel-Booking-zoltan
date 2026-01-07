@@ -464,3 +464,133 @@ exports.bookHotel = async (req, res) => {
     });
   }
 };
+
+// Fetch and cache hotel card info for search results
+// This fetches images, amenities, rating, reviews from TBO Hotel Details API for hotels missing cached info
+exports.fetchAndCacheHotelCardInfo = async (req, res) => {
+  try {
+    const { hotelCodes } = req.body;
+
+    if (!hotelCodes || !Array.isArray(hotelCodes) || hotelCodes.length === 0) {
+      return res.status(400).json({ error: 'hotelCodes array is required' });
+    }
+
+    console.log(`\n=== Fetch Hotel Card Info Request ===`);
+    console.log(`Requested info for ${hotelCodes.length} hotels`);
+
+    // Step 1: Get already cached hotel card info
+    const cachedInfo = await firebaseService.getHotelCardInfoBatch(hotelCodes);
+
+    // Step 2: Find which hotels are missing info
+    const missingCodes = await firebaseService.getMissingHotelCardInfoCodes(hotelCodes);
+
+    if (missingCodes.length === 0) {
+      console.log('All hotel card info found in cache');
+      return res.json({
+        hotelInfo: cachedInfo,
+        source: 'cache',
+        fetchedCount: 0
+      });
+    }
+
+    console.log(`Fetching info for ${missingCodes.length} hotels from TBO API`);
+
+    // Step 3: Fetch info in batches to avoid rate limiting
+    const BATCH_SIZE = 5;
+    const DELAY_MS = 100;
+    const newInfo = {};
+
+    for (let i = 0; i < missingCodes.length; i += BATCH_SIZE) {
+      const batch = missingCodes.slice(i, i + BATCH_SIZE);
+      const hotelCodesString = batch.join(',');
+
+      try {
+        console.log(`Fetching batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} hotels`);
+
+        const axiosInstance = createStaticAxiosInstance();
+        const response = await axiosInstance.post(
+          `${config.tboApi.baseUrl}/Hoteldetails`,
+          {
+            Hotelcodes: hotelCodesString,
+            Language: 'EN',
+            IsRoomDetailRequired: false
+          }
+        );
+
+        // Extract full hotel card info from response
+        if (response.data.HotelDetails && Array.isArray(response.data.HotelDetails)) {
+          for (const hotel of response.data.HotelDetails) {
+            const hotelCode = hotel.HotelCode;
+
+            // Extract image
+            let imageUrl = null;
+            if (hotel.Images && Array.isArray(hotel.Images) && hotel.Images.length > 0) {
+              imageUrl = hotel.Images[0];
+            } else if (hotel.HotelPicture) {
+              imageUrl = hotel.HotelPicture;
+            }
+
+            // Extract amenities/facilities
+            let amenities = [];
+            if (hotel.HotelFacilities && Array.isArray(hotel.HotelFacilities)) {
+              amenities = hotel.HotelFacilities.slice(0, 10); // Limit to 10 amenities
+            } else if (hotel.Facilities && Array.isArray(hotel.Facilities)) {
+              amenities = hotel.Facilities.slice(0, 10);
+            }
+
+            // Extract rating info
+            const rating = hotel.HotelRating || hotel.Rating || null;
+            const reviews = hotel.ReviewCount || hotel.Reviews || 0;
+            const ratingText = hotel.RatingText || (rating >= 4.5 ? 'Excellent' : rating >= 4 ? 'Very Good' : rating >= 3.5 ? 'Good' : rating ? 'Fair' : null);
+
+            // Extract description
+            const description = hotel.Description || hotel.HotelDescription || null;
+
+            // Build hotel card info object
+            const hotelCardInfo = {
+              imageUrl,
+              amenities,
+              rating,
+              reviews,
+              ratingText,
+              description
+            };
+
+            newInfo[hotelCode] = hotelCardInfo;
+
+            // Save to Firebase cache asynchronously
+            firebaseService.saveHotelCardInfo(hotelCode, hotelCardInfo).catch(err => {
+              console.error(`Failed to cache info for ${hotelCode}:`, err.message);
+            });
+          }
+        }
+
+        // Small delay between batches to avoid rate limiting
+        if (i + BATCH_SIZE < missingCodes.length) {
+          await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+        }
+      } catch (batchError) {
+        console.error(`Error fetching batch starting at ${i}:`, batchError.message);
+        // Continue with next batch even if one fails
+      }
+    }
+
+    // Merge cached info with newly fetched info
+    const allInfo = { ...cachedInfo, ...newInfo };
+
+    console.log(`Fetch complete. Cached: ${Object.keys(cachedInfo).length}, New: ${Object.keys(newInfo).length}`);
+
+    res.json({
+      hotelInfo: allInfo,
+      source: 'mixed',
+      cachedCount: Object.keys(cachedInfo).length,
+      fetchedCount: Object.keys(newInfo).length
+    });
+  } catch (error) {
+    console.error('Fetch hotel card info error:', error.message);
+    res.status(500).json({
+      error: 'Failed to fetch hotel card info',
+      message: error.message
+    });
+  }
+};
