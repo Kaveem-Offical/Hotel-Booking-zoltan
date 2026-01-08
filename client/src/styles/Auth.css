@@ -870,6 +870,13 @@
   display: flex;
   align-items: center;
   gap: 0.625rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s ease;
+}
+
+.user-info-nav:hover {
+  background-color: var(--agoda-bg);
 }
 
 .user-avatar-nav {

@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Heart, MapPin, Star, ThumbsUp, Wifi, Car, Coffee, Utensils, ChevronRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const HotelCard = ({ hotel, onSelect }) => {
+  const navigate = useNavigate();
+  const { currentUser, isHotelLiked, likeHotel, unlikeHotel } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
 
   // Helper to handle missing data
   const getVal = (val, fallback = "NA") => (val !== undefined && val !== null && val !== "") ? val : fallback;
@@ -77,14 +81,43 @@ const HotelCard = ({ hotel, onSelect }) => {
           onError={(e) => { e.target.src = "https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png"; }}
         />
         <button
-          className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white text-gray-500 hover:text-red-500 transition-colors z-10"
-          onClick={(e) => {
+          className={`absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 ${likeLoading ? 'opacity-50 cursor-wait' : ''
+            } ${isHotelLiked(hotel.HotelCode) ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+          onClick={async (e) => {
             e.stopPropagation();
-            setIsFavorite(!isFavorite);
+            if (!currentUser) {
+              // Redirect to sign in if not logged in
+              navigate('/signin');
+              return;
+            }
+            if (likeLoading) return;
+            setLikeLoading(true);
+            try {
+              const hotelCode = hotel.HotelCode;
+              if (isHotelLiked(hotelCode)) {
+                await unlikeHotel(hotelCode);
+              } else {
+                // Save essential hotel data for profile display
+                await likeHotel(hotelCode, {
+                  HotelCode: hotelCode,
+                  HotelName: name,
+                  HotelPicture: image,
+                  HotelAddress: location,
+                  StarRating: hotel.StarRating,
+                  Rating: rating,
+                  TotalFare: originalPrice,
+                });
+              }
+            } catch (err) {
+              console.error('Error toggling like:', err);
+            } finally {
+              setLikeLoading(false);
+            }
           }}
-          aria-label="Add to favorites"
+          disabled={likeLoading}
+          aria-label={isHotelLiked(hotel.HotelCode) ? "Remove from favorites" : "Add to favorites"}
         >
-          <Heart className={`w-5 h-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
+          <Heart className={`w-5 h-5 ${isHotelLiked(hotel.HotelCode) ? 'fill-red-500 text-red-500' : ''}`} />
         </button>
         {discount > 0 && (
           <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">

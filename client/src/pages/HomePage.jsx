@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HeroSearchBar from '../components/HeroSearchBar';
 import FilterSidebar from '../components/FilterSidebar';
@@ -7,22 +7,29 @@ import { searchHotels, fetchHotels, fetchHotelCardInfo } from '../services/api';
 
 const CHUNK_SIZE = 100; // Number of hotel codes per API request
 
+// Helper to parse StarRating from string like "FourStar" to number
+const parseStarRating = (rating) => {
+    if (!rating) return 0;
+    if (typeof rating === 'number') return rating;
+    if (typeof rating === 'string') {
+        const lower = rating.toLowerCase();
+        if (lower.includes('one')) return 1;
+        if (lower.includes('two')) return 2;
+        if (lower.includes('three')) return 3;
+        if (lower.includes('four')) return 4;
+        if (lower.includes('five')) return 5;
+        const num = parseInt(rating);
+        return isNaN(num) ? 0 : num;
+    }
+    return 0;
+};
+
 function HomePage() {
     const [hotels, setHotels] = useState([]);
     const [staticHotelsMap, setStaticHotelsMap] = useState({});
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState(null);
-    const [filters, setFilters] = useState({
-        priceRange: { min: 0, max: 50000 },
-        starRating: [],
-        guestRating: [],
-        propertyType: [],
-        amenities: [],
-        mealPlans: [],
-        cancellation: [],
-        payment: []
-    });
 
     // Pagination state
     const [allHotelCodes, setAllHotelCodes] = useState([]);
@@ -35,6 +42,117 @@ function HomePage() {
     const sentinelRef = useRef(null);
 
     const navigate = useNavigate();
+
+    // Compute dynamic filter options from hotels
+    const filterOptions = useMemo(() => {
+        if (hotels.length === 0) return {};
+
+        const starRatings = {};
+        const guestRatings = { '9': 0, '8': 0, '7': 0, '6': 0 };
+        const amenities = {};
+        const mealPlans = {};
+        const cancellation = { 'Free Cancellation': 0, 'Non-refundable': 0 };
+
+        hotels.forEach(hotel => {
+            // Count star ratings
+            const stars = parseStarRating(hotel.StarRating);
+            if (stars >= 1 && stars <= 5) {
+                starRatings[stars] = (starRatings[stars] || 0) + 1;
+            }
+
+            // Count guest ratings
+            const rating = parseFloat(hotel.Rating) || 0;
+            if (rating >= 9) guestRatings['9']++;
+            if (rating >= 8) guestRatings['8']++;
+            if (rating >= 7) guestRatings['7']++;
+            if (rating >= 6) guestRatings['6']++;
+
+            // Count amenities
+            const hotelAmenities = hotel.Facilities || [];
+            hotelAmenities.forEach(amenity => {
+                if (typeof amenity === 'string' && amenity.trim()) {
+                    amenities[amenity] = (amenities[amenity] || 0) + 1;
+                }
+            });
+
+            // Count meal plans from first room
+            const roomData = hotel.Rooms?.[0];
+            if (roomData?.MealType) {
+                const mealType = roomData.MealType;
+                mealPlans[mealType] = (mealPlans[mealType] || 0) + 1;
+            }
+
+            // Count cancellation policies
+            if (roomData?.IsRefundable === true) {
+                cancellation['Free Cancellation']++;
+            } else if (roomData?.IsRefundable === false) {
+                cancellation['Non-refundable']++;
+            }
+        });
+
+        // Remove zero counts from guest ratings
+        Object.keys(guestRatings).forEach(key => {
+            if (guestRatings[key] === 0) delete guestRatings[key];
+        });
+
+        // Remove zero counts from cancellation
+        Object.keys(cancellation).forEach(key => {
+            if (cancellation[key] === 0) delete cancellation[key];
+        });
+
+        return {
+            starRatings,
+            guestRatings,
+            amenities,
+            mealPlans,
+            cancellation
+        };
+    }, [hotels]);
+
+    // Compute price bounds from hotels
+    const priceBounds = useMemo(() => {
+        if (hotels.length === 0) return { min: 0, max: 100000 };
+
+        let minPrice = Infinity;
+        let maxPrice = 0;
+
+        hotels.forEach(hotel => {
+            const price = hotel.Rooms?.[0]?.TotalFare || 0;
+            if (price > 0) {
+                minPrice = Math.min(minPrice, price);
+                maxPrice = Math.max(maxPrice, price);
+            }
+        });
+
+        // Round to nice values
+        minPrice = minPrice === Infinity ? 0 : Math.floor(minPrice / 500) * 500;
+        maxPrice = maxPrice === 0 ? 100000 : Math.ceil(maxPrice / 500) * 500;
+
+        return { min: minPrice, max: maxPrice };
+    }, [hotels]);
+
+    // Initialize filters with dynamic price range
+    const [filters, setFilters] = useState({
+        priceRange: { min: 0, max: 100000 },
+        starRating: [],
+        guestRating: [],
+        amenities: [],
+        mealPlans: [],
+        cancellation: [],
+    });
+
+    // Sort state
+    const [sortBy, setSortBy] = useState('bestMatch');
+
+    // Update price range when bounds change (only on first load)
+    useEffect(() => {
+        if (hotels.length > 0 && filters.priceRange.max === 100000) {
+            setFilters(prev => ({
+                ...prev,
+                priceRange: { min: priceBounds.min, max: priceBounds.max }
+            }));
+        }
+    }, [priceBounds, hotels.length]);
 
     // Function to search hotels for a specific chunk of hotel codes
     const searchHotelChunk = useCallback(async (codes, searchData, staticMap, appendResults = false) => {
@@ -121,6 +239,15 @@ function HomePage() {
         setHotels([]);
         setCurrentPage(0);
         setHasMore(true);
+        // Reset filters on new search
+        setFilters({
+            priceRange: { min: 0, max: 100000 },
+            starRating: [],
+            guestRating: [],
+            amenities: [],
+            mealPlans: [],
+            cancellation: [],
+        });
 
         try {
             let hotelCodesList = [];
@@ -234,20 +361,75 @@ function HomePage() {
         console.log('Filters:', newFilters);
     };
 
-    // Apply filters
-    const filteredHotels = hotels.filter(hotel => {
-        // Price Filter
-        const price = hotel.Rooms?.[0]?.TotalFare || 0;
-        if (price < filters.priceRange.min || price > filters.priceRange.max) return false;
+    // Apply filters with improved logic
+    const filteredHotels = useMemo(() => {
+        return hotels.filter(hotel => {
+            // Price Filter
+            const price = hotel.Rooms?.[0]?.TotalFare || 0;
+            if (price < filters.priceRange.min || price > filters.priceRange.max) return false;
 
-        // Star Rating Filter
-        if (filters.starRating.length > 0) {
-            const stars = parseInt(hotel.StarRating) || 0;
-            if (!filters.starRating.includes(stars)) return false;
+            // Star Rating Filter
+            if (filters.starRating.length > 0) {
+                const stars = parseStarRating(hotel.StarRating);
+                if (!filters.starRating.includes(stars)) return false;
+            }
+
+            // Guest Rating Filter
+            if (filters.guestRating.length > 0) {
+                const rating = parseFloat(hotel.Rating) || 0;
+                // Check if hotel meets any of the selected rating thresholds
+                const meetsRating = filters.guestRating.some(threshold => rating >= parseInt(threshold));
+                if (!meetsRating) return false;
+            }
+
+            // Amenities Filter
+            if (filters.amenities.length > 0) {
+                const hotelAmenities = hotel.Facilities || [];
+                const hasAmenity = filters.amenities.some(amenity =>
+                    hotelAmenities.some(ha =>
+                        typeof ha === 'string' && ha.toLowerCase().includes(amenity.toLowerCase())
+                    )
+                );
+                if (!hasAmenity) return false;
+            }
+
+            // Meal Plans Filter
+            if (filters.mealPlans.length > 0) {
+                const mealType = hotel.Rooms?.[0]?.MealType || '';
+                if (!filters.mealPlans.includes(mealType)) return false;
+            }
+
+            // Cancellation Filter
+            if (filters.cancellation.length > 0) {
+                const isRefundable = hotel.Rooms?.[0]?.IsRefundable;
+                const hasFreeCancel = filters.cancellation.includes('Free Cancellation') && isRefundable === true;
+                const hasNonRefund = filters.cancellation.includes('Non-refundable') && isRefundable === false;
+                if (!hasFreeCancel && !hasNonRefund) return false;
+            }
+
+            return true;
+        });
+    }, [hotels, filters]);
+
+    // Apply sorting to filtered hotels
+    const sortedHotels = useMemo(() => {
+        const sorted = [...filteredHotels];
+        switch (sortBy) {
+            case 'priceLowHigh':
+                return sorted.sort((a, b) => (a.Rooms?.[0]?.TotalFare || 0) - (b.Rooms?.[0]?.TotalFare || 0));
+            case 'priceHighLow':
+                return sorted.sort((a, b) => (b.Rooms?.[0]?.TotalFare || 0) - (a.Rooms?.[0]?.TotalFare || 0));
+            case 'starRating':
+                return sorted.sort((a, b) => parseStarRating(b.StarRating) - parseStarRating(a.StarRating));
+            case 'guestRating':
+                return sorted.sort((a, b) => (parseFloat(b.Rating) || 0) - (parseFloat(a.Rating) || 0));
+            case 'nameAZ':
+                return sorted.sort((a, b) => (a.HotelName || '').localeCompare(b.HotelName || ''));
+            case 'bestMatch':
+            default:
+                return sorted; // Keep original API order
         }
-
-        return true;
-    });
+    }, [filteredHotels, sortBy]);
 
     const handleHotelSelect = (hotel) => {
         const params = new URLSearchParams();
@@ -269,21 +451,35 @@ function HomePage() {
                         <FilterSidebar
                             filters={filters}
                             onFilterChange={handleFilterChange}
+                            filterOptions={filterOptions}
+                            priceBounds={priceBounds}
                         />
                     </div>
 
                     {/* Main Content */}
                     <div className="flex-1">
-                        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex justify-between items-center">
+                        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex flex-wrap justify-between items-center gap-4">
                             <h2 className="text-xl font-bold text-gray-800">
                                 {loading ? 'Searching...' :
                                     totalCount > 0
-                                        ? `Showing ${filteredHotels.length} of ${loadedCount} loaded (${totalCount} total)`
-                                        : `Showing ${filteredHotels.length} properties`
+                                        ? `Showing ${sortedHotels.length} of ${loadedCount}`
+                                        : `Showing ${sortedHotels.length} properties`
                                 }
                             </h2>
-                            <div className="text-gray-600">
-                                Sort by: <span className="font-bold text-blue-600 cursor-pointer">Best Match</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-600 text-sm">Sort by:</span>
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 bg-white hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer transition-all"
+                                >
+                                    <option value="bestMatch">Best Match</option>
+                                    <option value="priceLowHigh">Price: Low to High</option>
+                                    <option value="priceHighLow">Price: High to Low</option>
+                                    <option value="starRating">Star Rating</option>
+                                    <option value="guestRating">Guest Rating</option>
+                                    <option value="nameAZ">Name: A-Z</option>
+                                </select>
                             </div>
                         </div>
 
@@ -303,7 +499,7 @@ function HomePage() {
                         )}
 
                         {/* Hotel Cards */}
-                        {!loading && filteredHotels.map((hotel, index) => (
+                        {!loading && sortedHotels.map((hotel, index) => (
                             <HotelCard
                                 key={hotel.HotelCode || index}
                                 hotel={hotel}
@@ -331,9 +527,9 @@ function HomePage() {
                             </div>
                         )}
 
-                        {!loading && filteredHotels.length === 0 && !error && (
+                        {!loading && sortedHotels.length === 0 && !error && (
                             <div className="text-center py-12 text-gray-500">
-                                {hotels.length > 0 ? 'No hotels match your filters.' : 'Use the search bar to find hotels.'}
+                                {hotels.length > 0 ? 'No hotels match your filters. Try adjusting your filters.' : 'Use the search bar to find hotels.'}
                             </div>
                         )}
                     </div>

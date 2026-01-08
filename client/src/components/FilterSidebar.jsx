@@ -25,20 +25,23 @@ const CheckboxFilter = ({ label, checked, onChange, count }) => (
             />
             <span className="ml-3 text-gray-700 text-sm group-hover:text-blue-600 transition-colors">{label}</span>
         </div>
-        {count !== undefined && <span className="text-xs text-gray-400">{count}</span>}
+        {count !== undefined && <span className="text-xs text-gray-400">({count})</span>}
     </label>
 );
 
-const FilterSidebar = ({ filters, onFilterChange, availableHotels = [] }) => {
+const FilterSidebar = ({
+    filters,
+    onFilterChange,
+    filterOptions = {},
+    priceBounds = { min: 0, max: 100000 }
+}) => {
     const [openSections, setOpenSections] = useState({
         price: true,
         starRating: true,
         guestRating: true,
-        propertyType: true,
         amenities: false,
         mealPlans: false,
         cancellation: false,
-        payment: false
     });
 
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -55,27 +58,54 @@ const FilterSidebar = ({ filters, onFilterChange, availableHotels = [] }) => {
         onFilterChange({ ...filters, [category]: newValues });
     };
 
-    const handlePriceChange = (min, max) => {
-        onFilterChange({ ...filters, priceRange: { min, max } });
+    const handlePriceChange = (type, value) => {
+        const numValue = parseInt(value) || 0;
+        if (type === 'min') {
+            onFilterChange({
+                ...filters,
+                priceRange: {
+                    ...filters.priceRange,
+                    min: Math.min(numValue, filters.priceRange?.max || priceBounds.max)
+                }
+            });
+        } else {
+            onFilterChange({
+                ...filters,
+                priceRange: {
+                    ...filters.priceRange,
+                    max: Math.max(numValue, filters.priceRange?.min || 0)
+                }
+            });
+        }
     };
 
     const clearAll = () => {
         onFilterChange({
-            priceRange: { min: 0, max: 1000 },
+            priceRange: { min: priceBounds.min, max: priceBounds.max },
             starRating: [],
             guestRating: [],
-            propertyType: [],
             amenities: [],
             mealPlans: [],
             cancellation: [],
-            payment: []
         });
     };
 
     const activeFilterCount = Object.entries(filters).reduce((acc, [key, value]) => {
-        if (key === 'priceRange') return acc; // Don't count price unless modified from default (omitted for simplicity)
+        if (key === 'priceRange') return acc;
         return acc + (Array.isArray(value) ? value.length : 0);
     }, 0);
+
+    // Get dynamic options from props or use defaults
+    const starRatingOptions = filterOptions.starRatings || {};
+    const guestRatingOptions = filterOptions.guestRatings || {};
+    const amenityOptions = filterOptions.amenities || {};
+    const mealPlanOptions = filterOptions.mealPlans || {};
+    const cancellationOptions = filterOptions.cancellation || {};
+
+    // Format price for display
+    const formatPrice = (price) => {
+        return new Intl.NumberFormat('en-IN').format(price);
+    };
 
     return (
         <>
@@ -128,150 +158,190 @@ const FilterSidebar = ({ filters, onFilterChange, availableHotels = [] }) => {
                         <div className="p-4">
                             {/* Price Range */}
                             <FilterSection
-                                title="Price per night"
+                                title="Price per night (₹)"
                                 isOpen={openSections.price}
                                 onToggle={() => toggleSection('price')}
                             >
                                 <div className="px-2">
                                     <div className="flex items-center justify-between mb-4">
-                                        <div className="border border-gray-300 rounded p-2 w-24 text-center">
+                                        <div className="border border-gray-300 rounded p-2 w-28 text-center">
                                             <span className="text-xs text-gray-500 block">Min</span>
-                                            <span className="font-bold text-gray-800">${filters.priceRange?.min || 0}</span>
+                                            <span className="font-bold text-gray-800">₹{formatPrice(filters.priceRange?.min || 0)}</span>
                                         </div>
                                         <div className="h-[1px] w-4 bg-gray-300"></div>
-                                        <div className="border border-gray-300 rounded p-2 w-24 text-center">
+                                        <div className="border border-gray-300 rounded p-2 w-28 text-center">
                                             <span className="text-xs text-gray-500 block">Max</span>
-                                            <span className="font-bold text-gray-800">${filters.priceRange?.max || 1000}+</span>
+                                            <span className="font-bold text-gray-800">₹{formatPrice(filters.priceRange?.max || priceBounds.max)}+</span>
                                         </div>
                                     </div>
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="1000"
-                                        value={filters.priceRange?.max || 1000}
-                                        onChange={(e) => handlePriceChange(filters.priceRange?.min || 0, parseInt(e.target.value))}
-                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                                    />
+                                    {/* Dual range slider simulation with two sliders */}
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs text-gray-500">Min Price</label>
+                                            <input
+                                                type="range"
+                                                min={priceBounds.min}
+                                                max={priceBounds.max}
+                                                step={500}
+                                                value={filters.priceRange?.min || 0}
+                                                onChange={(e) => handlePriceChange('min', e.target.value)}
+                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500">Max Price</label>
+                                            <input
+                                                type="range"
+                                                min={priceBounds.min}
+                                                max={priceBounds.max}
+                                                step={500}
+                                                value={filters.priceRange?.max || priceBounds.max}
+                                                onChange={(e) => handlePriceChange('max', e.target.value)}
+                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </FilterSection>
 
-                            {/* Star Rating */}
+                            {/* Star Rating - Dynamic */}
                             <FilterSection
                                 title="Star rating"
                                 isOpen={openSections.starRating}
                                 onToggle={() => toggleSection('starRating')}
                             >
-                                {[5, 4, 3, 2, 1].map(star => (
-                                    <CheckboxFilter
-                                        key={star}
-                                        label={
-                                            <div className="flex items-center">
-                                                <div className="flex text-yellow-400">
-                                                    {[...Array(star)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+                                {Object.keys(starRatingOptions).length > 0 ? (
+                                    [5, 4, 3, 2, 1].filter(star => starRatingOptions[star] !== undefined).map(star => (
+                                        <CheckboxFilter
+                                            key={star}
+                                            label={
+                                                <div className="flex items-center">
+                                                    <div className="flex text-yellow-400">
+                                                        {[...Array(star)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+                                                    </div>
+                                                    <span className="ml-2 text-sm text-gray-600">{star} Star</span>
                                                 </div>
-                                                <span className="ml-2 text-sm text-gray-600">{star} Star</span>
-                                            </div>
-                                        }
-                                        checked={filters.starRating?.includes(star)}
-                                        onChange={() => handleCheckboxChange('starRating', star)}
-                                    />
-                                ))}
+                                            }
+                                            checked={filters.starRating?.includes(star)}
+                                            onChange={() => handleCheckboxChange('starRating', star)}
+                                            count={starRatingOptions[star] || 0}
+                                        />
+                                    ))
+                                ) : (
+                                    [5, 4, 3, 2, 1].map(star => (
+                                        <CheckboxFilter
+                                            key={star}
+                                            label={
+                                                <div className="flex items-center">
+                                                    <div className="flex text-yellow-400">
+                                                        {[...Array(star)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+                                                    </div>
+                                                    <span className="ml-2 text-sm text-gray-600">{star} Star</span>
+                                                </div>
+                                            }
+                                            checked={filters.starRating?.includes(star)}
+                                            onChange={() => handleCheckboxChange('starRating', star)}
+                                        />
+                                    ))
+                                )}
                             </FilterSection>
 
-                            {/* Guest Rating */}
+                            {/* Guest Rating - Dynamic */}
                             <FilterSection
                                 title="Guest rating"
                                 isOpen={openSections.guestRating}
                                 onToggle={() => toggleSection('guestRating')}
                             >
-                                {['9+', '8+', '7+', '6+'].map(rating => (
-                                    <CheckboxFilter
-                                        key={rating}
-                                        label={`Excellent ${rating}`}
-                                        checked={filters.guestRating?.includes(rating)}
-                                        onChange={() => handleCheckboxChange('guestRating', rating)}
-                                    />
-                                ))}
+                                {Object.keys(guestRatingOptions).length > 0 ? (
+                                    Object.entries(guestRatingOptions)
+                                        .sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
+                                        .map(([rating, count]) => (
+                                            <CheckboxFilter
+                                                key={rating}
+                                                label={`${rating}+ Rating`}
+                                                checked={filters.guestRating?.includes(rating)}
+                                                onChange={() => handleCheckboxChange('guestRating', rating)}
+                                                count={count}
+                                            />
+                                        ))
+                                ) : (
+                                    ['9', '8', '7', '6'].map(rating => (
+                                        <CheckboxFilter
+                                            key={rating}
+                                            label={`${rating}+ Rating`}
+                                            checked={filters.guestRating?.includes(rating)}
+                                            onChange={() => handleCheckboxChange('guestRating', rating)}
+                                        />
+                                    ))
+                                )}
                             </FilterSection>
 
-                            {/* Property Type */}
-                            <FilterSection
-                                title="Property type"
-                                isOpen={openSections.propertyType}
-                                onToggle={() => toggleSection('propertyType')}
-                            >
-                                {['Hotel', 'Apartment', 'Resort', 'Villa', 'Hostel'].map(type => (
-                                    <CheckboxFilter
-                                        key={type}
-                                        label={type}
-                                        checked={filters.propertyType?.includes(type)}
-                                        onChange={() => handleCheckboxChange('propertyType', type)}
-                                    />
-                                ))}
-                            </FilterSection>
-
-                            {/* Amenities */}
+                            {/* Amenities - Dynamic */}
                             <FilterSection
                                 title="Amenities"
                                 isOpen={openSections.amenities}
                                 onToggle={() => toggleSection('amenities')}
                             >
-                                {['Free WiFi', 'Swimming Pool', 'Parking', 'Restaurant', 'Gym', 'Spa', 'Airport Shuttle', 'Pet Friendly'].map(amenity => (
-                                    <CheckboxFilter
-                                        key={amenity}
-                                        label={amenity}
-                                        checked={filters.amenities?.includes(amenity)}
-                                        onChange={() => handleCheckboxChange('amenities', amenity)}
-                                    />
-                                ))}
+                                {Object.keys(amenityOptions).length > 0 ? (
+                                    Object.entries(amenityOptions)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .slice(0, 10)
+                                        .map(([amenity, count]) => (
+                                            <CheckboxFilter
+                                                key={amenity}
+                                                label={amenity}
+                                                checked={filters.amenities?.includes(amenity)}
+                                                onChange={() => handleCheckboxChange('amenities', amenity)}
+                                                count={count}
+                                            />
+                                        ))
+                                ) : (
+                                    <p className="text-sm text-gray-500">No amenities data available</p>
+                                )}
                             </FilterSection>
 
-                            {/* Meal Plans */}
+                            {/* Meal Plans - Dynamic */}
                             <FilterSection
                                 title="Meal plans"
                                 isOpen={openSections.mealPlans}
                                 onToggle={() => toggleSection('mealPlans')}
                             >
-                                {['Room Only', 'Breakfast', 'Half Board', 'Full Board', 'All Inclusive'].map(plan => (
-                                    <CheckboxFilter
-                                        key={plan}
-                                        label={plan}
-                                        checked={filters.mealPlans?.includes(plan)}
-                                        onChange={() => handleCheckboxChange('mealPlans', plan)}
-                                    />
-                                ))}
+                                {Object.keys(mealPlanOptions).length > 0 ? (
+                                    Object.entries(mealPlanOptions)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .map(([plan, count]) => (
+                                            <CheckboxFilter
+                                                key={plan}
+                                                label={plan}
+                                                checked={filters.mealPlans?.includes(plan)}
+                                                onChange={() => handleCheckboxChange('mealPlans', plan)}
+                                                count={count}
+                                            />
+                                        ))
+                                ) : (
+                                    <p className="text-sm text-gray-500">No meal plan data available</p>
+                                )}
                             </FilterSection>
 
-                            {/* Cancellation Policy */}
+                            {/* Cancellation Policy - Dynamic */}
                             <FilterSection
                                 title="Cancellation policy"
                                 isOpen={openSections.cancellation}
                                 onToggle={() => toggleSection('cancellation')}
                             >
-                                {['Free cancellation', 'Non-refundable'].map(policy => (
-                                    <CheckboxFilter
-                                        key={policy}
-                                        label={policy}
-                                        checked={filters.cancellation?.includes(policy)}
-                                        onChange={() => handleCheckboxChange('cancellation', policy)}
-                                    />
-                                ))}
-                            </FilterSection>
-
-                            {/* Payment Options */}
-                            <FilterSection
-                                title="Payment options"
-                                isOpen={openSections.payment}
-                                onToggle={() => toggleSection('payment')}
-                            >
-                                {['Pay now', 'Pay at property'].map(option => (
-                                    <CheckboxFilter
-                                        key={option}
-                                        label={option}
-                                        checked={filters.payment?.includes(option)}
-                                        onChange={() => handleCheckboxChange('payment', option)}
-                                    />
-                                ))}
+                                {Object.keys(cancellationOptions).length > 0 ? (
+                                    Object.entries(cancellationOptions).map(([policy, count]) => (
+                                        <CheckboxFilter
+                                            key={policy}
+                                            label={policy}
+                                            checked={filters.cancellation?.includes(policy)}
+                                            onChange={() => handleCheckboxChange('cancellation', policy)}
+                                            count={count}
+                                        />
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-gray-500">No cancellation data available</p>
+                                )}
                             </FilterSection>
                         </div>
 

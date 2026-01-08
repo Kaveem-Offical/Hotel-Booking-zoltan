@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import HomePage from './pages/HomePage';
 import HotelDetailsPage from './pages/HotelDetailsPage';
@@ -7,6 +7,7 @@ import GuestDetailsPage from './pages/GuestDetailsPage';
 import SignUpPage from './pages/SignUpPage';
 import SignInPage from './pages/SignInPage';
 import AdminPage from './pages/AdminPage';
+import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Hotel, LogOut, Shield, Heart, HelpCircle, User } from 'lucide-react';
 import './styles/Auth.css';
@@ -51,8 +52,8 @@ const NavHeader = () => {
               Help
             </Link>
 
-            {/* Wishlist Link */}
-            <Link to="/wishlist" className="nav-link">
+            {/* Saved Link - goes to profile */}
+            <Link to="/profile" className="nav-link">
               <Heart size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
               Saved
             </Link>
@@ -65,15 +66,15 @@ const NavHeader = () => {
               </Link>
             )}
 
-            {/* User Info */}
-            <div className="user-info-nav">
+            {/* User Info - clickable to profile */}
+            <Link to="/profile" className="user-info-nav" style={{ textDecoration: 'none', cursor: 'pointer' }}>
               <div className="user-avatar-nav">
                 {getInitials(userData?.username || currentUser?.email)}
               </div>
               <span style={{ color: 'var(--agoda-dark)', fontSize: '0.875rem', fontWeight: 500 }}>
                 {userData?.username || currentUser?.email?.split('@')[0]}
               </span>
-            </div>
+            </Link>
 
             {/* Logout Button */}
             <button className="nav-button nav-button-secondary" onClick={handleLogout}>
@@ -153,33 +154,19 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      {/* Placeholder routes for new features */}
+      {/* Profile Page */}
       <Route
-        path="/wishlist"
+        path="/profile"
         element={
           <Layout>
-            <div style={{
-              minHeight: 'calc(100vh - 70px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'var(--agoda-bg)',
-              padding: '2rem'
-            }}>
-              <div style={{
-                textAlign: 'center',
-                background: 'white',
-                padding: '3rem',
-                borderRadius: '12px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-              }}>
-                <Heart size={64} style={{ color: 'var(--agoda-red)', marginBottom: '1rem' }} />
-                <h2 style={{ color: 'var(--agoda-dark)', marginBottom: '0.5rem' }}>Your Saved Hotels</h2>
-                <p style={{ color: 'var(--agoda-gray)' }}>Save your favorite hotels to easily find them later</p>
-              </div>
-            </div>
+            <ProfilePage />
           </Layout>
         }
+      />
+      {/* Redirect wishlist to profile */}
+      <Route
+        path="/wishlist"
+        element={<Navigate to="/profile" replace />}
       />
       <Route
         path="/help"

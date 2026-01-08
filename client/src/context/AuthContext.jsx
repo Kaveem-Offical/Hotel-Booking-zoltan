@@ -5,8 +5,11 @@ import {
     signOut,
     onAuthStateChanged,
     signInWithPopup,
+    updatePassword,
+    EmailAuthProvider,
+    reauthenticateWithCredential,
 } from 'firebase/auth';
-import { ref, set, get, onValue } from 'firebase/database';
+import { ref, set, get, onValue, update, remove } from 'firebase/database';
 import { auth, database, googleProvider } from '../config/firebase';
 
 const AuthContext = createContext();
@@ -17,6 +20,8 @@ const ADMIN_EMAILS = ['admin@zoltan.com'];
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [userData, setUserData] = useState(null);
+    const [likedHotels, setLikedHotels] = useState({});
+    const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -146,6 +151,158 @@ export function AuthProvider({ children }) {
         });
     };
 
+    // Update user profile (phone number, username)
+    const updateUserProfile = async (updates) => {
+        if (!currentUser) throw new Error('No user logged in');
+        try {
+            setError(null);
+            const userRef = ref(database, `users/${currentUser.uid}`);
+            await update(userRef, {
+                ...updates,
+                updatedAt: new Date().toISOString(),
+            });
+            // Refresh user data
+            const data = await getUserData(currentUser.uid);
+            setUserData(data);
+            return data;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        }
+    };
+
+    // Change password (requires current password for reauthentication)
+    const changePassword = async (currentPassword, newPassword) => {
+        if (!currentUser) throw new Error('No user logged in');
+        try {
+            setError(null);
+            // Reauthenticate user first
+            const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+            await reauthenticateWithCredential(currentUser, credential);
+            // Update password
+            await updatePassword(currentUser, newPassword);
+            return true;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        }
+    };
+
+    // Like a hotel
+    const likeHotel = async (hotelCode, hotelData) => {
+        if (!currentUser) throw new Error('Please sign in to save hotels');
+        try {
+            const likedRef = ref(database, `users/${currentUser.uid}/likedHotels/${hotelCode}`);
+            await set(likedRef, {
+                ...hotelData,
+                likedAt: new Date().toISOString(),
+            });
+            setLikedHotels(prev => ({ ...prev, [hotelCode]: hotelData }));
+            return true;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        }
+    };
+
+    // Unlike a hotel
+    const unlikeHotel = async (hotelCode) => {
+        if (!currentUser) throw new Error('Please sign in');
+        try {
+            const likedRef = ref(database, `users/${currentUser.uid}/likedHotels/${hotelCode}`);
+            await remove(likedRef);
+            setLikedHotels(prev => {
+                const updated = { ...prev };
+                delete updated[hotelCode];
+                return updated;
+            });
+            return true;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        }
+    };
+
+    // Check if hotel is liked
+    const isHotelLiked = (hotelCode) => {
+        return !!likedHotels[hotelCode];
+    };
+
+    // Add a booking
+    const addBooking = async (bookingData) => {
+        if (!currentUser) throw new Error('Please sign in');
+        try {
+            const bookingId = `booking_${Date.now()}`;
+            const bookingRef = ref(database, `users/${currentUser.uid}/bookings/${bookingId}`);
+            const booking = {
+                ...bookingData,
+                bookingId,
+                status: 'booked', // booked, cancelled, completed
+                createdAt: new Date().toISOString(),
+            };
+            await set(bookingRef, booking);
+            setBookings(prev => [...prev, booking]);
+            return booking;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        }
+    };
+
+    // Update booking status
+    const updateBookingStatus = async (bookingId, status) => {
+        if (!currentUser) throw new Error('Please sign in');
+        try {
+            const bookingRef = ref(database, `users/${currentUser.uid}/bookings/${bookingId}`);
+            await update(bookingRef, {
+                status,
+                updatedAt: new Date().toISOString()
+            });
+            setBookings(prev => prev.map(b =>
+                b.bookingId === bookingId ? { ...b, status } : b
+            ));
+            return true;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        }
+    };
+
+    // Load liked hotels for current user
+    useEffect(() => {
+        if (!currentUser) {
+            setLikedHotels({});
+            return;
+        }
+        const likedRef = ref(database, `users/${currentUser.uid}/likedHotels`);
+        const unsubscribe = onValue(likedRef, (snapshot) => {
+            const data = snapshot.val();
+            setLikedHotels(data || {});
+        });
+        return () => unsubscribe();
+    }, [currentUser]);
+
+    // Load bookings for current user
+    useEffect(() => {
+        if (!currentUser) {
+            setBookings([]);
+            return;
+        }
+        const bookingsRef = ref(database, `users/${currentUser.uid}/bookings`);
+        const unsubscribe = onValue(bookingsRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const bookingsArray = Object.values(data).sort((a, b) =>
+                    new Date(b.createdAt) - new Date(a.createdAt)
+                );
+                setBookings(bookingsArray);
+            } else {
+                setBookings([]);
+            }
+        });
+        return () => unsubscribe();
+    }, [currentUser]);
+
     // Listen for auth state changes
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -165,6 +322,8 @@ export function AuthProvider({ children }) {
     const value = {
         currentUser,
         userData,
+        likedHotels,
+        bookings,
         loading,
         error,
         signUp,
@@ -172,6 +331,13 @@ export function AuthProvider({ children }) {
         signInWithGoogle,
         logout,
         getAllUsers,
+        updateUserProfile,
+        changePassword,
+        likeHotel,
+        unlikeHotel,
+        isHotelLiked,
+        addBooking,
+        updateBookingStatus,
         isAdmin: userData?.isAdmin || isAdmin(currentUser?.email),
     };
 

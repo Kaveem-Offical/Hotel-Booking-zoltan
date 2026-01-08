@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     MapPin, Star, Share2, Heart, ChevronRight,
-    Wifi, Coffee, Car, Utensils, Check, User, Info
+    Wifi, Coffee, Car, Utensils, Check, User, Info,
+    X, Camera, ChevronLeft
 } from 'lucide-react';
 import { fetchHotelDetails, searchHotels, fetchBasicHotelInfo } from '../services/api';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -17,6 +18,8 @@ const HotelDetailsPage = () => {
     const [isSticky, setIsSticky] = useState(false);
     const [expandedRoom, setExpandedRoom] = useState(null);
     const [dataSource, setDataSource] = useState(null); // Track where data came from
+    const [showGallery, setShowGallery] = useState(false);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
     const searchParams = {
         checkIn: new Date().toISOString().split('T')[0],
@@ -189,6 +192,38 @@ const HotelDetailsPage = () => {
             }
         });
     };
+
+    // Gallery functions
+    const openGallery = (index = 0) => {
+        setCurrentImageIndex(index);
+        setShowGallery(true);
+        document.body.style.overflow = 'hidden';
+    };
+
+    const closeGallery = () => {
+        setShowGallery(false);
+        document.body.style.overflow = 'auto';
+    };
+
+    const nextImage = (images) => {
+        setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    };
+
+    const prevImage = (images) => {
+        setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+    };
+
+    // Handle keyboard navigation for gallery
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!showGallery) return;
+            if (e.key === 'Escape') closeGallery();
+            if (e.key === 'ArrowRight') nextImage(getImages(hotel));
+            if (e.key === 'ArrowLeft') prevImage(getImages(hotel));
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showGallery, hotel]);
 
     const getImages = (hotelData) => {
         if (!hotelData) return [];
@@ -394,63 +429,145 @@ const HotelDetailsPage = () => {
                 </div>
             </div>
 
-            {/* Image Gallery */}
+            {/* Image Gallery - Agoda/Booking.com Style */}
             <div className="container mx-auto px-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:h-[400px] rounded-xl overflow-hidden shadow-sm">
-                    {/* Main Image */}
-                    <div className="md:col-span-2 h-[250px] md:h-full relative overflow-hidden">
+                <div className="grid grid-cols-4 gap-1.5 rounded-xl overflow-hidden shadow-lg" style={{ height: 'auto' }}>
+                    {/* Main Image - Takes 2 columns and full height */}
+                    <div
+                        className="col-span-4 md:col-span-2 md:row-span-2 relative overflow-hidden cursor-pointer group"
+                        onClick={() => openGallery(0)}
+                        style={{ minHeight: '300px', height: 'clamp(300px, 40vh, 420px)' }}
+                    >
                         <img
                             src={mainImage}
                             alt={hotel.HotelName}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </div>
 
-                    {/* Column 2 */}
-                    <div className="hidden md:grid grid-rows-2 gap-2 h-full">
-                        <div className="relative overflow-hidden">
+                    {/* Secondary Images Grid - 4 images in a 2x2 grid */}
+                    {[1, 2, 3, 4].map((idx) => (
+                        <div
+                            key={idx}
+                            className={`relative overflow-hidden cursor-pointer group ${idx <= 2 ? 'hidden md:block' : 'hidden lg:block'}`}
+                            onClick={() => openGallery(idx)}
+                            style={{ height: 'clamp(145px, 19vh, 205px)' }}
+                        >
                             <img
-                                src={images[1] || "https://via.placeholder.com/400x300?text=Room"}
-                                className="w-full h-full object-cover"
-                                alt="Room"
+                                src={images[idx] || `https://via.placeholder.com/400x300?text=Photo+${idx + 1}`}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                alt={`Hotel photo ${idx + 1}`}
                             />
-                        </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                        <div className="relative overflow-hidden">
-                            <img
-                                src={images[2] || "https://via.placeholder.com/400x300?text=Pool"}
-                                className="w-full h-full object-cover"
-                                alt="Pool"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Column 3 */}
-                    <div className="hidden md:grid grid-rows-2 gap-2 h-full">
-                        <div className="relative overflow-hidden">
-                            <img
-                                src={images[3] || "https://via.placeholder.com/400x300?text=Dining"}
-                                className="w-full h-full object-cover"
-                                alt="Dining"
-                            />
-                        </div>
-
-                        <div className="relative overflow-hidden">
-                            <img
-                                src={images[4] || "https://via.placeholder.com/400x300?text=More"}
-                                className="w-full h-full object-cover"
-                                alt="More"
-                            />
-
-                            {images.length > 5 && (
-                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-lg font-semibold">
-                                    +{images.length - 5} photos
+                            {/* Show +more overlay on last image */}
+                            {idx === 4 && images.length > 5 && (
+                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-semibold transition-all group-hover:bg-black/70">
+                                    <div className="text-center">
+                                        <Camera size={24} className="mx-auto mb-1" />
+                                        <span className="text-lg">+{images.length - 5}</span>
+                                        <p className="text-xs mt-0.5">photos</p>
+                                    </div>
                                 </div>
                             )}
                         </div>
+                    ))}
+                </div>
+
+                {/* Floating "See all photos" button */}
+                <button
+                    onClick={() => openGallery(0)}
+                    className="mt-3 flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors md:hidden"
+                >
+                    <Camera size={16} />
+                    See all {images.length} photos
+                </button>
+
+                {/* Desktop "See all photos" button positioned at bottom-right */}
+                {images.length > 5 && (
+                    <div className="hidden md:flex justify-end mt-2">
+                        <button
+                            onClick={() => openGallery(0)}
+                            className="flex items-center gap-2 bg-white/90 hover:bg-white text-gray-800 font-medium text-sm px-4 py-2 rounded-lg shadow-md border border-gray-200 transition-all hover:shadow-lg"
+                        >
+                            <Camera size={16} />
+                            See all {images.length} photos
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Full Screen Gallery Modal */}
+            {showGallery && (
+                <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between p-4 text-white">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={closeGallery}
+                                className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                            >
+                                <X size={24} />
+                            </button>
+                            <span className="text-lg font-medium">{hotel.HotelName}</span>
+                        </div>
+                        <div className="text-sm text-gray-300">
+                            {currentImageIndex + 1} / {images.length}
+                        </div>
+                    </div>
+
+                    {/* Main Image Container */}
+                    <div className="flex-1 flex items-center justify-center relative px-4">
+                        {/* Previous Button */}
+                        <button
+                            onClick={() => prevImage(images)}
+                            className="absolute left-4 p-3 bg-white/10 hover:bg-white/30 rounded-full transition-colors z-10"
+                        >
+                            <ChevronLeft size={32} className="text-white" />
+                        </button>
+
+                        {/* Current Image */}
+                        <div className="max-w-5xl w-full h-full flex items-center justify-center">
+                            <img
+                                src={images[currentImageIndex]}
+                                alt={`Photo ${currentImageIndex + 1}`}
+                                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl"
+                            />
+                        </div>
+
+                        {/* Next Button */}
+                        <button
+                            onClick={() => nextImage(images)}
+                            className="absolute right-4 p-3 bg-white/10 hover:bg-white/30 rounded-full transition-colors z-10"
+                        >
+                            <ChevronRight size={32} className="text-white" />
+                        </button>
+                    </div>
+
+                    {/* Thumbnail Strip */}
+                    <div className="p-4 overflow-x-auto">
+                        <div className="flex gap-2 justify-center">
+                            {images.map((img, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setCurrentImageIndex(idx)}
+                                    className={`flex-shrink-0 w-16 h-12 md:w-20 md:h-14 rounded-lg overflow-hidden border-2 transition-all ${idx === currentImageIndex
+                                            ? 'border-blue-500 ring-2 ring-blue-500/50 scale-105'
+                                            : 'border-transparent opacity-60 hover:opacity-100'
+                                        }`}
+                                >
+                                    <img
+                                        src={img}
+                                        alt={`Thumbnail ${idx + 1}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Sticky Navigation */}
             <div className={`sticky top-0 z-40 bg-white shadow-md transition-transform duration-300 ${isSticky ? 'translate-y-0' : '-translate-y-full absolute opacity-0'} hidden md:block`} style={{ top: '70px' }}>
