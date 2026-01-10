@@ -3,6 +3,7 @@ const cors = require('cors');
 const config = require('./config/config');
 const hotelRoutes = require('./routes/hotelRoutes');
 const syncRoutes = require('./routes/syncRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/hotels', hotelRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

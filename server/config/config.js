@@ -6,7 +6,7 @@ module.exports = {
     baseUrl: process.env.TBO_API_BASE_URL || 'http://api.tbotechnology.in/TBOHolidays_HotelAPI',
     searchUrl: process.env.TBO_SEARCH_URL || 'https://affiliate.tektravels.com/HotelAPI/Search',
     preBookUrl: process.env.TBO_PREBOOK_URL || 'https://affiliate.tektravels.com/HotelAPI/PreBook',
-    bookUrl: process.env.TBO_BOOK_URL || 'https://affiliate.tektravels.com/HotelAPI/Book',
+    bookUrl: process.env.TBO_BOOK_URL || 'https://HotelBE.tektravels.com/hotelservice.svc/rest/book/',
     // Static data endpoints credentials
     staticAuth: {
       username: process.env.TBO_STATIC_USERNAME || 'TBOStaticAPITest',
@@ -17,5 +17,10 @@ module.exports = {
       username: process.env.TBO_API_USERNAME,
       password: process.env.TBO_API_PASSWORD
     }
+  },
+  // Razorpay payment gateway configuration
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID,
+    keySecret: process.env.RAZORPAY_KEY_SECRET
   }
 };

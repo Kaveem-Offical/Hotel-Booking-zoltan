@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import HomePage from './pages/HomePage';
 import HotelDetailsPage from './pages/HotelDetailsPage';
 import GuestDetailsPage from './pages/GuestDetailsPage';
+import PaymentPage from './pages/PaymentPage';
 import SignUpPage from './pages/SignUpPage';
 import SignInPage from './pages/SignInPage';
 import AdminPage from './pages/AdminPage';
@@ -141,6 +142,14 @@ function AppRoutes() {
         element={
           <Layout>
             <GuestDetailsPage />
+          </Layout>
+        }
+      />
+      <Route
+        path="/payment"
+        element={
+          <Layout>
+            <PaymentPage />
           </Layout>
         }
       />

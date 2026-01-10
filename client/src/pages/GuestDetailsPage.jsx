@@ -223,7 +223,7 @@ const GuestDetailsPage = () => {
         return Object.keys(newErrors).length === 0;
     };
 
-    // Handle form submission
+    // Handle form submission - Navigate to payment page
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -234,45 +234,22 @@ const GuestDetailsPage = () => {
         setSubmitting(true);
 
         try {
-            // Build HotelRoomsDetails
-            const hotelPassengers = guestDetails.map((guest, index) => ({
-                Title: guest.title,
-                FirstName: guest.firstName.trim(),
-                MiddleName: guest.middleName.trim() || '',
-                LastName: guest.lastName.trim(),
-                Phoneno: guest.isLead ? contactDetails.phone : '',
-                Email: guest.isLead ? contactDetails.email : '',
-                PaxType: guest.type === 'adult' ? 1 : 2,
-                LeadPassenger: guest.isLead,
-                Age: guest.type === 'child' ? parseInt(guest.age) : null,
-                PassportNo: '',
-                PassportIssueDate: '0001-01-01T00:00:00',
-                PassportExpDate: '0001-01-01T00:00:00',
-                PAN: ''
-            }));
-
-            const bookingData = {
-                BookingCode: bookingCode,
-                GuestNationality: contactDetails.nationality,
-                IsVoucherBooking: false,
-                NetAmount: preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare,
-                HotelRoomsDetails: [{
-                    HotelPassenger: hotelPassengers
-                }],
-                IsPackageFare: preBookData?.Rooms?.[0]?.PackageFare || false,
-                IsPackageDetailsMandatory: preBookData?.Rooms?.[0]?.PackageDetailsMandatory || false
-            };
-
-            console.log('Submitting booking:', bookingData);
-
-            const response = await bookHotel(bookingData);
-            console.log('Booking response:', response);
-
-            setBookingSuccess(true);
-            setBookingResponse(response);
+            // Navigate to payment page with all collected data
+            navigate('/payment', {
+                state: {
+                    hotel,
+                    room,
+                    searchParams,
+                    bookingCode,
+                    preBookData,
+                    guestDetails,
+                    contactDetails,
+                    netAmount: preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare
+                }
+            });
         } catch (err) {
-            console.error('Booking error:', err);
-            setError(err.response?.data?.message || 'Failed to complete booking. Please try again.');
+            console.error('Navigation error:', err);
+            setError('Failed to proceed to payment. Please try again.');
         } finally {
             setSubmitting(false);
         }
@@ -1137,7 +1114,7 @@ const GuestDetailsPage = () => {
                         disabled={submitting}
                         className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-lg font-bold hover:from-blue-700 hover:to-indigo-700 transition disabled:opacity-70"
                     >
-                        {submitting ? 'Processing...' : 'Book Now'}
+                        {submitting ? 'Processing...' : 'Proceed to Payment'}
                     </button>
                 </div>
             </div>

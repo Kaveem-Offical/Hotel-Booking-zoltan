@@ -191,4 +191,64 @@ export const bookHotel = async (bookingData) => {
   }
 };
 
+/**
+ * Create Razorpay payment order
+ * @param {Object} orderData - Contains amount, bookingCode, guestNationality, hotelRoomsDetails, etc.
+ */
+export const createPaymentOrder = async (orderData) => {
+  try {
+    console.log('Creating payment order:', orderData);
+    const response = await axios.post('http://localhost:5000/api/payment/create-order', orderData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating payment order:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Verify Razorpay payment and complete hotel booking
+ * @param {Object} paymentData - Contains razorpay_order_id, razorpay_payment_id, razorpay_signature
+ */
+export const verifyPayment = async (paymentData) => {
+  try {
+    console.log('Verifying payment:', paymentData);
+    const response = await axios.post('http://localhost:5000/api/payment/verify', paymentData);
+    return response.data;
+  } catch (error) {
+    console.error('Error verifying payment:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get booking history
+ * @param {Object} filters - Optional filters { email, phone }
+ */
+export const getBookingHistory = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams(filters).toString();
+    const url = params ? `http://localhost:5000/api/payment/bookings?${params}` : 'http://localhost:5000/api/payment/bookings';
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching booking history:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get single booking details
+ * @param {string} orderId - Razorpay order ID
+ */
+export const getBookingDetails = async (orderId) => {
+  try {
+    const response = await axios.get(`http://localhost:5000/api/payment/bookings/${orderId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching booking details:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export default api;
