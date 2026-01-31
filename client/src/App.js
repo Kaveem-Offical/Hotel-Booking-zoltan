@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import HomePage from './pages/HomePage';
 import HotelDetailsPage from './pages/HotelDetailsPage';
 import GuestDetailsPage from './pages/GuestDetailsPage';
@@ -10,13 +11,14 @@ import SignInPage from './pages/SignInPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
-import { Hotel, LogOut, Shield, Heart, HelpCircle, User } from 'lucide-react';
+import { Hotel, LogOut, Shield, Heart, HelpCircle, User, Sun, Moon } from 'lucide-react';
 import './styles/Auth.css';
 import logo from './assets/logo.png';
 
 // Navigation Header Component
 const NavHeader = () => {
   const { currentUser, userData, isAdmin, logout } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -39,46 +41,59 @@ const NavHeader = () => {
   };
 
   return (
-    <header className="nav-header">
+    <header className="nav-header theme-transition dark:bg-slate-900 dark:border-slate-700">
       <Link to="/" className="nav-logo">
         <img style={{ height: '50px' }} src={logo} alt="Zovotel Logo" />
       </Link>
 
       <div className="nav-links">
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-all duration-300 mr-2 group"
+          aria-label="Toggle theme"
+        >
+          {isDarkMode ? (
+            <Sun size={20} className="text-yellow-400 group-hover:animate-wiggle" />
+          ) : (
+            <Moon size={20} className="text-slate-600 group-hover:animate-wiggle" />
+          )}
+        </button>
+
         {currentUser ? (
           <>
             {/* Help Link */}
-            <Link to="/help" className="nav-link">
+            <Link to="/help" className="nav-link dark:text-slate-300 dark:hover:text-white">
               <HelpCircle size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
               Help
             </Link>
 
             {/* Saved Link - goes to profile */}
-            <Link to="/profile" className="nav-link">
+            <Link to="/profile" className="nav-link dark:text-slate-300 dark:hover:text-white">
               <Heart size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
               Saved
             </Link>
 
             {/* Admin Link */}
             {isAdmin && (
-              <Link to="/admin" className="nav-link">
+              <Link to="/admin" className="nav-link dark:text-slate-300 dark:hover:text-white">
                 <Shield size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
                 Admin
               </Link>
             )}
 
             {/* User Info - clickable to profile */}
-            <Link to="/profile" className="user-info-nav" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+            <Link to="/profile" className="user-info-nav dark:bg-slate-800" style={{ textDecoration: 'none', cursor: 'pointer' }}>
               <div className="user-avatar-nav">
                 {getInitials(userData?.username || currentUser?.email)}
               </div>
-              <span style={{ color: 'var(--agoda-dark)', fontSize: '0.875rem', fontWeight: 500 }}>
+              <span className="dark:text-slate-200" style={{ color: 'var(--agoda-dark)', fontSize: '0.875rem', fontWeight: 500 }}>
                 {userData?.username || currentUser?.email?.split('@')[0]}
               </span>
             </Link>
 
             {/* Logout Button */}
-            <button className="nav-button nav-button-secondary" onClick={handleLogout}>
+            <button className="nav-button nav-button-secondary dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600" onClick={handleLogout}>
               <LogOut size={16} />
               Logout
             </button>
@@ -86,13 +101,13 @@ const NavHeader = () => {
         ) : (
           <>
             {/* Help Link */}
-            <Link to="/help" className="nav-link">
+            <Link to="/help" className="nav-link dark:text-slate-300 dark:hover:text-white">
               <HelpCircle size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
               Help
             </Link>
 
             {/* Sign In Link */}
-            <Link to="/signin" className="nav-link">
+            <Link to="/signin" className="nav-link dark:text-slate-300 dark:hover:text-white">
               Sign In
             </Link>
 
@@ -111,10 +126,10 @@ const NavHeader = () => {
 // Layout wrapper with navigation
 const Layout = ({ children, showNav = true }) => {
   return (
-    <>
+    <div className="min-h-screen bg-white dark:bg-slate-900 theme-transition">
       {showNav && <NavHeader />}
       <main style={{ paddingTop: showNav ? '70px' : '0' }}>{children}</main>
-    </>
+    </div>
   );
 };
 
@@ -211,9 +226,11 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }

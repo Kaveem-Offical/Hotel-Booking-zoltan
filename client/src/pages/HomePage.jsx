@@ -477,7 +477,7 @@ function HomePage() {
     const totalCount = allHotelCodes.length;
 
     return (
-        <div className="min-h-screen bg-gray-100">
+        <div className="min-h-screen bg-gray-100 dark:bg-slate-900 theme-transition">
             <HeroSearchBar onSearch={handleSearch} />
 
             <div className="container mx-auto px-4 py-8">
@@ -494,8 +494,8 @@ function HomePage() {
 
                     {/* Main Content */}
                     <div className="flex-1">
-                        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex flex-wrap justify-between items-center gap-4">
-                            <h2 className="text-xl font-bold text-gray-800">
+                        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-4 mb-4 flex flex-wrap justify-between items-center gap-4 theme-transition">
+                            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
                                 {loading ? 'Searching...' :
                                     totalCount > 0
                                         ? `Showing ${sortedHotels.length} of ${loadedCount}`
@@ -503,11 +503,11 @@ function HomePage() {
                                 }
                             </h2>
                             <div className="flex items-center gap-2">
-                                <span className="text-gray-600 text-sm">Sort by:</span>
+                                <span className="text-gray-600 dark:text-slate-400 text-sm">Sort by:</span>
                                 <select
                                     value={sortBy}
                                     onChange={(e) => setSortBy(e.target.value)}
-                                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 bg-white hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer transition-all"
+                                    className="border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-700 hover:border-blue-500 dark:hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer transition-all"
                                 >
                                     <option value="bestMatch">Best Match</option>
                                     <option value="priceLowHigh">Price: Low to High</option>

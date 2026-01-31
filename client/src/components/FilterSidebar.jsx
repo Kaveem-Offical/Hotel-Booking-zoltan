@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Star, X, Filter, MapPin } from 'lucide-react';
 
 const FilterSection = ({ title, children, isOpen, onToggle }) => (
-    <div className="border-b border-gray-200 py-4">
+    <div className="border-b border-gray-200 dark:border-slate-700 py-4">
         <div
             className="flex items-center justify-between cursor-pointer mb-2 group"
             onClick={onToggle}
         >
-            <h3 className="font-bold text-gray-800 text-sm group-hover:text-blue-600 transition-colors">{title}</h3>
+            <h3 className="font-bold text-gray-800 dark:text-white text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{title}</h3>
             <div className={`transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-blue-500 transition-colors" />
+                <ChevronDown className="w-4 h-4 text-gray-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors" />
             </div>
         </div>
         <div className={`overflow-hidden transition-all duration-300 ease-out ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
@@ -21,14 +21,14 @@ const FilterSection = ({ title, children, isOpen, onToggle }) => (
 );
 
 const CheckboxFilter = ({ label, checked, onChange, count }) => (
-    <label className="flex items-center justify-between cursor-pointer group p-1 rounded-lg hover:bg-blue-50/50 transition-colors">
+    <label className="flex items-center justify-between cursor-pointer group p-1 rounded-lg hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors">
         <div className="flex items-center">
             <div className="relative">
                 <input
                     type="checkbox"
                     checked={checked}
                     onChange={onChange}
-                    className="w-5 h-5 border-2 border-gray-300 rounded checked:bg-blue-600 checked:border-blue-600 focus:ring-0 focus:ring-offset-0 transition-all duration-200 cursor-pointer appearance-none"
+                    className="w-5 h-5 border-2 border-gray-300 dark:border-slate-600 rounded checked:bg-blue-600 checked:border-blue-600 focus:ring-0 focus:ring-offset-0 transition-all duration-200 cursor-pointer appearance-none"
                 />
                 {checked && (
                     <svg className="absolute inset-0 w-5 h-5 text-white pointer-events-none animate-scale-in" viewBox="0 0 20 20" fill="currentColor">
@@ -36,9 +36,9 @@ const CheckboxFilter = ({ label, checked, onChange, count }) => (
                     </svg>
                 )}
             </div>
-            <span className="ml-3 text-gray-700 text-sm group-hover:text-blue-600 transition-colors">{label}</span>
+            <span className="ml-3 text-gray-700 dark:text-slate-300 text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{label}</span>
         </div>
-        {count !== undefined && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{count}</span>}
+        {count !== undefined && <span className="text-xs text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">{count}</span>}
     </label>
 );
 
@@ -126,7 +126,7 @@ const FilterSidebar = ({
             <div className="lg:hidden mb-4">
                 <button
                     onClick={() => setIsMobileOpen(true)}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-600 font-bold rounded-lg border border-blue-200 hover:from-blue-100 hover:to-blue-200 transition-all duration-300 shadow-sm hover:shadow"
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-600 dark:text-blue-400 font-bold rounded-lg border border-blue-200 dark:border-blue-800 hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-900/50 dark:hover:to-blue-800/50 transition-all duration-300 shadow-sm hover:shadow"
                 >
                     <Filter className="w-4 h-4" />
                     Filter Results {activeFilterCount > 0 && <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{activeFilterCount}</span>}
@@ -135,35 +135,35 @@ const FilterSidebar = ({
 
             {/* Sidebar Container with smooth slide animation */}
             <div className={`
-        fixed inset-0 z-50 bg-white transform transition-transform duration-300 ease-out lg:relative lg:transform-none lg:block lg:w-72 lg:bg-transparent
+        fixed inset-0 z-50 bg-white dark:bg-slate-900 transform transition-transform duration-300 ease-out lg:relative lg:transform-none lg:block lg:w-72 lg:bg-transparent
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-                <div className="h-full overflow-y-auto p-4 lg:p-0 bg-white lg:bg-transparent lg:sticky lg:top-4">
+                <div className="h-full overflow-y-auto p-4 lg:p-0 bg-white dark:bg-slate-900 lg:bg-transparent dark:lg:bg-transparent lg:sticky lg:top-4">
 
                     {/* Header */}
                     <div className="flex items-center justify-between mb-4 lg:hidden">
-                        <h2 className="text-xl font-bold text-gray-800">Filters</h2>
+                        <h2 className="text-xl font-bold text-gray-800 dark:text-white">Filters</h2>
                         <button onClick={() => setIsMobileOpen(false)} className="p-2">
-                            <X className="w-6 h-6 text-gray-500" />
+                            <X className="w-6 h-6 text-gray-500 dark:text-slate-400" />
                         </button>
                     </div>
 
                     {/* Map Placeholder (Agoda style) - Enhanced */}
-                    <div className="hidden lg:flex items-center justify-center h-24 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg mb-4 border border-blue-200 cursor-pointer hover:from-blue-200 hover:to-blue-300 transition-all duration-300 relative overflow-hidden group shadow-sm hover:shadow">
+                    <div className="hidden lg:flex items-center justify-center h-24 bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg mb-4 border border-blue-200 dark:border-blue-800 cursor-pointer hover:from-blue-200 hover:to-blue-300 dark:hover:from-blue-900/50 dark:hover:to-blue-800/50 transition-all duration-300 relative overflow-hidden group shadow-sm hover:shadow">
                         <div className="absolute inset-0 opacity-20 bg-[url('https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png')] bg-cover bg-center"></div>
-                        <span className="text-blue-700 font-bold relative z-10 flex items-center gap-2 group-hover:scale-105 transition-transform">
+                        <span className="text-blue-700 dark:text-blue-400 font-bold relative z-10 flex items-center gap-2 group-hover:scale-105 transition-transform">
                             <MapPin className="w-4 h-4" />
                             Show on map
                         </span>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-fade-in">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden animate-fade-in theme-transition">
                         {/* Filter Header */}
-                        <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100">
-                            <span className="font-bold text-gray-700">Filter by</span>
+                        <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 dark:from-slate-800 dark:to-slate-700">
+                            <span className="font-bold text-gray-700 dark:text-white">Filter by</span>
                             <button
                                 onClick={clearAll}
-                                className="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline transition-colors"
+                                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium hover:underline transition-colors"
                             >
                                 Clear all
                             </button>

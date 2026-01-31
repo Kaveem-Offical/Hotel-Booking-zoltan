@@ -71,14 +71,14 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
 
   return (
     <div
-      className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-2xl transition-all duration-300 ease-out flex flex-col md:flex-row overflow-hidden cursor-pointer group mb-4 animate-fade-in-up hover:-translate-y-1"
+      className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-2xl dark:hover:shadow-slate-700/50 transition-all duration-300 ease-out flex flex-col md:flex-row overflow-hidden cursor-pointer group mb-4 animate-fade-in-up hover:-translate-y-1 theme-transition"
       style={{ animationDelay: `${animationDelay}ms`, animationFillMode: 'backwards' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelect && onSelect(hotel)}
     >
       {/* Image Section */}
-      <div className="relative w-full md:w-[300px] h-[200px] md:h-auto flex-shrink-0 bg-gray-200 overflow-hidden">
+      <div className="relative w-full md:w-[300px] h-[200px] md:h-auto flex-shrink-0 bg-gray-200 dark:bg-slate-700 overflow-hidden">
         <img
           src={image}
           alt={name}
@@ -88,8 +88,8 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
         {/* Overlay gradient on hover */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <button
-          className={`absolute top-3 right-3 p-2 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white transition-all duration-200 z-10 transform hover:scale-110 active:scale-95 ${likeLoading ? 'opacity-50 cursor-wait' : ''
-            } ${isHotelLiked(hotel.HotelCode) ? 'text-red-500 shadow-lg' : 'text-gray-500 hover:text-red-500'}`}
+          className={`absolute top-3 right-3 p-2 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-slate-700 transition-all duration-200 z-10 transform hover:scale-110 active:scale-95 ${likeLoading ? 'opacity-50 cursor-wait' : ''
+            } ${isHotelLiked(hotel.HotelCode) ? 'text-red-500 shadow-lg' : 'text-gray-500 dark:text-slate-400 hover:text-red-500'}`}
           onClick={async (e) => {
             e.stopPropagation();
             if (!currentUser) {
@@ -140,7 +140,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
         <div className="flex-1 flex flex-col gap-2">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors duration-200 line-clamp-2">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 line-clamp-2">
                 {name}
               </h3>
               <div className="flex items-center mt-1">
@@ -148,26 +148,26 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
-                      className={`w-3 h-3 ${i < stars ? 'fill-current' : 'text-gray-300'}`}
+                      className={`w-3 h-3 ${i < stars ? 'fill-current' : 'text-gray-300 dark:text-slate-600'}`}
                     />
                   ))}
                 </div>
-                <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
+                <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded">
                   {stars > 0 ? `${stars}-Star` : "Rating NA"}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center text-blue-600 text-sm font-medium mt-1">
+          <div className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium mt-1">
             <MapPin className="w-4 h-4 mr-1" />
-            <span className="underline hover:text-blue-800 line-clamp-1" title={location}>{location}</span>
+            <span className="underline hover:text-blue-800 dark:hover:text-blue-300 line-clamp-1" title={location}>{location}</span>
             {/* <span className="text-gray-500 no-underline ml-2 text-xs">• {distance}</span> */}
           </div>
 
           {/* Description (Truncated) */}
           {description && (
-            <p className="text-xs text-gray-500 line-clamp-2 mt-1">
+            <p className="text-xs text-gray-500 dark:text-slate-400 line-clamp-2 mt-1">
               {description.replace(/<[^>]*>?/gm, '')} {/* Simple HTML strip */}
             </p>
           )}
@@ -175,7 +175,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
           {/* Amenities */}
           <div className="flex flex-wrap gap-2 mt-2">
             {amenities.slice(0, 4).map((amenity, idx) => (
-              <div key={idx} className="flex items-center text-xs text-gray-600 border border-gray-200 rounded px-2 py-1">
+              <div key={idx} className="flex items-center text-xs text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-600 rounded px-2 py-1">
                 {typeof amenity === 'string' && amenity.includes('WiFi') && <Wifi className="w-3 h-3 mr-1" />}
                 {typeof amenity === 'string' && amenity.includes('Parking') && <Car className="w-3 h-3 mr-1" />}
                 {typeof amenity === 'string' && amenity.includes('Breakfast') && <Coffee className="w-3 h-3 mr-1" />}
@@ -187,8 +187,8 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
           </div>
 
           {/* Room & Badges */}
-          <div className="mt-auto pt-3 border-t border-dashed border-gray-200">
-            <p className="text-sm font-bold text-gray-700 line-clamp-1">{roomType}</p>
+          <div className="mt-auto pt-3 border-t border-dashed border-gray-200 dark:border-slate-600">
+            <p className="text-sm font-bold text-gray-700 dark:text-slate-200 line-clamp-1">{roomType}</p>
             <div className="flex flex-wrap gap-2 mt-1">
               {freeCancellation && (
                 <span className="text-xs text-green-700 font-medium flex items-center">
