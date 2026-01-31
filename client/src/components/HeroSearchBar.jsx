@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Calendar, User, MapPin, Minus, Plus, ChevronDown, Building } from 'lucide-react';
+import { Search, Calendar, User, MapPin, Minus, Plus, ChevronDown, Building, X, Sparkles } from 'lucide-react';
 import { fetchCities, searchHotelNames } from '../services/api';
 
 const HeroSearchBar = ({ onSearch }) => {
@@ -10,6 +10,7 @@ const HeroSearchBar = ({ onSearch }) => {
   const [selectedHotelInfo, setSelectedHotelInfo] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
   const [checkInDate, setCheckInDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -31,8 +32,16 @@ const HeroSearchBar = ({ onSearch }) => {
 
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
+  const overlayInputRef = useRef(null);
 
   const navigate = useNavigate();
+
+  // Focus overlay input when opened
+  useEffect(() => {
+    if (isSearchOverlayOpen && overlayInputRef.current) {
+      setTimeout(() => overlayInputRef.current.focus(), 100);
+    }
+  }, [isSearchOverlayOpen]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -40,13 +49,22 @@ const HeroSearchBar = ({ onSearch }) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowGuestDropdown(false);
       }
-      if (searchInputRef.current && !searchInputRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Handle escape key to close overlay
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        setIsSearchOverlayOpen(false);
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
   }, []);
 
   // Fetch suggestions (Cities + Hotels)
@@ -54,16 +72,13 @@ const HeroSearchBar = ({ onSearch }) => {
     const getSuggestions = async () => {
       if (destination.length > 1) {
         try {
-          // 1. Fetch Cities
-          const cityPromise = fetchCities('IN'); // Defaulting to IN
-          // 2. Fetch Hotels
+          const cityPromise = fetchCities('IN');
           const hotelPromise = searchHotelNames(destination);
 
           const [cityData, hotelData] = await Promise.all([cityPromise, hotelPromise]);
 
           let combined = [];
 
-          // Process Cities
           if (cityData?.CityList) {
             const filteredCities = cityData.CityList
               .filter(c => c.Name.toLowerCase().includes(destination.toLowerCase()))
@@ -72,7 +87,6 @@ const HeroSearchBar = ({ onSearch }) => {
             combined = [...combined, ...filteredCities];
           }
 
-          // Process Hotels
           if (hotelData?.suggestions) {
             const hotels = hotelData.suggestions.map(h => ({ ...h, type: 'Hotel' }));
             combined = [...combined, ...hotels];
@@ -115,6 +129,7 @@ const HeroSearchBar = ({ onSearch }) => {
   };
 
   const handleSearch = () => {
+    setIsSearchOverlayOpen(false);
     if (onSearch) {
       onSearch({
         destination,
@@ -128,28 +143,222 @@ const HeroSearchBar = ({ onSearch }) => {
     }
   };
 
+  const handleSuggestionSelect = (item) => {
+    setDestination(item.Name);
+    setShowDropdown(false);
+    setIsSearchOverlayOpen(false);
+
+    if (item.type === 'City') {
+      setSelectedCityCode(item.Code);
+      setSelectedHotelCode(null);
+      setSelectedHotelInfo(null);
+    } else {
+      setSelectedHotelCode(item.Code);
+      setSelectedCityCode(null);
+      setSelectedHotelInfo({
+        HotelCode: item.Code,
+        HotelName: item.Name,
+        HotelAddress: item.Address || item.CityName || '',
+        CityName: item.CityName || '',
+        StarRating: item.StarRating || '',
+        Latitude: item.Latitude || '',
+        Longitude: item.Longitude || ''
+      });
+    }
+  };
+
   return (
-    <div className="relative w-full h-[500px] flex items-center justify-center bg-cover bg-center" style={{ backgroundImage: 'url("https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png")' }}>
-      <div className="absolute inset-0 bg-black/20"></div>
+    <>
+      {/* Main Hero Section */}
+      <div className="relative w-full h-[590px] md:h-[500px] flex items-center justify-center bg-cover bg-center" style={{ backgroundImage: 'url("https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png")' }}>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/40"></div>
 
-      <div className="relative z-10 w-full max-w-5xl px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-white drop-shadow-lg mb-2">
-            HOTELS, RESORTS, HOSTELS & MORE
-          </h1>
-          <p className="text-xl text-white drop-shadow-md">
-            Get the best prices on 2,000,000+ properties, worldwide
-          </p>
+        <div className="relative z-10 w-full max-w-5xl px-4">
+          <div className="text-center mb-8 animate-fade-in-up">
+            <h1 className="text-4xl md:text-5xl font-bold text-white drop-shadow-lg mb-2">
+              HOTELS, RESORTS, HOSTELS & MORE
+            </h1>
+            <p className="text-xl text-white drop-shadow-md">
+              Get the best prices on 2,000,000+ properties, worldwide
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-2xl p-4 md:p-2 flex flex-col md:flex-row gap-2 items-center">
+
+            {/* Destination Search - Click to Open Overlay */}
+            <div className="relative flex-1 w-full md:w-auto" ref={searchInputRef}>
+              <div
+                className="flex items-center px-4 py-3 md:p-[8px] border border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50/30 transition-all duration-300 cursor-pointer group"
+                onClick={() => setIsSearchOverlayOpen(true)}
+              >
+                <Search className="w-5 h-5 text-gray-400 mr-3 group-hover:text-blue-500 transition-colors" />
+                <div className="flex-1">
+                  <span className={`${destination ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
+                    {destination || 'Enter a destination or property'}
+                  </span>
+                </div>
+                <Sparkles className="w-4 h-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+
+            {/* Date Picker - Enhanced */}
+            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              <div className="flex items-center px-4 py-3 border border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50/30 transition-all duration-300 bg-white relative group w-full md:w-40 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                <Calendar className="w-5 h-5 text-gray-400 mr-3 group-hover:text-blue-500 group-focus-within:text-blue-500 transition-colors" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500 font-medium">Check-in</span>
+                  <input
+                    type="date"
+                    value={checkInDate}
+                    onChange={(e) => setCheckInDate(e.target.value)}
+                    className="outline-none text-gray-800 font-bold text-sm w-full bg-transparent p-0"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center px-4 py-3 border border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50/30 transition-all duration-300 bg-white relative group w-full md:w-40 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                <Calendar className="w-5 h-5 text-gray-400 mr-3 group-hover:text-blue-500 group-focus-within:text-blue-500 transition-colors" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500 font-medium">Check-out</span>
+                  <input
+                    type="date"
+                    value={checkOutDate}
+                    min={checkInDate}
+                    onChange={(e) => setCheckOutDate(e.target.value)}
+                    className="outline-none text-gray-800 font-bold text-sm w-full bg-transparent p-0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Guest Selector - Enhanced */}
+            <div className="relative w-full md:w-auto" ref={dropdownRef}>
+              <div
+                className={`flex items-center px-4 py-3 border rounded-xl transition-all duration-300 cursor-pointer bg-white w-full md:w-64 ${showGuestDropdown
+                  ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50/30'
+                  : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50/30'
+                  }`}
+                onClick={() => setShowGuestDropdown(!showGuestDropdown)}
+              >
+                <User className={`w-5 h-5 mr-3 transition-colors ${showGuestDropdown ? 'text-blue-500' : 'text-gray-400'}`} />
+                <div className="flex flex-col flex-1">
+                  <span className="text-gray-800 font-bold text-sm">
+                    {guests.adults} Adults, {guests.children} Children
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {guests.rooms} Room{guests.rooms > 1 ? 's' : ''}
+                  </span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${showGuestDropdown ? 'rotate-180 text-blue-500' : ''}`} />
+              </div>
+
+              {/* Animated Guest Dropdown */}
+              {showGuestDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-full md:w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-6 z-50 animate-slide-in-down">
+                  {/* Rooms */}
+                  <div className="flex items-center justify-between mb-6">
+                    <span className="text-gray-700 font-medium">Rooms</span>
+                    <div className="flex items-center gap-4">
+                      <button onClick={() => handleGuestChange('rooms', 'dec')} disabled={guests.rooms <= 1} className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 disabled:hover:bg-transparent transition-all duration-200 active:scale-95">
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-4 text-center font-bold text-gray-800">{guests.rooms}</span>
+                      <button onClick={() => handleGuestChange('rooms', 'inc')} disabled={guests.rooms >= 4} className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 disabled:hover:bg-transparent transition-all duration-200 active:scale-95">
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Adults */}
+                  <div className="flex items-center justify-between mb-6">
+                    <span className="text-gray-700 font-medium">Adults</span>
+                    <div className="flex items-center gap-4">
+                      <button onClick={() => handleGuestChange('adults', 'dec')} disabled={guests.adults <= 1} className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 disabled:hover:bg-transparent transition-all duration-200 active:scale-95">
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-4 text-center font-bold text-gray-800">{guests.adults}</span>
+                      <button onClick={() => handleGuestChange('adults', 'inc')} disabled={guests.adults >= 8} className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 disabled:hover:bg-transparent transition-all duration-200 active:scale-95">
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Children */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex flex-col">
+                      <span className="text-gray-700 font-medium">Children</span>
+                      <span className="text-xs text-gray-400">Ages 0-17</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <button onClick={() => handleGuestChange('children', 'dec')} disabled={guests.children <= 0} className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 disabled:hover:bg-transparent transition-all duration-200 active:scale-95">
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-4 text-center font-bold text-gray-800">{guests.children}</span>
+                      <button onClick={() => handleGuestChange('children', 'inc')} disabled={guests.children >= 4} className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 disabled:hover:bg-transparent transition-all duration-200 active:scale-95">
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Search Button - Enhanced with shine effect */}
+            <button
+              onClick={handleSearch}
+              className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 active:translate-y-0 active:scale-100 flex items-center justify-center gap-2 btn-shine"
+            >
+              <Search className="w-5 h-5" />
+              <span className="text-lg">SEARCH</span>
+            </button>
+
+          </div>
         </div>
+      </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-4 md:p-2 flex flex-col md:flex-row gap-2 items-center">
+      {/* ==================== SEARCH OVERLAY ==================== */}
+      {isSearchOverlayOpen && (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh]">
+          {/* Backdrop with blur */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+            onClick={() => {
+              setIsSearchOverlayOpen(false);
+              setShowDropdown(false);
+            }}
+          />
 
-          {/* Destination Search */}
-          <div className="relative flex-1 w-full md:w-auto" ref={searchInputRef}>
-            <div className="flex items-center px-4 py-3 border border-gray-200 rounded-xl hover:border-gray-400 transition-colors cursor-text" onClick={() => searchInputRef.current.querySelector('input').focus()}>
-              <Search className="w-5 h-5 text-gray-400 mr-3" />
-              <div className="flex-1">
+          {/* Overlay Content */}
+          <div className="relative z-10 w-full max-w-3xl mx-4 animate-scale-in">
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setIsSearchOverlayOpen(false);
+                setShowDropdown(false);
+              }}
+              className="absolute -top-12 right-0 text-white hover:text-gray-200 transition-colors p-2"
+            >
+              <X className="w-8 h-8" />
+            </button>
+
+            {/* Search Header */}
+            <div className="text-center mb-6 animate-fade-in-up">
+              <h2 className="text-3xl font-bold text-white drop-shadow-lg flex items-center justify-center gap-3">
+                <Sparkles className="w-8 h-8 text-yellow-400 animate-pulse" />
+                Where would you like to go?
+                <Sparkles className="w-8 h-8 text-yellow-400 animate-pulse" />
+              </h2>
+              <p className="text-white/80 mt-2">Search from millions of hotels worldwide</p>
+            </div>
+
+            {/* Large Search Input */}
+            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-300">
+              <div className="flex items-center p-6 border-b border-gray-100">
+                <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mr-4 shadow-lg">
+                  <Search className="w-7 h-7 text-white" />
+                </div>
                 <input
+                  ref={overlayInputRef}
                   type="text"
                   value={destination}
                   onChange={(e) => {
@@ -158,194 +367,101 @@ const HeroSearchBar = ({ onSearch }) => {
                     setSelectedHotelCode(null);
                     setSelectedHotelInfo(null);
                   }}
-                  placeholder="Enter a destination or property"
-                  className="w-full outline-none text-gray-800 font-medium placeholder-gray-400"
+                  placeholder="Search cities, hotels, or destinations..."
+                  className="flex-1 text-2xl outline-none text-gray-800 font-medium placeholder-gray-400"
+                  autoFocus
                 />
-              </div>
-            </div>
-
-            {showDropdown && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 max-h-80 overflow-y-auto">
-                {suggestions.map((item) => (
-                  <div
-                    key={`${item.type}-${item.Code}`}
-                    className="px-4 py-3 hover:bg-blue-50 cursor-pointer flex items-center transition-colors group"
-                    onClick={() => {
-                      setDestination(item.Name);
-                      setShowDropdown(false);
-
-                      if (item.type === 'City') {
-                        setSelectedCityCode(item.Code);
-                        setSelectedHotelCode(null);
-                        setSelectedHotelInfo(null);
-                      } else {
-                        // It's a hotel - store code and full info
-                        setSelectedHotelCode(item.Code);
-                        setSelectedCityCode(null);
-                        setSelectedHotelInfo({
-                          HotelCode: item.Code,
-                          HotelName: item.Name,
-                          HotelAddress: item.Address || item.CityName || '',
-                          CityName: item.CityName || '',
-                          StarRating: item.StarRating || '',
-                          Latitude: item.Latitude || '',
-                          Longitude: item.Longitude || ''
-                        });
-                      }
-                    }}
+                {destination && (
+                  <button
+                    onClick={() => setDestination('')}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                   >
-                    {item.type === 'City' ? (
-                      <MapPin className="w-4 h-4 text-gray-400 mr-3 group-hover:text-blue-500" />
-                    ) : (
-                      <Building className="w-4 h-4 text-gray-400 mr-3 group-hover:text-blue-500" />
-                    )}
-                    <div className="flex flex-col">
-                      <span className="text-gray-700 font-medium group-hover:text-blue-700">{item.Name}</span>
-                      {item.type === 'Hotel' && (
-                        <span className="text-xs text-gray-400">
-                          {item.CityName || item.Address || 'Hotel'}
+                    <X className="w-5 h-5 text-gray-400" />
+                  </button>
+                )}
+              </div>
+
+              {/* Suggestions List */}
+              {showDropdown && suggestions.length > 0 && (
+                <div className="max-h-[50vh] overflow-y-auto">
+                  {suggestions.map((item, index) => (
+                    <div
+                      key={`${item.type}-${item.Code}`}
+                      className="px-6 py-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 cursor-pointer flex items-center transition-all duration-200 group border-b border-gray-50 last:border-b-0"
+                      style={{
+                        animation: `slideInLeft 0.3s ease-out forwards`,
+                        animationDelay: `${index * 50}ms`,
+                        opacity: 1
+                      }}
+                      onClick={() => handleSuggestionSelect(item)}
+                    >
+                      <div className={`flex items-center justify-center w-12 h-12 rounded-xl mr-4 transition-all duration-200 ${item.type === 'City'
+                        ? 'bg-green-100 group-hover:bg-green-200'
+                        : 'bg-purple-100 group-hover:bg-purple-200'
+                        }`}>
+                        {item.type === 'City' ? (
+                          <MapPin className="w-6 h-6 text-green-600" />
+                        ) : (
+                          <Building className="w-6 h-6 text-purple-600" />
+                        )}
+                      </div>
+                      <div className="flex flex-col flex-1">
+                        <span className="text-lg text-gray-800 font-semibold group-hover:text-blue-700 transition-colors">
+                          {item.Name}
                         </span>
-                      )}
+                        <span className="text-sm text-gray-500">
+                          {item.type === 'City' ? 'City' : (item.CityName || item.Address || 'Hotel')}
+                        </span>
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ChevronDown className="w-5 h-5 text-blue-500 -rotate-90" />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
 
-          {/* Date Picker */}
-          <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-            <div className="flex items-center px-4 py-3 border border-gray-200 rounded-xl hover:border-gray-400 transition-colors bg-white relative group w-full md:w-40">
-              <Calendar className="w-5 h-5 text-gray-400 mr-3 group-hover:text-blue-500 transition-colors" />
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 font-medium">Check-in</span>
-                <input
-                  type="date"
-                  value={checkInDate}
-                  onChange={(e) => setCheckInDate(e.target.value)}
-                  className="outline-none text-gray-800 font-bold text-sm w-full bg-transparent p-0"
-                />
-              </div>
+              {/* Empty State / Typing Hint */}
+              {(!showDropdown || suggestions.length === 0) && (
+                <div className="p-8 text-center">
+                  {destination.length === 0 ? (
+                    <div className="space-y-3 animate-fade-in">
+                      <div className="flex items-center justify-center gap-2 text-gray-500">
+                        <Sparkles className="w-5 h-5 text-blue-400" />
+                        <span>Start typing to search</span>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-2 mt-4">
+                        {['Mumbai', 'Delhi', 'Goa', 'Bangalore', 'Jaipur'].map((city) => (
+                          <button
+                            key={city}
+                            onClick={() => setDestination(city)}
+                            className="px-4 py-2 bg-gray-100 hover:bg-blue-100 text-gray-700 hover:text-blue-700 rounded-full text-sm font-medium transition-all duration-200 hover:scale-105"
+                          >
+                            {city}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : destination.length <= 1 ? (
+                    <p className="text-gray-500 animate-pulse">Keep typing to see suggestions...</p>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                      <p className="text-gray-500">Searching...</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center px-4 py-3 border border-gray-200 rounded-xl hover:border-gray-400 transition-colors bg-white relative group w-full md:w-40">
-              <Calendar className="w-5 h-5 text-gray-400 mr-3 group-hover:text-blue-500 transition-colors" />
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 font-medium">Check-out</span>
-                <input
-                  type="date"
-                  value={checkOutDate}
-                  min={checkInDate}
-                  onChange={(e) => setCheckOutDate(e.target.value)}
-                  className="outline-none text-gray-800 font-bold text-sm w-full bg-transparent p-0"
-                />
-              </div>
-            </div>
+            {/* Quick tip */}
+            <p className="text-center text-white/60 mt-4 text-sm">
+              Press <kbd className="px-2 py-1 bg-white/20 rounded text-white">ESC</kbd> to close
+            </p>
           </div>
-
-          {/* Guest Selector */}
-          <div className="relative w-full md:w-auto" ref={dropdownRef}>
-            <div
-              className="flex items-center px-4 py-3 border border-gray-200 rounded-xl hover:border-gray-400 transition-colors cursor-pointer bg-white w-full md:w-64"
-              onClick={() => setShowGuestDropdown(!showGuestDropdown)}
-            >
-              <User className="w-5 h-5 text-gray-400 mr-3" />
-              <div className="flex flex-col flex-1">
-                <span className="text-gray-800 font-bold text-sm">
-                  {guests.adults} Adults, {guests.children} Children
-                </span>
-                <span className="text-xs text-gray-500">
-                  {guests.rooms} Room{guests.rooms > 1 ? 's' : ''}
-                </span>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showGuestDropdown ? 'rotate-180' : ''}`} />
-            </div>
-
-            {showGuestDropdown && (
-              <div className="absolute top-full right-0 mt-2 w-full md:w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-6 z-50">
-                {/* Rooms */}
-                <div className="flex items-center justify-between mb-6">
-                  <span className="text-gray-700 font-medium">Rooms</span>
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => handleGuestChange('rooms', 'dec')}
-                      disabled={guests.rooms <= 1}
-                      className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 transition-colors"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <span className="w-4 text-center font-bold text-gray-800">{guests.rooms}</span>
-                    <button
-                      onClick={() => handleGuestChange('rooms', 'inc')}
-                      disabled={guests.rooms >= 4}
-                      className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Adults */}
-                <div className="flex items-center justify-between mb-6">
-                  <span className="text-gray-700 font-medium">Adults</span>
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => handleGuestChange('adults', 'dec')}
-                      disabled={guests.adults <= 1}
-                      className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 transition-colors"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <span className="w-4 text-center font-bold text-gray-800">{guests.adults}</span>
-                    <button
-                      onClick={() => handleGuestChange('adults', 'inc')}
-                      disabled={guests.adults >= 8}
-                      className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Children */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex flex-col">
-                    <span className="text-gray-700 font-medium">Children</span>
-                    <span className="text-xs text-gray-400">Ages 0-17</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => handleGuestChange('children', 'dec')}
-                      disabled={guests.children <= 0}
-                      className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 transition-colors"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <span className="w-4 text-center font-bold text-gray-800">{guests.children}</span>
-                    <button
-                      onClick={() => handleGuestChange('children', 'inc')}
-                      disabled={guests.children >= 4}
-                      className="p-2 rounded-full border border-gray-200 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Search Button */}
-          <button
-            onClick={handleSearch}
-            className="w-full md:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2"
-          >
-            <span className="text-lg">SEARCH</span>
-          </button>
-
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 

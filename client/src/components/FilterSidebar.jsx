@@ -4,28 +4,41 @@ import { ChevronDown, ChevronUp, Star, X, Filter, MapPin } from 'lucide-react';
 const FilterSection = ({ title, children, isOpen, onToggle }) => (
     <div className="border-b border-gray-200 py-4">
         <div
-            className="flex items-center justify-between cursor-pointer mb-2"
+            className="flex items-center justify-between cursor-pointer mb-2 group"
             onClick={onToggle}
         >
-            <h3 className="font-bold text-gray-800 text-sm">{title}</h3>
-            {isOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+            <h3 className="font-bold text-gray-800 text-sm group-hover:text-blue-600 transition-colors">{title}</h3>
+            <div className={`transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+                <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-blue-500 transition-colors" />
+            </div>
         </div>
-        {isOpen && <div className="mt-2 space-y-2">{children}</div>}
+        <div className={`overflow-hidden transition-all duration-300 ease-out ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="mt-2 space-y-2">
+                {children}
+            </div>
+        </div>
     </div>
 );
 
 const CheckboxFilter = ({ label, checked, onChange, count }) => (
-    <label className="flex items-center justify-between cursor-pointer group">
+    <label className="flex items-center justify-between cursor-pointer group p-1 rounded-lg hover:bg-blue-50/50 transition-colors">
         <div className="flex items-center">
-            <input
-                type="checkbox"
-                checked={checked}
-                onChange={onChange}
-                className="w-5 h-5 border-2 border-gray-300 rounded checked:bg-blue-600 checked:border-blue-600 focus:ring-0 focus:ring-offset-0 transition-colors"
-            />
+            <div className="relative">
+                <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={onChange}
+                    className="w-5 h-5 border-2 border-gray-300 rounded checked:bg-blue-600 checked:border-blue-600 focus:ring-0 focus:ring-offset-0 transition-all duration-200 cursor-pointer appearance-none"
+                />
+                {checked && (
+                    <svg className="absolute inset-0 w-5 h-5 text-white pointer-events-none animate-scale-in" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                )}
+            </div>
             <span className="ml-3 text-gray-700 text-sm group-hover:text-blue-600 transition-colors">{label}</span>
         </div>
-        {count !== undefined && <span className="text-xs text-gray-400">({count})</span>}
+        {count !== undefined && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{count}</span>}
     </label>
 );
 
@@ -113,16 +126,16 @@ const FilterSidebar = ({
             <div className="lg:hidden mb-4">
                 <button
                     onClick={() => setIsMobileOpen(true)}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-600 font-bold rounded-lg border border-blue-100"
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-600 font-bold rounded-lg border border-blue-200 hover:from-blue-100 hover:to-blue-200 transition-all duration-300 shadow-sm hover:shadow"
                 >
                     <Filter className="w-4 h-4" />
-                    Filter Results {activeFilterCount > 0 && `(${activeFilterCount})`}
+                    Filter Results {activeFilterCount > 0 && <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{activeFilterCount}</span>}
                 </button>
             </div>
 
-            {/* Sidebar Container */}
+            {/* Sidebar Container with smooth slide animation */}
             <div className={`
-        fixed inset-0 z-50 bg-white transform transition-transform duration-300 lg:relative lg:transform-none lg:block lg:w-72 lg:bg-transparent
+        fixed inset-0 z-50 bg-white transform transition-transform duration-300 ease-out lg:relative lg:transform-none lg:block lg:w-72 lg:bg-transparent
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
                 <div className="h-full overflow-y-auto p-4 lg:p-0 bg-white lg:bg-transparent lg:sticky lg:top-4">
@@ -135,21 +148,22 @@ const FilterSidebar = ({
                         </button>
                     </div>
 
-                    {/* Map Placeholder (Agoda style) */}
-                    <div className="hidden lg:flex items-center justify-center h-24 bg-blue-100 rounded-lg mb-4 border border-blue-200 cursor-pointer hover:bg-blue-200 transition-colors relative overflow-hidden">
+                    {/* Map Placeholder (Agoda style) - Enhanced */}
+                    <div className="hidden lg:flex items-center justify-center h-24 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg mb-4 border border-blue-200 cursor-pointer hover:from-blue-200 hover:to-blue-300 transition-all duration-300 relative overflow-hidden group shadow-sm hover:shadow">
                         <div className="absolute inset-0 opacity-20 bg-[url('https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png')] bg-cover bg-center"></div>
-                        <span className="text-blue-700 font-bold relative z-10 flex items-center gap-2">
-                            <MapPin className="w-4 h-4" /> Show on map
+                        <span className="text-blue-700 font-bold relative z-10 flex items-center gap-2 group-hover:scale-105 transition-transform">
+                            <MapPin className="w-4 h-4" />
+                            Show on map
                         </span>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-fade-in">
                         {/* Filter Header */}
-                        <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                        <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100">
                             <span className="font-bold text-gray-700">Filter by</span>
                             <button
                                 onClick={clearAll}
-                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline transition-colors"
                             >
                                 Clear all
                             </button>
@@ -349,7 +363,7 @@ const FilterSidebar = ({
                         <div className="lg:hidden p-4 border-t border-gray-200 sticky bottom-0 bg-white">
                             <button
                                 onClick={() => setIsMobileOpen(false)}
-                                className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg shadow-lg"
+                                className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold rounded-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0"
                             >
                                 Show Results
                             </button>
@@ -358,10 +372,10 @@ const FilterSidebar = ({
                 </div>
             </div>
 
-            {/* Mobile Overlay */}
+            {/* Mobile Overlay with fade */}
             {isMobileOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden animate-fade-in"
                     onClick={() => setIsMobileOpen(false)}
                 ></div>
             )}

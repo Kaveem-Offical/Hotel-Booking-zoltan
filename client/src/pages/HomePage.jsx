@@ -529,17 +529,22 @@ function HomePage() {
 
                         {/* Initial Loading State */}
                         {loading && (
-                            <div className="flex justify-center items-center py-12">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                            <div className="flex flex-col justify-center items-center py-16">
+                                <div className="relative">
+                                    <div className="animate-spin rounded-full h-14 w-14 border-4 border-blue-200"></div>
+                                    <div className="animate-spin rounded-full h-14 w-14 border-4 border-blue-600 border-t-transparent absolute inset-0"></div>
+                                </div>
+                                <p className="text-gray-600 mt-4 animate-pulse">Searching for best deals...</p>
                             </div>
                         )}
 
-                        {/* Hotel Cards */}
+                        {/* Hotel Cards with staggered animation */}
                         {!loading && sortedHotels.map((hotel, index) => (
                             <HotelCard
                                 key={hotel.HotelCode || index}
                                 hotel={hotel}
                                 onSelect={handleHotelSelect}
+                                index={index}
                             />
                         ))}
 
@@ -548,18 +553,25 @@ function HomePage() {
                             <div ref={sentinelRef} className="h-10" />
                         )}
 
-                        {/* Loading More Indicator */}
+                        {/* Loading More Indicator - Enhanced */}
                         {loadingMore && (
-                            <div className="flex flex-col justify-center items-center py-8">
-                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-3"></div>
-                                <p className="text-gray-600 text-sm">Loading more hotels...</p>
+                            <div className="flex flex-col justify-center items-center py-8 animate-fade-in">
+                                <div className="flex space-x-2">
+                                    <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                    <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                    <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                </div>
+                                <p className="text-gray-600 text-sm mt-3">Loading more hotels...</p>
                             </div>
                         )}
 
-                        {/* End of Results */}
+                        {/* End of Results - Enhanced */}
                         {!loading && !hasMore && hotels.length > 0 && (
-                            <div className="text-center py-6 text-gray-500 border-t border-gray-200 mt-4">
-                                <p className="font-medium">You've seen all {loadedCount} hotels</p>
+                            <div className="text-center py-6 text-gray-500 border-t border-gray-200 mt-4 animate-fade-in">
+                                <div className="inline-flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    <p className="font-medium">You've seen all {loadedCount} hotels</p>
+                                </div>
                             </div>
                         )}
 

@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Heart, MapPin, Star, ThumbsUp, Wifi, Car, Coffee, Utensils, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const HotelCard = ({ hotel, onSelect }) => {
+const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   const navigate = useNavigate();
   const { currentUser, isHotelLiked, likeHotel, unlikeHotel } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [justLiked, setJustLiked] = useState(false);
 
   // Helper to handle missing data
   const getVal = (val, fallback = "NA") => (val !== undefined && val !== null && val !== "") ? val : fallback;
@@ -65,9 +66,13 @@ const HotelCard = ({ hotel, onSelect }) => {
 
   const tax = roomData.TotalTax ? Math.round(roomData.TotalTax) : "NA";
 
+  // Calculate animation delay based on index for staggered effect
+  const animationDelay = Math.min(index * 100, 500);
+
   return (
     <div
-      className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col md:flex-row overflow-hidden cursor-pointer group mb-4"
+      className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-2xl transition-all duration-300 ease-out flex flex-col md:flex-row overflow-hidden cursor-pointer group mb-4 animate-fade-in-up hover:-translate-y-1"
+      style={{ animationDelay: `${animationDelay}ms`, animationFillMode: 'backwards' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelect && onSelect(hotel)}
@@ -77,16 +82,17 @@ const HotelCard = ({ hotel, onSelect }) => {
         <img
           src={image}
           alt={name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
           onError={(e) => { e.target.src = "https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png"; }}
         />
+        {/* Overlay gradient on hover */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <button
-          className={`absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 ${likeLoading ? 'opacity-50 cursor-wait' : ''
-            } ${isHotelLiked(hotel.HotelCode) ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+          className={`absolute top-3 right-3 p-2 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white transition-all duration-200 z-10 transform hover:scale-110 active:scale-95 ${likeLoading ? 'opacity-50 cursor-wait' : ''
+            } ${isHotelLiked(hotel.HotelCode) ? 'text-red-500 shadow-lg' : 'text-gray-500 hover:text-red-500'}`}
           onClick={async (e) => {
             e.stopPropagation();
             if (!currentUser) {
-              // Redirect to sign in if not logged in
               navigate('/signin');
               return;
             }
@@ -97,7 +103,8 @@ const HotelCard = ({ hotel, onSelect }) => {
               if (isHotelLiked(hotelCode)) {
                 await unlikeHotel(hotelCode);
               } else {
-                // Save essential hotel data for profile display
+                setJustLiked(true);
+                setTimeout(() => setJustLiked(false), 1000);
                 await likeHotel(hotelCode, {
                   HotelCode: hotelCode,
                   HotelName: name,
@@ -117,7 +124,7 @@ const HotelCard = ({ hotel, onSelect }) => {
           disabled={likeLoading}
           aria-label={isHotelLiked(hotel.HotelCode) ? "Remove from favorites" : "Add to favorites"}
         >
-          <Heart className={`w-5 h-5 ${isHotelLiked(hotel.HotelCode) ? 'fill-red-500 text-red-500' : ''}`} />
+          <Heart className={`w-5 h-5 transition-all duration-200 ${isHotelLiked(hotel.HotelCode) ? 'fill-red-500 text-red-500' : ''} ${justLiked ? 'animate-heart-beat' : ''}`} />
         </button>
         {discount > 0 && (
           <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">
@@ -133,7 +140,7 @@ const HotelCard = ({ hotel, onSelect }) => {
         <div className="flex-1 flex flex-col gap-2">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-2">
+              <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors duration-200 line-clamp-2">
                 {name}
               </h3>
               <div className="flex items-center mt-1">
@@ -232,8 +239,8 @@ const HotelCard = ({ hotel, onSelect }) => {
               {tax !== "NA" ? `+ ₹ ${tax} taxes & fees` : "+ Taxes & fees NA"}
             </div>
 
-            <button className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow hover:shadow-md transition-all flex items-center justify-center gap-1 group-hover:translate-y-[-2px]">
-              View Deals <ChevronRight className="w-4 h-4" />
+            <button className="w-full mt-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-1 transform hover:-translate-y-0.5 active:translate-y-0 btn-shine overflow-hidden relative">
+              View Deals <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </button>
           </div>
         </div>
