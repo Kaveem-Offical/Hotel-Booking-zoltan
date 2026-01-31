@@ -166,7 +166,7 @@ function HomePage() {
             checkOut: searchData.checkOutDate || new Date(Date.now() + 86400000).toISOString().split('T')[0],
             hotelCodes: codes.join(','),
             guestNationality: "IN",
-            noOfRooms: searchData.guests?.rooms || 1,
+            noOfRooms: searchData.guests?.rooms || 0,
             paxRooms: [
                 {
                     Adults: searchData.guests?.adults || 2,

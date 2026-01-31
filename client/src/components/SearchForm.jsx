@@ -7,7 +7,7 @@ export function SearchForm({ hotelCode, onSearch, loading }) {
     checkOut: '',
     adults: 2,
     children: 0,
-    rooms: 1
+    rooms: 0
   });
 
   // Set default dates (today and tomorrow)
@@ -17,7 +17,7 @@ export function SearchForm({ hotelCode, onSearch, loading }) {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfter = new Date();
     dayAfter.setDate(dayAfter.getDate() + 2);
-    
+
     setFormData(prev => ({
       ...prev,
       checkIn: tomorrow.toISOString().split('T')[0],
@@ -27,7 +27,7 @@ export function SearchForm({ hotelCode, onSearch, loading }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Validate dates
     const checkInDate = new Date(formData.checkIn);
     const checkOutDate = new Date(formData.checkOut);
@@ -57,7 +57,7 @@ export function SearchForm({ hotelCode, onSearch, loading }) {
       }),
       isDetailedResponse: true
     };
-    
+
     console.log('Submitting search with params:', searchParams);
     onSearch(searchParams);
   };
@@ -65,7 +65,7 @@ export function SearchForm({ hotelCode, onSearch, loading }) {
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 mb-6">
       <h3 className="text-lg font-semibold mb-4 text-gray-800">Check Availability & Prices</h3>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">

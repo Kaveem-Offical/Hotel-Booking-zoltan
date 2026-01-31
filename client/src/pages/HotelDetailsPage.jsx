@@ -107,7 +107,7 @@ const HotelDetailsPage = () => {
                     checkOut: searchParams.checkOut,
                     hotelCodes: hotelId,
                     guestNationality: "IN",
-                    noOfRooms: searchParams.rooms || 1,
+                    noOfRooms: searchParams.rooms || 0,
                     paxRooms: [{
                         Adults: searchParams.adults,
                         Children: searchParams.children,
@@ -553,8 +553,8 @@ const HotelDetailsPage = () => {
                                     key={idx}
                                     onClick={() => setCurrentImageIndex(idx)}
                                     className={`flex-shrink-0 w-16 h-12 md:w-20 md:h-14 rounded-lg overflow-hidden border-2 transition-all ${idx === currentImageIndex
-                                            ? 'border-blue-500 ring-2 ring-blue-500/50 scale-105'
-                                            : 'border-transparent opacity-60 hover:opacity-100'
+                                        ? 'border-blue-500 ring-2 ring-blue-500/50 scale-105'
+                                        : 'border-transparent opacity-60 hover:opacity-100'
                                         }`}
                                 >
                                     <img

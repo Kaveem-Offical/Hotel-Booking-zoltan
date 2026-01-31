@@ -206,7 +206,7 @@ exports.searchHotel = async (req, res) => {
       checkOut,
       hotelCodes,
       guestNationality = 'IN',
-      noOfRooms = 1,
+      noOfRooms = 0,
       paxRooms = [{ Adults: 2, Children: 0, ChildrenAges: [] }],
       isDetailedResponse = true
     } = req.body;
