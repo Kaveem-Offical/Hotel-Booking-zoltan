@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Calendar, User, MapPin, Minus, Plus, ChevronDown } from 'lucide-react';
-import { fetchCities } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { Search, Calendar, User, MapPin, Minus, Plus, ChevronDown, Building } from 'lucide-react';
+import { fetchCities, searchHotelNames } from '../services/api';
 
 const HeroSearchBar = ({ onSearch }) => {
   const [destination, setDestination] = useState('');
   const [selectedCityCode, setSelectedCityCode] = useState(null);
-  const [cityList, setCityList] = useState([]);
-  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [selectedHotelCode, setSelectedHotelCode] = useState(null);
+  const [selectedHotelInfo, setSelectedHotelInfo] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [checkInDate, setCheckInDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -27,7 +30,9 @@ const HeroSearchBar = ({ onSearch }) => {
   const [showGuestDropdown, setShowGuestDropdown] = useState(false);
 
   const dropdownRef = useRef(null);
-  const cityInputRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  const navigate = useNavigate();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -35,8 +40,8 @@ const HeroSearchBar = ({ onSearch }) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowGuestDropdown(false);
       }
-      if (cityInputRef.current && !cityInputRef.current.contains(event.target)) {
-        setShowCityDropdown(false);
+      if (searchInputRef.current && !searchInputRef.current.contains(event.target)) {
+        setShowDropdown(false);
       }
     };
 
@@ -44,29 +49,48 @@ const HeroSearchBar = ({ onSearch }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch cities on input change (debounced)
+  // Fetch suggestions (Cities + Hotels)
   useEffect(() => {
-    const getCities = async () => {
+    const getSuggestions = async () => {
       if (destination.length > 1) {
         try {
-          const data = await fetchCities('IN'); // Defaulting to IN as per prompt example
-          if (data && data.CityList && Array.isArray(data.CityList)) {
-            const filtered = data.CityList.filter(city =>
-              city.Name.toLowerCase().includes(destination.toLowerCase())
-            );
-            setCityList(filtered.slice(0, 10)); // Limit results
-            setShowCityDropdown(true);
+          // 1. Fetch Cities
+          const cityPromise = fetchCities('IN'); // Defaulting to IN
+          // 2. Fetch Hotels
+          const hotelPromise = searchHotelNames(destination);
+
+          const [cityData, hotelData] = await Promise.all([cityPromise, hotelPromise]);
+
+          let combined = [];
+
+          // Process Cities
+          if (cityData?.CityList) {
+            const filteredCities = cityData.CityList
+              .filter(c => c.Name.toLowerCase().includes(destination.toLowerCase()))
+              .slice(0, 5)
+              .map(c => ({ ...c, type: 'City' }));
+            combined = [...combined, ...filteredCities];
           }
+
+          // Process Hotels
+          if (hotelData?.suggestions) {
+            const hotels = hotelData.suggestions.map(h => ({ ...h, type: 'Hotel' }));
+            combined = [...combined, ...hotels];
+          }
+
+          setSuggestions(combined);
+          setShowDropdown(true);
+
         } catch (error) {
-          console.error("Failed to fetch cities", error);
+          console.error("Failed to fetch suggestions", error);
         }
       } else {
-        setCityList([]);
-        setShowCityDropdown(false);
+        setSuggestions([]);
+        setShowDropdown(false);
       }
     };
 
-    const timeoutId = setTimeout(getCities, 300);
+    const timeoutId = setTimeout(getSuggestions, 300);
     return () => clearTimeout(timeoutId);
   }, [destination]);
 
@@ -95,6 +119,8 @@ const HeroSearchBar = ({ onSearch }) => {
       onSearch({
         destination,
         cityCode: selectedCityCode,
+        hotelCode: selectedHotelCode,
+        hotelInfo: selectedHotelInfo,
         checkInDate,
         checkOutDate,
         guests
@@ -119,8 +145,8 @@ const HeroSearchBar = ({ onSearch }) => {
         <div className="bg-white rounded-2xl shadow-2xl p-4 md:p-2 flex flex-col md:flex-row gap-2 items-center">
 
           {/* Destination Search */}
-          <div className="relative flex-1 w-full md:w-auto" ref={cityInputRef}>
-            <div className="flex items-center px-4 py-3 border border-gray-200 rounded-xl hover:border-gray-400 transition-colors cursor-text" onClick={() => cityInputRef.current.querySelector('input').focus()}>
+          <div className="relative flex-1 w-full md:w-auto" ref={searchInputRef}>
+            <div className="flex items-center px-4 py-3 border border-gray-200 rounded-xl hover:border-gray-400 transition-colors cursor-text" onClick={() => searchInputRef.current.querySelector('input').focus()}>
               <Search className="w-5 h-5 text-gray-400 mr-3" />
               <div className="flex-1">
                 <input
@@ -128,7 +154,9 @@ const HeroSearchBar = ({ onSearch }) => {
                   value={destination}
                   onChange={(e) => {
                     setDestination(e.target.value);
-                    setSelectedCityCode(null); // Reset code on manual edit
+                    setSelectedCityCode(null);
+                    setSelectedHotelCode(null);
+                    setSelectedHotelInfo(null);
                   }}
                   placeholder="Enter a destination or property"
                   className="w-full outline-none text-gray-800 font-medium placeholder-gray-400"
@@ -136,20 +164,49 @@ const HeroSearchBar = ({ onSearch }) => {
               </div>
             </div>
 
-            {showCityDropdown && cityList.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                {cityList.map((city) => (
+            {showDropdown && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 max-h-80 overflow-y-auto">
+                {suggestions.map((item) => (
                   <div
-                    key={city.Code}
-                    className="px-4 py-3 hover:bg-blue-50 cursor-pointer flex items-center transition-colors"
+                    key={`${item.type}-${item.Code}`}
+                    className="px-4 py-3 hover:bg-blue-50 cursor-pointer flex items-center transition-colors group"
                     onClick={() => {
-                      setDestination(city.Name);
-                      setSelectedCityCode(city.Code);
-                      setShowCityDropdown(false);
+                      setDestination(item.Name);
+                      setShowDropdown(false);
+
+                      if (item.type === 'City') {
+                        setSelectedCityCode(item.Code);
+                        setSelectedHotelCode(null);
+                        setSelectedHotelInfo(null);
+                      } else {
+                        // It's a hotel - store code and full info
+                        setSelectedHotelCode(item.Code);
+                        setSelectedCityCode(null);
+                        setSelectedHotelInfo({
+                          HotelCode: item.Code,
+                          HotelName: item.Name,
+                          HotelAddress: item.Address || item.CityName || '',
+                          CityName: item.CityName || '',
+                          StarRating: item.StarRating || '',
+                          Latitude: item.Latitude || '',
+                          Longitude: item.Longitude || ''
+                        });
+                      }
                     }}
                   >
-                    <MapPin className="w-4 h-4 text-gray-400 mr-3" />
-                    <span className="text-gray-700">{city.Name}</span>
+                    {item.type === 'City' ? (
+                      <MapPin className="w-4 h-4 text-gray-400 mr-3 group-hover:text-blue-500" />
+                    ) : (
+                      <Building className="w-4 h-4 text-gray-400 mr-3 group-hover:text-blue-500" />
+                    )}
+                    <div className="flex flex-col">
+                      <span className="text-gray-700 font-medium group-hover:text-blue-700">{item.Name}</span>
+                      {item.type === 'Hotel' && (
+                        <span className="text-xs text-gray-400">
+                          {item.CityName || item.Address || 'Hotel'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

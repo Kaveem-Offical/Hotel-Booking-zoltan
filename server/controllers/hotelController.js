@@ -261,6 +261,23 @@ exports.searchHotel = async (req, res) => {
     console.log('Hotels in response:', response.data.HotelResult?.length || 0);
 
     if (response.data.HotelResult && response.data.HotelResult.length > 0) {
+      console.log('Hotels found:', response.data.HotelResult.length);
+
+      // Async: Save hotel names for search suggestions
+      try {
+        response.data.HotelResult.forEach(hotel => {
+          if (hotel.HotelName && hotel.HotelCode) {
+            firebaseService.saveHotelNameMapping(
+              hotel.HotelName,
+              hotel.HotelCode,
+              hotel.Address || ''
+            ).catch(err => console.error('Bg save name error:', err.message));
+          }
+        });
+      } catch (err) {
+        console.error('Error initiating bg save:', err);
+      }
+
       const hotel = response.data.HotelResult[0];
       console.log('Rooms found:', hotel.Rooms?.length || 0);
     }
@@ -590,6 +607,26 @@ exports.fetchAndCacheHotelCardInfo = async (req, res) => {
     console.error('Fetch hotel card info error:', error.message);
     res.status(500).json({
       error: 'Failed to fetch hotel card info',
+      message: error.message
+    });
+  }
+};
+
+// Search hotel names (Auto-complete)
+exports.searchHotelNames = async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query || query.length < 2) {
+      return res.json({ suggestions: [] });
+    }
+
+    const suggestions = await firebaseService.searchHotelNames(query);
+    res.json({ suggestions });
+  } catch (error) {
+    console.error('Search hotel names error:', error.message);
+    res.status(500).json({
+      error: 'Failed to search hotel names',
       message: error.message
     });
   }

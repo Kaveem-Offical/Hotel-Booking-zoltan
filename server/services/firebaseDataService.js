@@ -311,6 +311,90 @@ const getMissingHotelCardInfoCodes = async (hotelCodes) => {
     }
 };
 
+/**
+ * Save hotel name mapping for search suggestions
+ * Stores simple name -> code mapping
+ */
+const saveHotelNameMapping = async (hotelName, hotelCode, address = '') => {
+    try {
+        // Create a safe key from hotel code
+        const safeKey = hotelCode.replace(/[.#$/[\]]/g, '_');
+
+        const ref = database.ref(`${STATIC_DATA_PATH}/hotel_search_index/${safeKey}`);
+
+        await ref.update({
+            name: hotelName,
+            name_lower: hotelName.toLowerCase(),
+            code: hotelCode,
+            address: address,
+            lastUpdated: new Date().toISOString()
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Error saving hotel name mapping:', error);
+        return false;
+    }
+};
+
+/**
+ * Search hotel names from Firebase
+ * Searches the existing hotels cache (tbo_static_data/hotels/{cityCode}/data)
+ * Returns list of matching hotels
+ */
+const searchHotelNames = async (query) => {
+    try {
+        if (!query || query.length < 2) return [];
+
+        const queryLower = query.toLowerCase();
+        const ref = database.ref(`${STATIC_DATA_PATH}/hotels`);
+
+        // Get all cached hotels from all cities
+        const snapshot = await ref.once('value');
+        const allCityHotels = snapshot.val();
+
+        if (!allCityHotels) {
+            console.log('No cached hotels found');
+            return [];
+        }
+
+        const results = [];
+
+        // Search through all cached cities' hotel lists
+        for (const cityCode of Object.keys(allCityHotels)) {
+            const cityData = allCityHotels[cityCode];
+            if (cityData && cityData.data && Array.isArray(cityData.data)) {
+                for (const hotel of cityData.data) {
+                    // Check if hotel name contains the query
+                    const hotelName = hotel.HotelName || '';
+                    if (hotelName.toLowerCase().includes(queryLower)) {
+                        results.push({
+                            Name: hotelName,
+                            Code: hotel.HotelCode,
+                            Address: hotel.HotelAddress || '',
+                            CityName: hotel.CityName || '',
+                            StarRating: hotel.HotelRating || hotel.StarRating || '',
+                            Latitude: hotel.Latitude || '',
+                            Longitude: hotel.Longitude || '',
+                            Type: 'Hotel'
+                        });
+
+                        // Limit results to 10
+                        if (results.length >= 10) break;
+                    }
+                }
+            }
+            if (results.length >= 10) break;
+        }
+
+        console.log(`Found ${results.length} hotels matching "${query}":`, results.map(r => `${r.Name} (${r.Code})`));
+        return results;
+    } catch (error) {
+        console.error('Error searching hotel names:', error);
+        return [];
+    }
+};
+
 module.exports = {
     saveCountries,
     getCountries,
@@ -321,6 +405,8 @@ module.exports = {
     saveHotelDetails,
     getHotelDetails,
     findHotelByCode,
+    saveHotelNameMapping,
+    searchHotelNames,
     getCacheMetadata,
     clearAllCache,
     saveHotelCardInfo,

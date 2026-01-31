@@ -15,6 +15,9 @@ router.post('/search', hotelController.searchHotel);
 // Hotel card info route (fetch and cache images, amenities, rating, reviews for search results)
 router.post('/hotel-card-info', hotelController.fetchAndCacheHotelCardInfo);
 
+// Autocomplete route
+router.get('/search-names', hotelController.searchHotelNames);
+
 // PreBook and Book routes
 router.post('/prebook', hotelController.preBookHotel);
 router.post('/book', hotelController.bookHotel);

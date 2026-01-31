@@ -60,6 +60,22 @@ export const fetchCities = async (countryCode) => {
 };
 
 /**
+ * Search hotel names - Autocomplete from Firebase
+ */
+export const searchHotelNames = async (query) => {
+  try {
+    if (!query || query.length < 2) return { suggestions: [] };
+
+    // console.log(`Searching hotel names for: ${query}`);
+    const response = await api.get(`/search-names?query=${encodeURIComponent(query)}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error searching hotel names:', error);
+    return { suggestions: [] };
+  }
+};
+
+/**
  * Fetch hotels - Firebase cache first, then API
  */
 export const fetchHotels = async (cityCode) => {

@@ -5,7 +5,7 @@ import {
     X, Camera, ChevronLeft
 } from 'lucide-react';
 import { fetchHotelDetails, searchHotels, fetchBasicHotelInfo } from '../services/api';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 const HotelDetailsPage = () => {
     const { hotelId } = useParams();
@@ -21,13 +21,21 @@ const HotelDetailsPage = () => {
     const [showGallery, setShowGallery] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-    const searchParams = {
-        checkIn: new Date().toISOString().split('T')[0],
-        checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-        rooms: 0,
-        adults: 2,
-        children: 0
-    };
+    const location = useLocation();
+
+    // Initialize params from location state if available, otherwise defaults
+    const searchParams = useMemo(() => {
+        const state = location.state || {};
+        const guests = state.guests || {};
+
+        return {
+            checkIn: state.checkIn || new Date().toISOString().split('T')[0],
+            checkOut: state.checkOut || new Date(Date.now() + 86400000).toISOString().split('T')[0],
+            rooms: guests.rooms || 1,
+            adults: guests.adults || 2,
+            children: guests.children || 0
+        };
+    }, [location.state]);
 
     useEffect(() => {
         const handleScroll = () => {

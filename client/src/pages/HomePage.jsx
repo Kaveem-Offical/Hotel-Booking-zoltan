@@ -253,8 +253,40 @@ function HomePage() {
             let hotelCodesList = [];
             let staticMap = {};
 
-            // Fetch all hotel codes for the city
-            if (searchData.cityCode) {
+            // Check if searching for a specific hotel or a city
+            if (searchData.hotelCode) {
+                // Single hotel search - use hotelInfo from search bar if available
+                console.log(`Searching for specific hotel: ${searchData.hotelCode}`);
+
+                // Build static map from carried-over hotel info
+                if (searchData.hotelInfo) {
+                    staticMap[searchData.hotelCode] = {
+                        HotelCode: searchData.hotelCode,
+                        HotelName: searchData.hotelInfo.HotelName,
+                        HotelAddress: searchData.hotelInfo.HotelAddress,
+                        Address: searchData.hotelInfo.HotelAddress,
+                        HotelRating: searchData.hotelInfo.StarRating,
+                        StarRating: searchData.hotelInfo.StarRating,
+                        Latitude: searchData.hotelInfo.Latitude,
+                        Longitude: searchData.hotelInfo.Longitude
+                    };
+                    setStaticHotelsMap(staticMap);
+                    setCurrentStaticMap(staticMap);
+                }
+
+                hotelCodesList = [searchData.hotelCode];
+                setAllHotelCodes(hotelCodesList);
+                setSearchParams(searchData);
+                setHasMore(false); // Only one hotel, no pagination needed
+
+                const results = await searchHotelChunk(hotelCodesList, searchData, staticMap, false);
+
+                if (!results || results.length === 0) {
+                    setError(`No rooms available for "${searchData.destination}" on the selected dates. Try different dates.`);
+                }
+
+            } else if (searchData.cityCode) {
+                // City search - existing logic
                 try {
                     const hotelListResponse = await fetchHotels(searchData.cityCode);
                     if (hotelListResponse && hotelListResponse.Hotels && Array.isArray(hotelListResponse.Hotels)) {
@@ -272,27 +304,31 @@ function HomePage() {
                 } catch (err) {
                     console.error('Failed to fetch hotel list for city:', err);
                 }
-            }
 
-            if (hotelCodesList.length === 0) {
-                setError('No hotels found for this city.');
+                if (hotelCodesList.length === 0) {
+                    setError('No hotels found for this city.');
+                    setLoading(false);
+                    return;
+                }
+
+                // Store all hotel codes and search params for pagination
+                setAllHotelCodes(hotelCodesList);
+                setSearchParams(searchData);
+
+                // Get first chunk (first 100 hotels)
+                const firstChunk = hotelCodesList.slice(0, CHUNK_SIZE);
+                console.log(`Searching first ${firstChunk.length} hotels...`);
+
+                await searchHotelChunk(firstChunk, searchData, staticMap, false);
+
+                // Check if there are more hotels to load
+                if (hotelCodesList.length <= CHUNK_SIZE) {
+                    setHasMore(false);
+                }
+            } else {
+                setError('Please select a city or hotel to search.');
                 setLoading(false);
                 return;
-            }
-
-            // Store all hotel codes and search params for pagination
-            setAllHotelCodes(hotelCodesList);
-            setSearchParams(searchData);
-
-            // Get first chunk (first 100 hotels)
-            const firstChunk = hotelCodesList.slice(0, CHUNK_SIZE);
-            console.log(`Searching first ${firstChunk.length} hotels...`);
-
-            await searchHotelChunk(firstChunk, searchData, staticMap, false);
-
-            // Check if there are more hotels to load
-            if (hotelCodesList.length <= CHUNK_SIZE) {
-                setHasMore(false);
             }
 
         } catch (err) {
