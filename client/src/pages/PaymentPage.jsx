@@ -5,6 +5,7 @@ import {
     AlertCircle, ArrowLeft, Clock, X, Loader, Lock, ChevronRight
 } from 'lucide-react';
 import { createPaymentOrder, verifyPayment } from '../services/api';
+import ErrorAlert from '../components/ErrorAlert';
 
 const PaymentPage = () => {
     const location = useLocation();
@@ -364,16 +365,15 @@ const PaymentPage = () => {
             <div className="container mx-auto px-4 py-6">
                 {/* Error Alert */}
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
-                        <AlertCircle size={20} className="mr-2 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                            <p className="font-semibold">Payment Error</p>
-                            <p className="text-sm">{error}</p>
-                        </div>
-                        <button onClick={() => setError(null)} className="ml-2">
-                            <X size={20} />
-                        </button>
-                    </div>
+                    <ErrorAlert
+                        message={error}
+                        type="error"
+                        title="Payment Error"
+                        dismissible={true}
+                        onDismiss={() => setError(null)}
+                        onRetry={handlePayment}
+                        className="mb-6"
+                    />
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -520,8 +520,8 @@ const PaymentPage = () => {
                                 onClick={handlePayment}
                                 disabled={loading || !razorpayLoaded}
                                 className={`w-full py-4 rounded-xl font-bold text-lg transition flex items-center justify-center gap-2 ${loading || !razorpayLoaded
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl'
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl'
                                     }`}
                             >
                                 {loading ? (

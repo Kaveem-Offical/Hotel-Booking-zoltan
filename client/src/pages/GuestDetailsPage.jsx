@@ -7,6 +7,7 @@ import {
     Bath, Sparkles, Tag, FileText, AlertTriangle
 } from 'lucide-react';
 import { preBookHotel, bookHotel } from '../services/api';
+import ErrorAlert from '../components/ErrorAlert';
 
 // Country codes for nationality dropdown
 const COUNTRY_CODES = [
@@ -503,16 +504,14 @@ const GuestDetailsPage = () => {
             <div className="container mx-auto px-4 py-6">
                 {/* Error Alert */}
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
-                        <AlertCircle size={20} className="mr-2 mt-0.5 flex-shrink-0" />
-                        <div>
-                            <p className="font-semibold">Error</p>
-                            <p className="text-sm">{error}</p>
-                        </div>
-                        <button onClick={() => setError(null)} className="ml-auto">
-                            <X size={20} />
-                        </button>
-                    </div>
+                    <ErrorAlert
+                        message={error}
+                        type="error"
+                        title="Booking Error"
+                        dismissible={true}
+                        onDismiss={() => setError(null)}
+                        className="mb-6"
+                    />
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

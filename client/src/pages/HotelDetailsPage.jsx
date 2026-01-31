@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { fetchHotelDetails, searchHotels, fetchBasicHotelInfo } from '../services/api';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import ErrorAlert from '../components/ErrorAlert';
 
 const HotelDetailsPage = () => {
     const { hotelId } = useParams();
@@ -384,7 +385,19 @@ const HotelDetailsPage = () => {
         );
     }
 
-    if (error) return <div className="text-center py-10 text-red-600">{error}</div>;
+    if (error) return (
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center p-4">
+            <div className="w-full max-w-md">
+                <ErrorAlert
+                    message={error}
+                    type="error"
+                    title="Unable to Load Hotel"
+                    dismissible={false}
+                    onRetry={() => window.location.reload()}
+                />
+            </div>
+        </div>
+    );
     if (!hotel) return <div className="text-center py-10">Hotel not found</div>;
 
     const images = getImages(hotel);

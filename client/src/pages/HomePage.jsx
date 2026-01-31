@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import HeroSearchBar from '../components/HeroSearchBar';
 import FilterSidebar from '../components/FilterSidebar';
 import HotelCard from '../components/HotelCard';
+import ErrorAlert from '../components/ErrorAlert';
 import { searchHotels, fetchHotels, fetchHotelCardInfo } from '../services/api';
 
 const CHUNK_SIZE = 100; // Number of hotel codes per API request
@@ -521,10 +522,13 @@ function HomePage() {
 
                         {/* Error Message */}
                         {error && (
-                            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                                <strong className="font-bold">Error: </strong>
-                                <span className="block sm:inline">{error}</span>
-                            </div>
+                            <ErrorAlert
+                                message={error}
+                                type="error"
+                                dismissible={true}
+                                onDismiss={() => setError(null)}
+                                className="mb-4"
+                            />
                         )}
 
                         {/* Initial Loading State */}

@@ -18,6 +18,7 @@ import {
     ChevronRight,
     RefreshCw
 } from 'lucide-react';
+import ErrorAlert from '../components/ErrorAlert';
 
 const ProfilePage = () => {
     const navigate = useNavigate();
@@ -315,18 +316,23 @@ const ProfilePage = () => {
             {/* Alerts */}
             <div className="container mx-auto px-4">
                 {error && (
-                    <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-                        <AlertCircle size={20} />
-                        {error}
-                        <button onClick={() => setError('')} className="ml-auto">
-                            <X size={16} />
-                        </button>
+                    <div className="mt-4">
+                        <ErrorAlert
+                            message={error}
+                            type="error"
+                            dismissible={true}
+                            onDismiss={() => setError('')}
+                        />
                     </div>
                 )}
                 {success && (
-                    <div className="mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
-                        <Check size={20} />
-                        {success}
+                    <div className="mt-4">
+                        <ErrorAlert
+                            message={success}
+                            type="success"
+                            title="Success"
+                            dismissible={false}
+                        />
                     </div>
                 )}
             </div>
