@@ -21,6 +21,8 @@ const HotelDetailsPage = () => {
     const [dataSource, setDataSource] = useState(null); // Track where data came from
     const [showGallery, setShowGallery] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [roomImageIndices, setRoomImageIndices] = useState({});
+    const [showAllRooms, setShowAllRooms] = useState(false);
 
     const location = useLocation();
 
@@ -29,10 +31,22 @@ const HotelDetailsPage = () => {
         const state = location.state || {};
         const guests = state.guests || {};
 
+        // Use local date to avoid UTC timezone shift (toISOString uses UTC which shifts dates back in IST)
+        const formatLocalDate = (date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
         return {
-            checkIn: state.checkIn || new Date().toISOString().split('T')[0],
-            checkOut: state.checkOut || new Date(Date.now() + 86400000).toISOString().split('T')[0],
-            rooms: guests.rooms || 1,
+            checkIn: state.checkIn || formatLocalDate(today),
+            checkOut: state.checkOut || formatLocalDate(tomorrow),
+            rooms: guests.rooms || 0,
             adults: guests.adults || 2,
             children: guests.children || 0
         };
@@ -116,7 +130,7 @@ const HotelDetailsPage = () => {
                     checkOut: searchParams.checkOut,
                     hotelCodes: hotelId,
                     guestNationality: "IN",
-                    noOfRooms: searchParams.rooms || 0,
+                    noOfRooms: 0,
                     paxRooms: [{
                         Adults: searchParams.adults,
                         Children: searchParams.children,
@@ -675,143 +689,268 @@ const HotelDetailsPage = () => {
                         <h2 className="text-xl font-bold mb-6">Available Rooms</h2>
 
                         <div className="space-y-6">
-                            {mergedRooms.length > 0 ? (
-                                mergedRooms.map((room, idx) => {
-                                    const unavailable = !room.available;
-                                    const isExpanded = expandedRoom === idx;
-
+                            {(() => {
+                                if (mergedRooms.length === 0) {
                                     return (
-                                        <div
-                                            key={idx}
-                                            className={`border rounded-lg overflow-hidden transition ${unavailable
-                                                ? "bg-gray-100 border-gray-300 opacity-70"
-                                                : "bg-white hover:shadow-md"
-                                                }`}
-                                        >
-                                            <div className="flex flex-col md:flex-row">
-                                                {/* IMAGE */}
-                                                <div className="md:w-1/3 bg-gray-100 relative min-h-[200px]">
-                                                    <img
-                                                        src={
-                                                            room.imageURL?.[0] ||
-                                                            images[idx + 1] ||
-                                                            "https://via.placeholder.com/300x200?text=Room"
-                                                        }
-                                                        alt={room.RoomName}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                </div>
-
-                                                {/* CONTENT */}
-                                                <div className="md:w-2/3 p-4">
-                                                    <h3 className="text-lg font-bold text-gray-800 mb-1">
-                                                        {room.RoomName}
-                                                    </h3>
-
-                                                    {/* NOT AVAILABLE BADGE */}
-                                                    {unavailable && (
-                                                        <div className="inline-block mb-2 text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded">
-                                                            Not available for selected dates
-                                                        </div>
-                                                    )}
-
-                                                    {/* DESCRIPTION */}
-                                                    {room.RoomDescription && (
-                                                        <p
-                                                            className="text-sm text-gray-800 mb-2 cursor-pointer"
-                                                            onClick={() =>
-                                                                setExpandedRoom(isExpanded ? null : idx)
-                                                            }
-                                                        >
-                                                            {isExpanded ||
-                                                                room.RoomDescription.length <= 175
-                                                                ? room.RoomDescription
-                                                                : `${room.RoomDescription.slice(0, 175)}...`}
-                                                            {room.RoomDescription.length > 175 && (
-                                                                <span className="ml-1 text-blue-600 font-medium">
-                                                                    {isExpanded ? " Show less" : " Read more"}
-                                                                </span>
-                                                            )}
-                                                        </p>
-                                                    )}
-
-                                                    {room.RoomSize && (
-                                                        <div className="text-sm text-gray-600 mb-3">
-                                                            <span className="font-medium">Size:</span>{" "}
-                                                            {room.RoomSize}
-                                                        </div>
-                                                    )}
-
-                                                    {/* INFO GRID */}
-                                                    <div className="grid grid-cols-2 gap-2 mb-4 text-sm text-gray-600">
-                                                        <div className="flex items-center gap-2">
-                                                            <User size={14} /> <span>Max 2 Adults</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-3 h-3 border border-gray-400"></div>
-                                                            <span>25 m²</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Coffee size={14} />
-                                                            <span>
-                                                                {room.pricing?.MealType ||
-                                                                    room.MealType ||
-                                                                    "Room Only"}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Wifi size={14} /> <span>Free Wi-Fi</span>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* TAGS */}
-                                                    <div className="flex flex-wrap gap-2 mb-3">
-                                                        {room.pricing?.IsRefundable && (
-                                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded flex items-center gap-1">
-                                                                <Check size={12} /> Free Cancellation
-                                                            </span>
-                                                        )}
-                                                        {room.pricing?.Inclusion && (
-                                                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex items-center gap-1">
-                                                                <Info size={12} /> {room.pricing.Inclusion}
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    {/* PRICE + CTA */}
-                                                    <div className="flex flex-col md:flex-row justify-between items-end mt-4 pt-4 border-t border-gray-100">
-                                                        {room.available && room.pricing && (
-                                                            <div className="mb-2 md:mb-0">
-                                                                <div className="text-2xl font-bold text-red-600">
-                                                                    ₹ {Math.round(room.pricing.TotalFare)}
-                                                                </div>
-                                                                <div className="text-xs text-gray-500">
-                                                                    per night incl. taxes
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        <button
-                                                            disabled={unavailable}
-                                                            onClick={() => !unavailable && handleReserve(room)}
-                                                            className={`w-full md:w-auto px-8 py-3 rounded font-bold transition ${unavailable
-                                                                ? "bg-gray-400 cursor-not-allowed text-white"
-                                                                : "bg-blue-600 hover:bg-blue-700 text-white"
-                                                                }`}
-                                                        >
-                                                            {unavailable ? "Unavailable" : "Reserve"}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        <div className="text-center text-gray-500 py-8">
+                                            Select dates to see available rooms
                                         </div>
                                     );
-                                })
-                            ) : (
-                                <div className="text-center text-gray-500 py-8">
-                                    Select dates to see available rooms
-                                </div>
-                            )}
+                                }
+
+                                const availableRooms = mergedRooms.filter(r => r.available);
+                                const unavailableRooms = mergedRooms.filter(r => !r.available);
+
+                                let visibleRooms;
+                                let hiddenCount;
+
+                                if (showAllRooms) {
+                                    // Show everything
+                                    visibleRooms = mergedRooms;
+                                    hiddenCount = 0;
+                                } else if (availableRooms.length > 0) {
+                                    // Show only available rooms, hide unavailable
+                                    visibleRooms = availableRooms;
+                                    hiddenCount = unavailableRooms.length;
+                                } else {
+                                    // No available rooms — show first 2 as preview
+                                    visibleRooms = mergedRooms.slice(0, 2);
+                                    hiddenCount = mergedRooms.length - visibleRooms.length;
+                                }
+
+                                return (
+                                    <>
+                                        {availableRooms.length === 0 && !showAllRooms && (
+                                            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
+                                                <Info size={16} className="flex-shrink-0" />
+                                                No rooms are available for the selected dates. Here are some rooms this hotel offers:
+                                            </div>
+                                        )}
+
+                                        {visibleRooms.map((room) => {
+                                            const originalIdx = mergedRooms.indexOf(room);
+                                            const unavailable = !room.available;
+                                            const isExpanded = expandedRoom === originalIdx;
+
+                                            return (
+                                                <div
+                                                    key={originalIdx}
+                                                    className={`border rounded-lg overflow-hidden transition ${unavailable
+                                                        ? "bg-gray-100 border-gray-300 opacity-70"
+                                                        : "bg-white hover:shadow-md"
+                                                        }`}
+                                                >
+                                                    <div className="flex flex-col md:flex-row">
+                                                        {/* IMAGE */}
+                                                        <div className="md:w-1/3 bg-gray-100 relative min-h-[200px]">
+                                                            {(() => {
+                                                                const roomImages = room.imageURL && room.imageURL.length > 0
+                                                                    ? room.imageURL
+                                                                    : (images[originalIdx + 1] ? [images[originalIdx + 1]] : ["https://via.placeholder.com/300x200?text=Room"]);
+                                                                const currentIdx = roomImageIndices[originalIdx] || 0;
+                                                                const hasMultiple = roomImages.length > 1;
+
+                                                                return (
+                                                                    <>
+                                                                        <img
+                                                                            src={roomImages[currentIdx] || roomImages[0]}
+                                                                            alt={`${room.RoomName} - Photo ${currentIdx + 1}`}
+                                                                            className="w-full h-full object-cover"
+                                                                        />
+                                                                        {hasMultiple && (
+                                                                            <>
+                                                                                {/* Previous Button */}
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setRoomImageIndices(prev => ({
+                                                                                            ...prev,
+                                                                                            [originalIdx]: (currentIdx - 1 + roomImages.length) % roomImages.length
+                                                                                        }));
+                                                                                    }}
+                                                                                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all opacity-0 group-hover:opacity-100 hover:scale-110 z-10"
+                                                                                    style={{ opacity: 1 }}
+                                                                                >
+                                                                                    <ChevronLeft size={18} className="text-gray-700" />
+                                                                                </button>
+
+                                                                                {/* Next Button */}
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setRoomImageIndices(prev => ({
+                                                                                            ...prev,
+                                                                                            [originalIdx]: (currentIdx + 1) % roomImages.length
+                                                                                        }));
+                                                                                    }}
+                                                                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all opacity-0 group-hover:opacity-100 hover:scale-110 z-10"
+                                                                                    style={{ opacity: 1 }}
+                                                                                >
+                                                                                    <ChevronRight size={18} className="text-gray-700" />
+                                                                                </button>
+
+                                                                                {/* Image Counter Badge */}
+                                                                                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 z-10">
+                                                                                    <Camera size={12} />
+                                                                                    {currentIdx + 1} / {roomImages.length}
+                                                                                </div>
+
+                                                                                {/* Dot Indicators */}
+                                                                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                                                                                    {roomImages.length <= 10
+                                                                                        ? roomImages.map((_, dotIdx) => (
+                                                                                            <button
+                                                                                                key={dotIdx}
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setRoomImageIndices(prev => ({ ...prev, [originalIdx]: dotIdx }));
+                                                                                                }}
+                                                                                                className={`w-2 h-2 rounded-full transition-all ${
+                                                                                                    dotIdx === currentIdx
+                                                                                                        ? 'bg-white scale-125 shadow-md'
+                                                                                                        : 'bg-white/50 hover:bg-white/80'
+                                                                                                }`}
+                                                                                            />
+                                                                                        ))
+                                                                                        : /* For many images, show simplified indicator */
+                                                                                        null
+                                                                                    }
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </div>
+
+                                                        {/* CONTENT */}
+                                                        <div className="md:w-2/3 p-4">
+                                                            <h3 className="text-lg font-bold text-gray-800 mb-1">
+                                                                {room.RoomName}
+                                                            </h3>
+
+                                                            {/* NOT AVAILABLE BADGE */}
+                                                            {unavailable && (
+                                                                <div className="inline-block mb-2 text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded">
+                                                                    Not available for selected dates
+                                                                </div>
+                                                            )}
+
+                                                            {/* DESCRIPTION */}
+                                                            {room.RoomDescription && (
+                                                                <p
+                                                                    className="text-sm text-gray-800 mb-2 cursor-pointer"
+                                                                    onClick={() =>
+                                                                        setExpandedRoom(isExpanded ? null : originalIdx)
+                                                                    }
+                                                                >
+                                                                    {isExpanded ||
+                                                                        room.RoomDescription.length <= 175
+                                                                        ? room.RoomDescription
+                                                                        : `${room.RoomDescription.slice(0, 175)}...`}
+                                                                    {room.RoomDescription.length > 175 && (
+                                                                        <span className="ml-1 text-blue-600 font-medium">
+                                                                            {isExpanded ? " Show less" : " Read more"}
+                                                                        </span>
+                                                                    )}
+                                                                </p>
+                                                            )}
+
+                                                            {room.RoomSize && (
+                                                                <div className="text-sm text-gray-600 mb-3">
+                                                                    <span className="font-medium">Size:</span>{" "}
+                                                                    {room.RoomSize}
+                                                                </div>
+                                                            )}
+
+                                                            {/* INFO GRID */}
+                                                            <div className="grid grid-cols-2 gap-2 mb-4 text-sm text-gray-600">
+                                                                <div className="flex items-center gap-2">
+                                                                    <User size={14} /> <span>Max 2 Adults</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-3 h-3 border border-gray-400"></div>
+                                                                    <span>25 m²</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Coffee size={14} />
+                                                                    <span>
+                                                                        {room.pricing?.MealType ||
+                                                                            room.MealType ||
+                                                                            "Room Only"}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Wifi size={14} /> <span>Free Wi-Fi</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* TAGS */}
+                                                            <div className="flex flex-wrap gap-2 mb-3">
+                                                                {room.pricing?.IsRefundable && (
+                                                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded flex items-center gap-1">
+                                                                        <Check size={12} /> Free Cancellation
+                                                                    </span>
+                                                                )}
+                                                                {room.pricing?.Inclusion && (
+                                                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex items-center gap-1">
+                                                                        <Info size={12} /> {room.pricing.Inclusion}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* PRICE + CTA */}
+                                                            <div className="flex flex-col md:flex-row justify-between items-end mt-4 pt-4 border-t border-gray-100">
+                                                                {room.available && room.pricing && (
+                                                                    <div className="mb-2 md:mb-0">
+                                                                        <div className="text-2xl font-bold text-red-600">
+                                                                            ₹ {Math.round(room.pricing.TotalFare)}
+                                                                        </div>
+                                                                        <div className="text-xs text-gray-500">
+                                                                            per night incl. taxes
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                <button
+                                                                    disabled={unavailable}
+                                                                    onClick={() => !unavailable && handleReserve(room)}
+                                                                    className={`w-full md:w-auto px-8 py-3 rounded font-bold transition ${unavailable
+                                                                        ? "bg-gray-400 cursor-not-allowed text-white"
+                                                                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                                                                        }`}
+                                                                >
+                                                                    {unavailable ? "Unavailable" : "Reserve"}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* Show More / Show Less Button */}
+                                        {!showAllRooms && hiddenCount > 0 && (
+                                            <button
+                                                onClick={() => setShowAllRooms(true)}
+                                                className="w-full py-3 border-2 border-dashed border-blue-300 text-blue-600 font-semibold rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <ChevronRight size={18} className="rotate-90" />
+                                                Show {hiddenCount} More Room{hiddenCount > 1 ? 's' : ''}
+                                            </button>
+                                        )}
+                                        {showAllRooms && mergedRooms.length > availableRooms.length && (
+                                            <button
+                                                onClick={() => setShowAllRooms(false)}
+                                                className="w-full py-3 border-2 border-dashed border-gray-300 text-gray-500 font-semibold rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <ChevronRight size={18} className="-rotate-90" />
+                                                Show Less
+                                            </button>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </section>
 

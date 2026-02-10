@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import HeroSearchBar from '../components/HeroSearchBar';
 import FilterSidebar from '../components/FilterSidebar';
 import HotelCard from '../components/HotelCard';
@@ -41,8 +41,13 @@ function HomePage() {
 
     // Ref for infinite scroll sentinel
     const sentinelRef = useRef(null);
+    // Ref for auto-scrolling to results after search
+    const resultsRef = useRef(null);
+    // Track if a search has been performed (for compact mode)
+    const [hasSearched, setHasSearched] = useState(false);
 
     const navigate = useNavigate();
+    const location = useLocation();
 
     // Compute dynamic filter options from hotels
     const filterOptions = useMemo(() => {
@@ -162,9 +167,20 @@ function HomePage() {
             return [];
         }
 
+        // Use local date to avoid UTC timezone shift
+        const formatLocalDate = (date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
         const payload = {
-            checkIn: searchData.checkInDate || new Date().toISOString().split('T')[0],
-            checkOut: searchData.checkOutDate || new Date(Date.now() + 86400000).toISOString().split('T')[0],
+            checkIn: searchData.checkInDate || formatLocalDate(today),
+            checkOut: searchData.checkOutDate || formatLocalDate(tomorrow),
             hotelCodes: codes.join(','),
             guestNationality: "IN",
             noOfRooms: searchData.guests?.rooms || 0,
@@ -235,6 +251,7 @@ function HomePage() {
     const handleSearch = async (searchData) => {
         // console.log('Search Data:', searchData);
         setLoading(true);
+        setHasSearched(true);
         setError(null);
         setHotels([]);
         setCurrentPage(0);
@@ -248,6 +265,13 @@ function HomePage() {
             mealPlans: [],
             cancellation: [],
         });
+
+        // Auto-scroll to results area after a short delay for UI to update
+        setTimeout(() => {
+            if (resultsRef.current) {
+                resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 300);
 
         try {
             let hotelCodesList = [];
@@ -468,8 +492,13 @@ function HomePage() {
     }, [filteredHotels, sortBy]);
 
     const handleHotelSelect = (hotel) => {
-        const params = new URLSearchParams();
-        navigate(`/hotel/${hotel.HotelCode}?${params.toString()}`);
+        navigate(`/hotel/${hotel.HotelCode}`, {
+            state: {
+                checkIn: searchParams?.checkInDate,
+                checkOut: searchParams?.checkOutDate,
+                guests: searchParams?.guests
+            }
+        });
     };
 
     // Calculate loaded/total counts for display
@@ -478,9 +507,9 @@ function HomePage() {
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-slate-900 theme-transition">
-            <HeroSearchBar onSearch={handleSearch} />
+            <HeroSearchBar onSearch={handleSearch} compact={hasSearched} locationState={location.state} />
 
-            <div className="container mx-auto px-4 py-8">
+            <div ref={resultsRef} className="container mx-auto px-4 py-8">
                 <div className="flex flex-col lg:flex-row gap-6">
                     {/* Sidebar */}
                     <div className="lg:w-72 flex-shrink-0">

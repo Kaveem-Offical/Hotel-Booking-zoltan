@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Calendar, Users, MapPin, Star, Shield, Clock, Headphones, ChevronDown, ArrowRight, Quote, Plane, Heart, Award } from 'lucide-react';
+import { Search, Calendar, Users, MapPin, Star, Shield, Clock, Headphones, ChevronDown, ArrowRight, Quote, Plane, Heart, Award, LogOut, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.png';
 import mumbaiImg from '../assets/mumbai.png';
 import goaImg from '../assets/goa.png';
@@ -128,6 +129,7 @@ const StarField = () => {
 // ─── Main Component ──────────────────────────────────────────
 const LandingPage = () => {
     const navigate = useNavigate();
+    const { currentUser, userData, logout } = useAuth();
     const [isNavScrolled, setIsNavScrolled] = useState(false);
     const [destination, setDestination] = useState('');
     const [checkIn, setCheckIn] = useState(() => {
@@ -199,15 +201,35 @@ const LandingPage = () => {
                     <Link to="/search" className="text-white/70 hover:text-white text-sm font-medium transition-colors hidden sm:block">
                         Hotels
                     </Link>
-                    <Link to="/signin" className="text-white/70 hover:text-white text-sm font-medium transition-colors">
-                        Sign In
-                    </Link>
-                    <Link
-                        to="/signup"
-                        className="px-5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-semibold border border-white/20 transition-all hover:scale-105"
-                    >
-                        Sign Up
-                    </Link>
+                    {currentUser ? (
+                        <>
+                            <Link to="/profile" className="text-white/70 hover:text-white text-sm font-medium transition-colors flex items-center gap-1">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs">
+                                    {(userData?.username || currentUser?.email || '?').charAt(0).toUpperCase()}
+                                </div>
+                                <span className="hidden sm:inline">{userData?.username || currentUser?.email?.split('@')[0]}</span>
+                            </Link>
+                            <button
+                                onClick={async () => { try { await logout(); } catch (e) { console.error(e); } }}
+                                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-semibold border border-white/20 transition-all hover:scale-105 flex items-center gap-1"
+                            >
+                                <LogOut size={14} />
+                                Logout
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <Link to="/signin" className="text-white/70 hover:text-white text-sm font-medium transition-colors">
+                                Sign In
+                            </Link>
+                            <Link
+                                to="/signup"
+                                className="px-5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-semibold border border-white/20 transition-all hover:scale-105"
+                            >
+                                Sign Up
+                            </Link>
+                        </>
+                    )}
                 </div>
             </nav>
 
@@ -316,7 +338,7 @@ const LandingPage = () => {
                     </div>
 
                     {/* Quick Destination Tags */}
-                    <div className="flex flex-wrap justify-center gap-2 mt-6" style={{ animation: 'fadeInUp 0.8s ease-out 1.2s both' }}>
+                    <div className="flex flex-wrap justify-center gap-2 mt-6" style={{ animation: 'fadeInUp 0.8s ease-out 1.2s both', paddingBottom: '100px' }}>
                         <span className="text-white/40 text-sm mr-2">Popular:</span>
                         {['Mumbai', 'Delhi', 'Goa', 'Bangalore', 'Jaipur'].map((city) => (
                             <button
@@ -403,7 +425,7 @@ const LandingPage = () => {
                             <div
                                 key={dest.city}
                                 className={`destination-card h-80 reveal-scale delay-${(i + 1) * 100}`}
-                                onClick={() => { setDestination(dest.city); navigate('/search'); }}
+                                onClick={() => navigate('/search', { state: { destination: dest.city, checkIn, checkOut, guests } })}
                             >
                                 <img src={dest.img} alt={dest.city} loading="lazy" />
                                 <div className="destination-overlay">

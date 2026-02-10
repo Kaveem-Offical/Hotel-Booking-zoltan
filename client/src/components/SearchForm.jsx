@@ -10,6 +10,8 @@ export function SearchForm({ hotelCode, onSearch, loading }) {
     rooms: 0
   });
 
+  console.log(formData);
+
   // Set default dates (today and tomorrow)
   React.useEffect(() => {
     const today = new Date();

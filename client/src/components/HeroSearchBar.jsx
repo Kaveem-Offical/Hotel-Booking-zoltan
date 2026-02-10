@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Calendar, User, MapPin, Minus, Plus, ChevronDown, Building, X, Sparkles } from 'lucide-react';
 import { fetchCities, searchHotelNames } from '../services/api';
 
-const HeroSearchBar = ({ onSearch }) => {
+const HeroSearchBar = ({ onSearch, compact = false, locationState }) => {
+  const hasAutoSearched = useRef(false);
   const [destination, setDestination] = useState('');
   const [selectedCityCode, setSelectedCityCode] = useState(null);
   const [selectedHotelCode, setSelectedHotelCode] = useState(null);
@@ -67,6 +68,63 @@ const HeroSearchBar = ({ onSearch }) => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, []);
 
+  // Pre-fill from landing page state and auto-trigger search
+  useEffect(() => {
+    if (locationState && !hasAutoSearched.current) {
+      const dest = locationState.destination;
+      if (dest) {
+        setDestination(dest);
+      }
+      if (locationState.checkIn) {
+        setCheckInDate(locationState.checkIn);
+      }
+      if (locationState.checkOut) {
+        setCheckOutDate(locationState.checkOut);
+      }
+      if (locationState.guests) {
+        if (typeof locationState.guests === 'number') {
+          setGuests(prev => ({ ...prev, adults: locationState.guests }));
+        } else if (typeof locationState.guests === 'object') {
+          setGuests(locationState.guests);
+        }
+      }
+
+      // Auto-search: look up city code and trigger search
+      if (dest && onSearch) {
+        hasAutoSearched.current = true;
+        const autoSearch = async () => {
+          try {
+            const cityData = await fetchCities('IN');
+            if (cityData?.CityList) {
+              const match = cityData.CityList.find(
+                c => c.Name.toLowerCase() === dest.toLowerCase()
+              );
+              if (match) {
+                setSelectedCityCode(match.Code);
+                onSearch({
+                  destination: dest,
+                  cityCode: match.Code,
+                  hotelCode: null,
+                  hotelInfo: null,
+                  checkInDate: locationState.checkIn || checkInDate,
+                  checkOutDate: locationState.checkOut || checkOutDate,
+                  guests: typeof locationState.guests === 'number'
+                    ? { rooms: 1, adults: locationState.guests, children: 0, childrenAges: [] }
+                    : typeof locationState.guests === 'object'
+                      ? locationState.guests
+                      : guests
+                });
+              }
+            }
+          } catch (err) {
+            console.error('Auto-search failed:', err);
+          }
+        };
+        autoSearch();
+      }
+    }
+  }, [locationState]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch suggestions (Cities + Hotels)
   useEffect(() => {
     const getSuggestions = async () => {
@@ -128,7 +186,7 @@ const HeroSearchBar = ({ onSearch }) => {
     });
   };
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     setIsSearchOverlayOpen(false);
     if (onSearch) {
       onSearch({
@@ -141,7 +199,7 @@ const HeroSearchBar = ({ onSearch }) => {
         guests
       });
     }
-  };
+  }, [onSearch, destination, selectedCityCode, selectedHotelCode, selectedHotelInfo, checkInDate, checkOutDate, guests]);
 
   const handleSuggestionSelect = (item) => {
     setDestination(item.Name);
@@ -170,18 +228,24 @@ const HeroSearchBar = ({ onSearch }) => {
   return (
     <>
       {/* Main Hero Section */}
-      <div className="relative w-full min-h-[420px] md:min-h-[500px] py-16 md:py-0 flex items-center justify-center bg-cover bg-center" style={{ backgroundImage: 'url("https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png")' }}>
+      <div className={`relative w-full flex items-center justify-center bg-cover bg-center transition-all duration-500 ease-out ${
+        compact
+          ? 'min-h-0 py-4 md:py-5'
+          : 'min-h-[420px] md:min-h-[500px] py-16 md:py-0'
+      }`} style={{ backgroundImage: 'url("https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png")' }}>
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/40"></div>
 
         <div className="relative z-10 w-full max-w-5xl px-4">
-          <div className="text-center mb-8 animate-fade-in-up">
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-lg mb-2">
-              HOTELS, RESORTS, HOSTELS & MORE
-            </h1>
-            <p className="text-base sm:text-xl text-white drop-shadow-md">
-              Get the best prices on 2,000,000+ properties, worldwide
-            </p>
-          </div>
+          {!compact && (
+            <div className="text-center mb-8 animate-fade-in-up">
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-lg mb-2">
+                HOTELS, RESORTS, HOSTELS & MORE
+              </h1>
+              <p className="text-base sm:text-xl text-white drop-shadow-md">
+                Get the best prices on 2,000,000+ properties, worldwide
+              </p>
+            </div>
+          )}
 
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-4 md:p-2 flex flex-col md:flex-row gap-2 items-center theme-transition">
 
