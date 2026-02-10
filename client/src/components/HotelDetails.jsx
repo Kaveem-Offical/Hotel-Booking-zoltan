@@ -20,8 +20,8 @@ export function HotelDetails({ hotel, onBack }) {
       api.getHotelDetails(hotelCode)
         .then(data => {
           if (data.Status && data.Status.Code === 200 && data.HotelDetails && data.HotelDetails.length > 0) {
-            dispatch({ 
-              type: 'SET_HOTEL_DETAILS', 
+            dispatch({
+              type: 'SET_HOTEL_DETAILS',
               hotelCode,
               payload: data.HotelDetails[0]
             });
@@ -39,13 +39,10 @@ export function HotelDetails({ hotel, onBack }) {
     setSearchLoading(true);
     setSearchResults(null);
     setSearchError(null);
-    
-    console.log('Searching with params:', searchParams);
-    
+
     try {
       const data = await api.searchHotel(searchParams);
-      console.log('Search response:', data);
-      
+
       if (data.Status && data.Status.Code !== 200) {
         setSearchError(data.Status.Description || 'Search failed');
       } else {
@@ -98,8 +95,8 @@ export function HotelDetails({ hotel, onBack }) {
       {/* Hotel Information */}
       <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
         {details.Images && details.Images.length > 0 && (
-          <img 
-            src={details.Images[0]} 
+          <img
+            src={details.Images[0]}
             alt={details.HotelName}
             className="w-full h-64 object-cover"
             onError={(e) => {
@@ -107,7 +104,7 @@ export function HotelDetails({ hotel, onBack }) {
             }}
           />
         )}
-        
+
         <div className="p-6">
           <div className="flex justify-between items-start mb-4">
             <h1 className="text-3xl font-bold text-gray-800">{details.HotelName}</h1>
@@ -153,9 +150,9 @@ export function HotelDetails({ hotel, onBack }) {
             {details.HotelWebsiteUrl && (
               <div className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-gray-400" />
-                <a 
-                  href={details.HotelWebsiteUrl} 
-                  target="_blank" 
+                <a
+                  href={details.HotelWebsiteUrl}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:underline"
                 >
@@ -168,7 +165,7 @@ export function HotelDetails({ hotel, onBack }) {
           {details.Description && (
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-2">About</h2>
-              <div 
+              <div
                 className="text-gray-700 leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: details.Description }}
               />
@@ -192,7 +189,7 @@ export function HotelDetails({ hotel, onBack }) {
       </div>
 
       {/* Search Form */}
-      <SearchForm 
+      <SearchForm
         hotelCode={hotelCode}
         onSearch={handleSearch}
         loading={searchLoading}

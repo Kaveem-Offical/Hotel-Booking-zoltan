@@ -186,7 +186,7 @@ const HeroSearchBar = ({ onSearch }) => {
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-4 md:p-2 flex flex-col md:flex-row gap-2 items-center theme-transition">
 
             {/* Destination Search - Click to Open Overlay */}
-            <div className="relative flex-1 w-full md:w-auto" ref={searchInputRef}>
+            <div className="relative flex-1 w-full md:w-auto h-[63px]" ref={searchInputRef}>
               <div
                 className="flex items-center px-4 py-3 md:p-[8px] border border-gray-200 dark:border-slate-600 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-all duration-300 cursor-pointer group"
                 onClick={() => setIsSearchOverlayOpen(true)}

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } f
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import HomePage from './pages/HomePage';
+import LandingPage from './pages/LandingPage';
 import HotelDetailsPage from './pages/HotelDetailsPage';
 import GuestDetailsPage from './pages/GuestDetailsPage';
 import PaymentPage from './pages/PaymentPage';
@@ -138,6 +139,10 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/"
+        element={<LandingPage />}
+      />
+      <Route
+        path="/search"
         element={
           <Layout>
             <HomePage />

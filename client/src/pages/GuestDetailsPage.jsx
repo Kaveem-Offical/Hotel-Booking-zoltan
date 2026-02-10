@@ -112,7 +112,6 @@ const GuestDetailsPage = () => {
             try {
                 setPreBookLoading(true);
                 const response = await preBookHotel(initialBookingCode);
-                console.log('PreBook response:', response);
 
                 if (response && response.HotelResult && response.HotelResult.length > 0) {
                     const hotelResult = response.HotelResult[0];

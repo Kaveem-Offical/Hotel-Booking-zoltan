@@ -18,7 +18,7 @@ export const getCachedCountries = async () => {
         const countriesRef = ref(database, `${STATIC_DATA_PATH}/countries/data`);
         const snapshot = await get(countriesRef);
         if (snapshot.exists()) {
-            console.log('Countries loaded from Firebase cache');
+            // console.log('Countries loaded from Firebase cache');
             return snapshot.val();
         }
         return null;
@@ -38,7 +38,7 @@ export const getCachedCities = async (countryCode) => {
         const citiesRef = ref(database, `${STATIC_DATA_PATH}/cities/${countryCode}/data`);
         const snapshot = await get(citiesRef);
         if (snapshot.exists()) {
-            console.log(`Cities for ${countryCode} loaded from Firebase cache`);
+            // console.log(`Cities for ${countryCode} loaded from Firebase cache`);
             return snapshot.val();
         }
         return null;
@@ -58,7 +58,7 @@ export const getCachedHotels = async (cityCode) => {
         const hotelsRef = ref(database, `${STATIC_DATA_PATH}/hotels/${cityCode}/data`);
         const snapshot = await get(hotelsRef);
         if (snapshot.exists()) {
-            console.log(`Hotels for city ${cityCode} loaded from Firebase cache`);
+            // console.log(`Hotels for city ${cityCode} loaded from Firebase cache`);
             return snapshot.val();
         }
         return null;
@@ -78,7 +78,7 @@ export const getCachedHotelDetails = async (hotelCode) => {
         const detailsRef = ref(database, `${STATIC_DATA_PATH}/hotelDetails/${hotelCode}/data`);
         const snapshot = await get(detailsRef);
         if (snapshot.exists()) {
-            console.log(`Hotel details for ${hotelCode} loaded from Firebase cache`);
+            // console.log(`Hotel details for ${hotelCode} loaded from Firebase cache`);
             return snapshot.val();
         }
         return null;

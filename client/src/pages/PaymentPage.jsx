@@ -140,9 +140,9 @@ const PaymentPage = () => {
                 contactDetails
             };
 
-            console.log('Creating payment order:', orderData);
+            // console.log('Creating payment order:', orderData);
             const orderResponse = await createPaymentOrder(orderData);
-            console.log('Order created:', orderResponse);
+            // console.log('Order created:', orderResponse);
 
             if (!orderResponse.success || !orderResponse.orderId) {
                 throw new Error(orderResponse.message || 'Failed to create payment order');
@@ -157,7 +157,7 @@ const PaymentPage = () => {
                 description: `Hotel Booking - ${hotel?.HotelName || 'Hotel'}`,
                 order_id: orderResponse.orderId,
                 handler: async function (response) {
-                    console.log('Payment successful:', response);
+                    // console.log('Payment successful:', response);
                     await handlePaymentSuccess(response);
                 },
                 prefill: {
@@ -176,7 +176,7 @@ const PaymentPage = () => {
                 modal: {
                     ondismiss: function () {
                         setLoading(false);
-                        console.log('Payment modal closed');
+                        // console.log('Payment modal closed');
                     }
                 }
             };
@@ -200,14 +200,14 @@ const PaymentPage = () => {
     // Handle successful payment
     const handlePaymentSuccess = async (razorpayResponse) => {
         try {
-            console.log('Verifying payment...');
+            // console.log('Verifying payment...');
             const verifyResponse = await verifyPayment({
                 razorpay_order_id: razorpayResponse.razorpay_order_id,
                 razorpay_payment_id: razorpayResponse.razorpay_payment_id,
                 razorpay_signature: razorpayResponse.razorpay_signature
             });
 
-            console.log('Verification response:', verifyResponse);
+            // console.log('Verification response:', verifyResponse);
 
             if (verifyResponse.success) {
                 setPaymentSuccess(true);

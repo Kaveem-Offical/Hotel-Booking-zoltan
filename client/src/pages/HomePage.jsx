@@ -191,7 +191,6 @@ function HomePage() {
                 try {
                     const cardInfoResponse = await fetchHotelCardInfo(resultHotelCodes);
                     hotelCardInfo = cardInfoResponse.hotelInfo || {};
-                    console.log(`Loaded hotel card info: ${Object.keys(hotelCardInfo).length} cached/fetched`);
                 } catch (infoError) {
                     console.error('Failed to fetch hotel card info:', infoError);
                 }
@@ -234,7 +233,7 @@ function HomePage() {
 
     // Initial search handler
     const handleSearch = async (searchData) => {
-        console.log('Search Data:', searchData);
+        // console.log('Search Data:', searchData);
         setLoading(true);
         setError(null);
         setHotels([]);
@@ -257,7 +256,7 @@ function HomePage() {
             // Check if searching for a specific hotel or a city
             if (searchData.hotelCode) {
                 // Single hotel search - use hotelInfo from search bar if available
-                console.log(`Searching for specific hotel: ${searchData.hotelCode}`);
+                // console.log(`Searching for specific hotel: ${searchData.hotelCode}`);
 
                 // Build static map from carried-over hotel info
                 if (searchData.hotelInfo) {
@@ -300,7 +299,7 @@ function HomePage() {
 
                         // Extract all hotel codes
                         hotelCodesList = hotelListResponse.Hotels.map(h => h.HotelCode);
-                        console.log(`Total hotels for city: ${hotelCodesList.length}`);
+                        // console.log(`Total hotels for city: ${hotelCodesList.length}`);
                     }
                 } catch (err) {
                     console.error('Failed to fetch hotel list for city:', err);
@@ -318,7 +317,7 @@ function HomePage() {
 
                 // Get first chunk (first 100 hotels)
                 const firstChunk = hotelCodesList.slice(0, CHUNK_SIZE);
-                console.log(`Searching first ${firstChunk.length} hotels...`);
+                // console.log(`Searching first ${firstChunk.length} hotels...`);
 
                 await searchHotelChunk(firstChunk, searchData, staticMap, false);
 
@@ -351,7 +350,7 @@ function HomePage() {
         const endIdx = startIdx + CHUNK_SIZE;
         const nextChunk = allHotelCodes.slice(startIdx, endIdx);
 
-        console.log(`Loading page ${nextPage + 1}: hotels ${startIdx} to ${endIdx}`);
+        // console.log(`Loading page ${nextPage + 1}: hotels ${startIdx} to ${endIdx}`);
 
         if (nextChunk.length === 0) {
             setHasMore(false);
@@ -395,7 +394,7 @@ function HomePage() {
 
     const handleFilterChange = (newFilters) => {
         setFilters(newFilters);
-        console.log('Filters:', newFilters);
+        // console.log('Filters:', newFilters);
     };
 
     // Apply filters with improved logic

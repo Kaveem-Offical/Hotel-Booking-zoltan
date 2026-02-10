@@ -23,12 +23,12 @@ export const fetchCountries = async () => {
     // Try Firebase cache first
     const cached = await getCachedCountries();
     if (cached) {
-      console.log('Using cached countries from Firebase');
+      // console.log('Using cached countries from Firebase');
       return { CountryList: cached, source: 'cache' };
     }
 
     // Fallback to API (which will cache to Firebase)
-    console.log('Fetching countries from API');
+    // console.log('Fetching countries from API');
     const response = await api.get('/countries');
     return response.data;
   } catch (error) {
@@ -45,12 +45,12 @@ export const fetchCities = async (countryCode) => {
     // Try Firebase cache first
     const cached = await getCachedCities(countryCode);
     if (cached) {
-      console.log(`Using cached cities for ${countryCode} from Firebase`);
+      // console.log(`Using cached cities for ${countryCode} from Firebase`);
       return { CityList: cached, source: 'cache' };
     }
 
     // Fallback to API (which will cache to Firebase)
-    console.log(`Fetching cities for ${countryCode} from API`);
+    // console.log(`Fetching cities for ${countryCode} from API`);
     const response = await api.post('/cities', { countryCode });
     return response.data;
   } catch (error) {
@@ -66,7 +66,7 @@ export const searchHotelNames = async (query) => {
   try {
     if (!query || query.length < 2) return { suggestions: [] };
 
-    // console.log(`Searching hotel names for: ${query}`);
+    // // console.log(`Searching hotel names for: ${query}`);
     const response = await api.get(`/search-names?query=${encodeURIComponent(query)}`);
     return response.data;
   } catch (error) {
@@ -83,12 +83,12 @@ export const fetchHotels = async (cityCode) => {
     // Try Firebase cache first
     const cached = await getCachedHotels(cityCode);
     if (cached) {
-      console.log(`Using cached hotels for city ${cityCode} from Firebase`);
+      // console.log(`Using cached hotels for city ${cityCode} from Firebase`);
       return { Hotels: cached, source: 'cache' };
     }
 
     // Fallback to API (which will cache to Firebase)
-    console.log(`Fetching hotels for city ${cityCode} from API`);
+    // console.log(`Fetching hotels for city ${cityCode} from API`);
     const response = await api.post('/hotels', { cityCode });
     return response.data;
   } catch (error) {
@@ -106,12 +106,12 @@ export const fetchHotelDetails = async (hotelCode) => {
     // Try Firebase cache first
     // const cached = await getCachedHotelDetails(hotelCode);
     // if (cached) {
-    //   console.log(`Using cached hotel details for ${hotelCode} from Firebase`);
+    //   // console.log(`Using cached hotel details for ${hotelCode} from Firebase`);
     //   return { HotelDetails: [cached], source: 'cache' };
     // }
 
     // // Fallback to API (which will cache to Firebase)
-    // console.log(`Fetching hotel details for ${hotelCode} from API`);
+    // // console.log(`Fetching hotel details for ${hotelCode} from API`);
     const response = await api.post('/hotel-details', { hotelCode });
 
     // Check if API returned an error status
@@ -119,7 +119,7 @@ export const fetchHotelDetails = async (hotelCode) => {
       console.warn(`TBO API returned error for hotel ${hotelCode}:`, response.data.Status.Description);
       return null;
     }
-    console.log(response.data, 'response.data')
+    // console.log(response.data, 'response.data')
     return response.data;
   } catch (error) {
     console.error('Error fetching hotel details:', error.message || error);
@@ -135,7 +135,7 @@ export const fetchHotelDetails = async (hotelCode) => {
  */
 export const searchHotels = async (searchParams) => {
   try {
-    console.log('Searching hotels (live pricing - no cache)');
+    // console.log('Searching hotels (live pricing - no cache)');
     const response = await api.post('/search', searchParams);
     return response.data;
   } catch (error) {
@@ -152,7 +152,7 @@ export const searchHotels = async (searchParams) => {
  */
 export const fetchHotelCardInfo = async (hotelCodes) => {
   try {
-    console.log(`Fetching card info for ${hotelCodes.length} hotels`);
+    // console.log(`Fetching card info for ${hotelCodes.length} hotels`);
     const response = await api.post('/hotel-card-info', { hotelCodes });
     return response.data;
   } catch (error) {
@@ -168,7 +168,7 @@ export const fetchHotelCardInfo = async (hotelCodes) => {
  */
 export const fetchBasicHotelInfo = async (hotelCode) => {
   try {
-    console.log(`Fetching basic hotel info for ${hotelCode} from cached hotel lists`);
+    // console.log(`Fetching basic hotel info for ${hotelCode} from cached hotel lists`);
     const response = await api.post('/hotel-basic-info', { hotelCode });
     return response.data;
   } catch (error) {
@@ -183,7 +183,7 @@ export const fetchBasicHotelInfo = async (hotelCode) => {
  */
 export const preBookHotel = async (bookingCode) => {
   try {
-    console.log('PreBooking hotel with BookingCode:', bookingCode);
+    // console.log('PreBooking hotel with BookingCode:', bookingCode);
     const response = await api.post('/prebook', { BookingCode: bookingCode });
     return response.data;
   } catch (error) {
@@ -197,9 +197,11 @@ export const preBookHotel = async (bookingCode) => {
  * @param {Object} bookingData - Contains BookingCode, GuestNationality, NetAmount, HotelRoomsDetails, etc.
  */
 export const bookHotel = async (bookingData) => {
+  console.log('Booking hotel with data:', bookingData);
   try {
-    console.log('Booking hotel with data:', bookingData);
+    // console.log('Booking hotel with data:', bookingData);
     const response = await api.post('/book', bookingData);
+    console.log('Booking hotel response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error booking hotel:', error.response?.data || error.message);
@@ -213,7 +215,7 @@ export const bookHotel = async (bookingData) => {
  */
 export const createPaymentOrder = async (orderData) => {
   try {
-    console.log('Creating payment order:', orderData);
+    // console.log('Creating payment order:', orderData);
     const response = await axios.post('http://localhost:5000/api/payment/create-order', orderData);
     return response.data;
   } catch (error) {
@@ -228,7 +230,7 @@ export const createPaymentOrder = async (orderData) => {
  */
 export const verifyPayment = async (paymentData) => {
   try {
-    console.log('Verifying payment:', paymentData);
+    // console.log('Verifying payment:', paymentData);
     const response = await axios.post('http://localhost:5000/api/payment/verify', paymentData);
     return response.data;
   } catch (error) {

@@ -58,7 +58,6 @@ export function SearchForm({ hotelCode, onSearch, loading }) {
       isDetailedResponse: true
     };
 
-    console.log('Submitting search with params:', searchParams);
     onSearch(searchParams);
   };
 

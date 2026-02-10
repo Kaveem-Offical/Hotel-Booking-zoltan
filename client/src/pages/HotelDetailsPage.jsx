@@ -68,11 +68,11 @@ const HotelDetailsPage = () => {
             // Step 1: Try to fetch full hotel details from TBO API
             try {
                 const detailsResponse = await fetchHotelDetails(hotelId);
-                console.log('Hotel details response:', detailsResponse);
+                // console.log('Hotel details response:', detailsResponse);
                 if (detailsResponse && detailsResponse.HotelDetails && detailsResponse.HotelDetails.length > 0) {
                     hotelData = detailsResponse.HotelDetails[0];
                     setDataSource('tbo_details');
-                    console.log('Using TBO hotel details API data');
+                    // console.log('Using TBO hotel details API data');
                 }
             } catch (err) {
                 console.warn("Could not fetch hotel details from TBO API:", err.message);
@@ -82,7 +82,7 @@ const HotelDetailsPage = () => {
             if (!hotelData) {
                 try {
                     const basicInfoResponse = await fetchBasicHotelInfo(hotelId);
-                    console.log('Basic hotel info response:', basicInfoResponse);
+                    // console.log('Basic hotel info response:', basicInfoResponse);
                     if (basicInfoResponse && basicInfoResponse.HotelInfo) {
                         const info = basicInfoResponse.HotelInfo;
                         hotelData = {
@@ -102,7 +102,7 @@ const HotelDetailsPage = () => {
                             RoomDetails: []
                         };
                         setDataSource('firebase_cache');
-                        console.log('Using Firebase cached hotel list data as fallback');
+                        // console.log('Using Firebase cached hotel list data as fallback');
                     }
                 } catch (err) {
                     console.warn("Could not fetch basic hotel info from cache:", err.message);
@@ -124,15 +124,15 @@ const HotelDetailsPage = () => {
                     }]
                 };
 
-                console.log('Fetching room availability with payload:', payload);
+                // console.log('Fetching room availability with payload:', payload);
 
                 const availability = await searchHotels(payload);
-                console.log('Search availability response:', availability);
+                // console.log('Search availability response:', availability);
 
                 if (availability && availability.HotelResult && availability.HotelResult.length > 0) {
                     const searchResult = availability.HotelResult[0];
                     roomData = searchResult.Rooms || [];
-                    console.log('Available rooms:', roomData.length);
+                    // console.log('Available rooms:', roomData.length);
 
                     // Step 3a: If still no hotel data, use search result as last resort fallback
                     if (!hotelData) {
@@ -153,7 +153,7 @@ const HotelDetailsPage = () => {
                             RoomDetails: []
                         };
                         setDataSource('search_result');
-                        console.log('Using search result as hotel data fallback');
+                        // console.log('Using search result as hotel data fallback');
                     }
                 }
             } catch (err) {
@@ -286,12 +286,12 @@ const HotelDetailsPage = () => {
     const mergedRooms = useMemo(() => {
         const roomDetails = hotel?.RoomDetails || [];
 
-        console.log('Room Details from hotel:', roomDetails.map(r => r.RoomName));
-        console.log('Available rooms from search:', rooms.length, rooms.map(r => r.Name?.[0]));
+        // console.log('Room Details from hotel:', roomDetails.map(r => r.RoomName));
+        // console.log('Available rooms from search:', rooms.length, rooms.map(r => r.Name?.[0]));
 
         // If we have available rooms but no room details, show available rooms directly
         if (rooms.length > 0 && roomDetails.length === 0) {
-            console.log('No room details, showing available rooms directly');
+            // console.log('No room details, showing available rooms directly');
             return rooms.map(r => ({
                 RoomName: r.Name?.[0] || 'Room',
                 RoomDescription: r.Inclusion || '',
@@ -323,7 +323,7 @@ const HotelDetailsPage = () => {
             }
         });
 
-        console.log('Availability map keys:', Object.keys(availabilityMap));
+        // console.log('Availability map keys:', Object.keys(availabilityMap));
 
         // Merge rooms with better matching
         const merged = roomDetails
@@ -337,7 +337,7 @@ const HotelDetailsPage = () => {
                     const partialMatches = availabilityByPartialMatch[partialKey];
                     if (partialMatches && partialMatches.length > 0) {
                         matchedRoom = partialMatches[0];
-                        console.log(`Partial match for ${room.RoomName}:`, matchedRoom.Name?.[0]);
+                        // console.log(`Partial match for ${room.RoomName}:`, matchedRoom.Name?.[0]);
                     }
                 }
 
@@ -346,7 +346,7 @@ const HotelDetailsPage = () => {
                     matchedRoomIds.add(matchedRoom._idx);
                 }
 
-                console.log(`Room "${room.RoomName}" - Available: ${!!matchedRoom}`);
+                // console.log(`Room "${room.RoomName}" - Available: ${!!matchedRoom}`);
 
                 return {
                     ...room,
@@ -368,12 +368,12 @@ const HotelDetailsPage = () => {
             }));
 
         if (unmatchedAvailableRooms.length > 0) {
-            console.log('Adding unmatched available rooms:', unmatchedAvailableRooms.length);
+            // console.log('Adding unmatched available rooms:', unmatchedAvailableRooms.length);
             // Insert unmatched available rooms at the beginning (they are available)
             merged.unshift(...unmatchedAvailableRooms);
         }
 
-        console.log('Final merged rooms:', merged.length, 'available:', merged.filter(r => r.available).length);
+        // console.log('Final merged rooms:', merged.length, 'available:', merged.filter(r => r.available).length);
         return merged;
     }, [hotel, rooms]);
 
