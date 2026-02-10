@@ -386,9 +386,9 @@ const PaymentPage = () => {
                                 Booking Summary
                             </h2>
 
-                            <div className="flex gap-4">
+                            <div className="flex flex-col sm:flex-row gap-4">
                                 {/* Hotel Image */}
-                                <div className="w-32 h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                                <div className="w-full sm:w-32 h-40 sm:h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                                     {hotel?.Images?.[0] ? (
                                         <img
                                             src={hotel.Images[0]}
@@ -404,7 +404,7 @@ const PaymentPage = () => {
 
                                 {/* Hotel Info */}
                                 <div className="flex-1">
-                                    <div className="flex items-start gap-2 mb-1">
+                                    <div className="flex items-start gap-2 mb-1 flex-wrap">
                                         <h3 className="font-bold text-gray-800">{hotel?.HotelName}</h3>
                                         <div className="flex text-yellow-400">
                                             {[...Array(parseInt(hotel?.HotelRating) || 0)].map((_, i) => (
@@ -418,7 +418,7 @@ const PaymentPage = () => {
                             </div>
 
                             {/* Dates and Guests */}
-                            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t">
                                 <div>
                                     <div className="text-xs text-gray-500 mb-1">Check-in</div>
                                     <div className="font-semibold text-sm text-gray-800">

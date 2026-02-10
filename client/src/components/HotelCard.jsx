@@ -78,7 +78,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
       onClick={() => onSelect && onSelect(hotel)}
     >
       {/* Image Section */}
-      <div className="relative w-full md:w-[300px] h-[200px] md:h-auto flex-shrink-0 bg-gray-200 dark:bg-slate-700 overflow-hidden">
+      <div className="relative w-full md:w-[280px] h-[200px] md:h-auto flex-shrink-0 bg-gray-200 dark:bg-slate-700 overflow-hidden">
         <img
           src={image}
           alt={name}
@@ -205,10 +205,10 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
         </div>
 
         {/* Pricing Column */}
-        <div className="w-full md:w-48 flex flex-col justify-between border-l border-gray-100 md:pl-4">
+        <div className="w-full md:w-48 flex flex-col justify-between border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4">
 
           {/* Rating Badge */}
-          <div className="flex items-center justify-end mb-4">
+          <div className="flex items-center justify-between md:justify-end mb-4">
             <div className="text-right mr-2">
               <div className="text-sm font-bold text-gray-800">{ratingText}</div>
               <div className="text-xs text-gray-500">{reviews} reviews</div>
@@ -219,7 +219,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
           </div>
 
           {/* Price Info */}
-          <div className="text-right mt-auto">
+          <div className="text-right mt-auto flex flex-row md:flex-col items-end md:items-stretch gap-2 md:gap-0 flex-wrap">
             {discount > 0 && (
               <div className="text-xs text-red-500 font-bold bg-red-50 inline-block px-2 py-0.5 rounded mb-1">
                 SAVE {discount}%
@@ -232,7 +232,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
               </div>
             )}
 
-            <div className="text-3xl font-bold text-gray-800 leading-none">
+            <div className="text-2xl md:text-3xl font-bold text-gray-800 leading-none">
               {finalPrice !== "NA" ? `₹ ${finalPrice}` : "Price NA"}
             </div>
             <div className="text-xs text-gray-500 mt-1">

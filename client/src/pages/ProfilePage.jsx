@@ -340,10 +340,10 @@ const ProfilePage = () => {
             {/* Tabs */}
             <div className="bg-white border-b sticky top-[70px] z-10">
                 <div className="container mx-auto px-4">
-                    <div className="flex gap-0">
+                    <div className="flex gap-0 overflow-x-auto scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('trips')}
-                            className={`px-6 py-4 font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'trips'
+                            className={`px-4 sm:px-6 py-4 font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap text-sm sm:text-base ${activeTab === 'trips'
                                 ? 'border-blue-600 text-blue-600'
                                 : 'border-transparent text-gray-600 hover:text-gray-800'
                                 }`}
@@ -353,7 +353,7 @@ const ProfilePage = () => {
                         </button>
                         <button
                             onClick={() => setActiveTab('saved')}
-                            className={`px-6 py-4 font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'saved'
+                            className={`px-4 sm:px-6 py-4 font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap text-sm sm:text-base ${activeTab === 'saved'
                                 ? 'border-blue-600 text-blue-600'
                                 : 'border-transparent text-gray-600 hover:text-gray-800'
                                 }`}
@@ -368,7 +368,7 @@ const ProfilePage = () => {
                         </button>
                         <button
                             onClick={() => setActiveTab('settings')}
-                            className={`px-6 py-4 font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'settings'
+                            className={`px-4 sm:px-6 py-4 font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap text-sm sm:text-base ${activeTab === 'settings'
                                 ? 'border-blue-600 text-blue-600'
                                 : 'border-transparent text-gray-600 hover:text-gray-800'
                                 }`}
@@ -386,7 +386,7 @@ const ProfilePage = () => {
                 {activeTab === 'trips' && (
                     <div>
                         {/* Trips Filter */}
-                        <div className="flex gap-2 mb-6">
+                        <div className="flex flex-wrap gap-2 mb-6">
                             {['all', 'booked', 'completed', 'cancelled'].map((filter) => (
                                 <button
                                     key={filter}

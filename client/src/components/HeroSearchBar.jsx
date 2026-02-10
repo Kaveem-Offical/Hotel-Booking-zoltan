@@ -170,15 +170,15 @@ const HeroSearchBar = ({ onSearch }) => {
   return (
     <>
       {/* Main Hero Section */}
-      <div className="relative w-full h-[590px] md:h-[500px] flex items-center justify-center bg-cover bg-center" style={{ backgroundImage: 'url("https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png")' }}>
+      <div className="relative w-full min-h-[420px] md:min-h-[500px] py-16 md:py-0 flex items-center justify-center bg-cover bg-center" style={{ backgroundImage: 'url("https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png")' }}>
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/40"></div>
 
         <div className="relative z-10 w-full max-w-5xl px-4">
           <div className="text-center mb-8 animate-fade-in-up">
-            <h1 className="text-4xl md:text-5xl font-bold text-white drop-shadow-lg mb-2">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-lg mb-2">
               HOTELS, RESORTS, HOSTELS & MORE
             </h1>
-            <p className="text-xl text-white drop-shadow-md">
+            <p className="text-base sm:text-xl text-white drop-shadow-md">
               Get the best prices on 2,000,000+ properties, worldwide
             </p>
           </div>
@@ -318,7 +318,7 @@ const HeroSearchBar = ({ onSearch }) => {
 
       {/* ==================== SEARCH OVERLAY ==================== */}
       {isSearchOverlayOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh]">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[5vh] md:pt-[10vh]">
           {/* Backdrop with blur */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -329,7 +329,7 @@ const HeroSearchBar = ({ onSearch }) => {
           />
 
           {/* Overlay Content */}
-          <div className="relative z-10 w-full max-w-3xl mx-4 animate-scale-in">
+          <div className="relative z-10 w-full max-w-3xl mx-2 sm:mx-4 animate-scale-in">
             {/* Close Button */}
             <button
               onClick={() => {
@@ -343,7 +343,7 @@ const HeroSearchBar = ({ onSearch }) => {
 
             {/* Search Header */}
             <div className="text-center mb-6 animate-fade-in-up">
-              <h2 className="text-3xl font-bold text-white drop-shadow-lg flex items-center justify-center gap-3">
+              <h2 className="text-xl sm:text-3xl font-bold text-white drop-shadow-lg flex items-center justify-center gap-3">
                 <Sparkles className="w-8 h-8 text-yellow-400 animate-pulse" />
                 Where would you like to go?
                 <Sparkles className="w-8 h-8 text-yellow-400 animate-pulse" />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
@@ -12,7 +12,7 @@ import SignInPage from './pages/SignInPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
-import { Hotel, LogOut, Shield, Heart, HelpCircle, User, Sun, Moon } from 'lucide-react';
+import { Hotel, LogOut, Shield, Heart, HelpCircle, User, Sun, Moon, Menu, X } from 'lucide-react';
 import './styles/Auth.css';
 import logo from './assets/logo.png';
 
@@ -21,6 +21,9 @@ const NavHeader = () => {
   const { currentUser, userData, isAdmin, logout } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   const handleLogout = async () => {
     try {
@@ -47,7 +50,16 @@ const NavHeader = () => {
         <img style={{ height: '50px' }} src={logo} alt="Zovotel Logo" />
       </Link>
 
-      <div className="nav-links">
+      {/* Hamburger button - mobile only */}
+      <button
+        className="hamburger-btn dark:text-slate-200"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        aria-label="Toggle navigation menu"
+      >
+        {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      <div className={`nav-links ${mobileMenuOpen ? 'nav-links-open' : ''}`}>
         {/* Theme Toggle Button */}
         <button
           onClick={toggleTheme}
@@ -64,27 +76,27 @@ const NavHeader = () => {
         {currentUser ? (
           <>
             {/* Help Link */}
-            <Link to="/help" className="nav-link dark:text-slate-300 dark:hover:text-white">
+            <Link to="/help" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
               <HelpCircle size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
               Help
             </Link>
 
             {/* Saved Link - goes to profile */}
-            <Link to="/profile" className="nav-link dark:text-slate-300 dark:hover:text-white">
+            <Link to="/profile" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
               <Heart size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
               Saved
             </Link>
 
             {/* Admin Link */}
             {isAdmin && (
-              <Link to="/admin" className="nav-link dark:text-slate-300 dark:hover:text-white">
+              <Link to="/admin" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
                 <Shield size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
                 Admin
               </Link>
             )}
 
             {/* User Info - clickable to profile */}
-            <Link to="/profile" className="user-info-nav dark:bg-slate-800" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+            <Link to="/profile" className="user-info-nav dark:bg-slate-800" style={{ textDecoration: 'none', cursor: 'pointer' }} onClick={closeMobileMenu}>
               <div className="user-avatar-nav">
                 {getInitials(userData?.username || currentUser?.email)}
               </div>
@@ -94,7 +106,7 @@ const NavHeader = () => {
             </Link>
 
             {/* Logout Button */}
-            <button className="nav-button nav-button-secondary dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600" onClick={handleLogout}>
+            <button className="nav-button nav-button-secondary dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600" onClick={() => { handleLogout(); closeMobileMenu(); }}>
               <LogOut size={16} />
               Logout
             </button>
@@ -102,24 +114,29 @@ const NavHeader = () => {
         ) : (
           <>
             {/* Help Link */}
-            <Link to="/help" className="nav-link dark:text-slate-300 dark:hover:text-white">
+            <Link to="/help" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
               <HelpCircle size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
               Help
             </Link>
 
             {/* Sign In Link */}
-            <Link to="/signin" className="nav-link dark:text-slate-300 dark:hover:text-white">
+            <Link to="/signin" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
               Sign In
             </Link>
 
             {/* Sign Up Button */}
-            <Link to="/signup" className="nav-button">
+            <Link to="/signup" className="nav-button" onClick={closeMobileMenu}>
               <User size={16} />
               Sign Up
             </Link>
           </>
         )}
       </div>
+
+      {/* Mobile overlay */}
+      {mobileMenuOpen && (
+        <div className="nav-overlay" onClick={closeMobileMenu} />
+      )}
     </header>
   );
 };
