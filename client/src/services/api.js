@@ -6,7 +6,8 @@ import {
   getCachedHotelDetails
 } from './staticDataService';
 
-const API_BASE_URL = 'http://localhost:5000/api/hotels';
+const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${SERVER_URL}/api/hotels`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -216,7 +217,7 @@ export const bookHotel = async (bookingData) => {
 export const createPaymentOrder = async (orderData) => {
   try {
     // console.log('Creating payment order:', orderData);
-    const response = await axios.post('http://localhost:5000/api/payment/create-order', orderData);
+    const response = await axios.post(`${SERVER_URL}/api/payment/create-order`, orderData);
     return response.data;
   } catch (error) {
     console.error('Error creating payment order:', error.response?.data || error.message);
@@ -231,7 +232,7 @@ export const createPaymentOrder = async (orderData) => {
 export const verifyPayment = async (paymentData) => {
   try {
     // console.log('Verifying payment:', paymentData);
-    const response = await axios.post('http://localhost:5000/api/payment/verify', paymentData);
+    const response = await axios.post(`${SERVER_URL}/api/payment/verify`, paymentData);
     return response.data;
   } catch (error) {
     console.error('Error verifying payment:', error.response?.data || error.message);
@@ -246,7 +247,7 @@ export const verifyPayment = async (paymentData) => {
 export const getBookingHistory = async (filters = {}) => {
   try {
     const params = new URLSearchParams(filters).toString();
-    const url = params ? `http://localhost:5000/api/payment/bookings?${params}` : 'http://localhost:5000/api/payment/bookings';
+    const url = params ? `${SERVER_URL}/api/payment/bookings?${params}` : `${SERVER_URL}/api/payment/bookings`;
     const response = await axios.get(url);
     return response.data;
   } catch (error) {
@@ -261,7 +262,7 @@ export const getBookingHistory = async (filters = {}) => {
  */
 export const getBookingDetails = async (orderId) => {
   try {
-    const response = await axios.get(`http://localhost:5000/api/payment/bookings/${orderId}`);
+    const response = await axios.get(`${SERVER_URL}/api/payment/bookings/${orderId}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching booking details:', error.response?.data || error.message);
