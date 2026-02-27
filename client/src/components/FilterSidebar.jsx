@@ -135,7 +135,7 @@ const FilterSidebar = ({
 
             {/* Sidebar Container with smooth slide animation */}
             <div className={`
-        fixed inset-0 z-50 bg-white dark:bg-slate-900 transform transition-transform duration-300 ease-out lg:relative lg:transform-none lg:block lg:w-72 lg:bg-transparent
+        fixed inset-0 z-9 bg-white dark:bg-slate-900 transform transition-transform duration-300 ease-out lg:relative lg:transform-none lg:block lg:w-72 lg:bg-transparent
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
                 <div className="h-full overflow-y-auto p-4 lg:p-0 bg-white dark:bg-slate-900 lg:bg-transparent dark:lg:bg-transparent lg:sticky lg:top-4">

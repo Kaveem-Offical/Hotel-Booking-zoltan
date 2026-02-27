@@ -5,6 +5,7 @@ import FilterSidebar from '../components/FilterSidebar';
 import HotelCard from '../components/HotelCard';
 import ErrorAlert from '../components/ErrorAlert';
 import { searchHotels, fetchHotels, fetchHotelCardInfo } from '../services/api';
+import { useAppContext } from '../context/AppContext';
 
 const CHUNK_SIZE = 100; // Number of hotel codes per API request
 
@@ -26,28 +27,52 @@ const parseStarRating = (rating) => {
 };
 
 function HomePage() {
-    const [hotels, setHotels] = useState([]);
-    const [staticHotelsMap, setStaticHotelsMap] = useState({});
+    const { state: appState, dispatch } = useAppContext();
+    const cachedSearch = appState.searchCache;
+
+    const [hotels, setHotels] = useState(cachedSearch?.hotels || []);
+    const [staticHotelsMap, setStaticHotelsMap] = useState(cachedSearch?.staticHotelsMap || {});
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState(null);
 
     // Pagination state
-    const [allHotelCodes, setAllHotelCodes] = useState([]);
-    const [currentPage, setCurrentPage] = useState(0);
-    const [hasMore, setHasMore] = useState(true);
-    const [searchParams, setSearchParams] = useState(null);
-    const [currentStaticMap, setCurrentStaticMap] = useState({});
+    const [allHotelCodes, setAllHotelCodes] = useState(cachedSearch?.allHotelCodes || []);
+    const [currentPage, setCurrentPage] = useState(cachedSearch?.currentPage || 0);
+    const [hasMore, setHasMore] = useState(cachedSearch?.hasMore ?? true);
+    const [searchParams, setSearchParams] = useState(cachedSearch?.searchParams || null);
+    const [currentStaticMap, setCurrentStaticMap] = useState(cachedSearch?.currentStaticMap || {});
 
     // Ref for infinite scroll sentinel
     const sentinelRef = useRef(null);
     // Ref for auto-scrolling to results after search
     const resultsRef = useRef(null);
     // Track if a search has been performed (for compact mode)
-    const [hasSearched, setHasSearched] = useState(false);
+    const [hasSearched, setHasSearched] = useState(cachedSearch?.hasSearched || false);
 
     const navigate = useNavigate();
     const location = useLocation();
+
+    // Save search state to AppContext whenever hotels or search params change
+    useEffect(() => {
+        if (hotels.length > 0 && searchParams) {
+            dispatch({
+                type: 'SAVE_SEARCH_STATE',
+                payload: {
+                    hotels,
+                    staticHotelsMap,
+                    allHotelCodes,
+                    currentPage,
+                    hasMore,
+                    searchParams,
+                    currentStaticMap,
+                    hasSearched,
+                    filters,
+                    sortBy
+                }
+            });
+        }
+    }, [hotels, searchParams, allHotelCodes, currentPage, hasMore, hasSearched]);
 
     // Compute dynamic filter options from hotels
     const filterOptions = useMemo(() => {
@@ -138,7 +163,7 @@ function HomePage() {
     }, [hotels]);
 
     // Initialize filters with dynamic price range
-    const [filters, setFilters] = useState({
+    const [filters, setFilters] = useState(cachedSearch?.filters || {
         priceRange: { min: 0, max: 100000 },
         starRating: [],
         guestRating: [],
@@ -148,7 +173,7 @@ function HomePage() {
     });
 
     // Sort state
-    const [sortBy, setSortBy] = useState('bestMatch');
+    const [sortBy, setSortBy] = useState(cachedSearch?.sortBy || 'bestMatch');
 
     // Update price range when bounds change (only on first load)
     useEffect(() => {
@@ -507,12 +532,12 @@ function HomePage() {
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-slate-900 theme-transition">
-            <HeroSearchBar onSearch={handleSearch} compact={hasSearched} locationState={location.state} />
+            <HeroSearchBar onSearch={handleSearch} compact={hasSearched} locationState={location.state} cachedSearchParams={cachedSearch?.searchParams} />
 
             <div ref={resultsRef} className="container mx-auto px-4 py-8">
                 <div className="flex flex-col lg:flex-row gap-6">
                     {/* Sidebar */}
-                    <div className="lg:w-72 flex-shrink-0">
+                    <div className="lg:w-72 flex-shrink-0 z-9">
                         <FilterSidebar
                             filters={filters}
                             onFilterChange={handleFilterChange}

@@ -7,7 +7,8 @@ const initialState = {
   hotels: {},
   hotelDetails: {},
   loading: false,
-  error: null
+  error: null,
+  searchCache: null // Cached search state for back-navigation persistence
 };
 
 function appReducer(state, action) {
@@ -34,6 +35,10 @@ function appReducer(state, action) {
       return { ...state, loading: action.payload };
     case 'SET_ERROR':
       return { ...state, error: action.payload };
+    case 'SAVE_SEARCH_STATE':
+      return { ...state, searchCache: action.payload };
+    case 'CLEAR_SEARCH_STATE':
+      return { ...state, searchCache: null };
     default:
       return state;
   }

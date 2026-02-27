@@ -52,7 +52,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
 
   // Price handling
   // API structure: hotel.Rooms[0].TotalFare or hotel.Rooms[0].DayRates[0][0].BasePrice
-  const totalFare = roomData.TotalFare;
+  const totalFare = roomData.DayRates?.[0]?.[0]?.BasePrice || roomData.TotalFare;
   const originalPrice = totalFare ? Math.round(totalFare) : "NA";
 
   // If we have a price, we can try to show a discount if applicable, or just show the price.

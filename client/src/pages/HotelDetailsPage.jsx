@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
     MapPin, Star, Share2, Heart, ChevronRight,
     Wifi, Coffee, Car, Utensils, Check, User, Info,
-    X, Camera, ChevronLeft
+    X, Camera, ChevronLeft, ArrowLeft
 } from 'lucide-react';
 import { fetchHotelDetails, searchHotels, fetchBasicHotelInfo } from '../services/api';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -422,10 +422,17 @@ const HotelDetailsPage = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen pb-24 md:pb-10">
-            {/* Breadcrumb & Header */}
+            {/* Back Button & Breadcrumb */}
             <div className="container mx-auto px-4 py-4">
+                <button
+                    onClick={() => navigate(-1)}
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium text-sm mb-3 transition-colors group"
+                >
+                    <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+                    Back to results
+                </button>
                 <div className="flex items-center text-sm text-gray-500 mb-4 overflow-x-auto whitespace-nowrap">
-                    <span className="cursor-pointer hover:text-blue-600">Home</span>
+                    <span className="cursor-pointer hover:text-blue-600" onClick={() => navigate('/search')}>Home</span>
                     <ChevronRight size={16} className="mx-2 flex-shrink-0" />
                     <span className="cursor-pointer hover:text-blue-600">{hotel.CountryName || 'India'}</span>
                     <ChevronRight size={16} className="mx-2 flex-shrink-0" />

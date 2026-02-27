@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Calendar, User, MapPin, Minus, Plus, ChevronDown, Building, X, Sparkles } from 'lucide-react';
+import { Search, User, MapPin, Minus, Plus, ChevronDown, Building, X, Sparkles } from 'lucide-react';
 import { fetchCities, searchHotelNames } from '../services/api';
+import DateRangePicker from './DateRangePicker';
 
-const HeroSearchBar = ({ onSearch, compact = false, locationState }) => {
+const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchParams }) => {
   const hasAutoSearched = useRef(false);
   const [destination, setDestination] = useState('');
   const [selectedCityCode, setSelectedCityCode] = useState(null);
@@ -124,6 +125,35 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState }) => {
       }
     }
   }, [locationState]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Restore search bar fields from cached search params (back-navigation)
+  useEffect(() => {
+    if (cachedSearchParams && !locationState && !hasAutoSearched.current) {
+      if (cachedSearchParams.destination) {
+        setDestination(cachedSearchParams.destination);
+      }
+      if (cachedSearchParams.cityCode) {
+        setSelectedCityCode(cachedSearchParams.cityCode);
+        setSelectedHotelCode(null);
+        setSelectedHotelInfo(null);
+      } else if (cachedSearchParams.hotelCode) {
+        setSelectedHotelCode(cachedSearchParams.hotelCode);
+        setSelectedCityCode(null);
+        if (cachedSearchParams.hotelInfo) {
+          setSelectedHotelInfo(cachedSearchParams.hotelInfo);
+        }
+      }
+      if (cachedSearchParams.checkInDate) {
+        setCheckInDate(cachedSearchParams.checkInDate);
+      }
+      if (cachedSearchParams.checkOutDate) {
+        setCheckOutDate(cachedSearchParams.checkOutDate);
+      }
+      if (cachedSearchParams.guests) {
+        setGuests(cachedSearchParams.guests);
+      }
+    }
+  }, [cachedSearchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch suggestions (Cities + Hotels)
   useEffect(() => {
@@ -252,7 +282,7 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState }) => {
             {/* Destination Search - Click to Open Overlay */}
             <div className="relative flex-1 w-full md:w-auto h-[63px]" ref={searchInputRef}>
               <div
-                className="flex items-center px-4 py-3 md:p-[8px] border border-gray-200 dark:border-slate-600 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-all duration-300 cursor-pointer group"
+                className="flex items-center px-4 py-3 md:p-[8px] h-[100%] border border-gray-200 dark:border-slate-600 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-all duration-300 cursor-pointer group"
                 onClick={() => setIsSearchOverlayOpen(true)}
               >
                 <Search className="w-5 h-5 text-gray-400 dark:text-slate-400 mr-3 group-hover:text-blue-500 transition-colors" />
@@ -265,34 +295,14 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState }) => {
               </div>
             </div>
 
-            {/* Date Picker - Enhanced */}
-            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-              <div className="flex items-center px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-all duration-300 bg-white dark:bg-slate-700 relative group w-full md:w-40 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:focus-within:ring-blue-800">
-                <Calendar className="w-5 h-5 text-gray-400 dark:text-slate-400 mr-3 group-hover:text-blue-500 group-focus-within:text-blue-500 transition-colors" />
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-500 dark:text-slate-400 font-medium">Check-in</span>
-                  <input
-                    type="date"
-                    value={checkInDate}
-                    onChange={(e) => setCheckInDate(e.target.value)}
-                    className="outline-none text-gray-800 dark:text-white font-bold text-sm w-full bg-transparent p-0"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-all duration-300 bg-white dark:bg-slate-700 relative group w-full md:w-40 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:focus-within:ring-blue-800">
-                <Calendar className="w-5 h-5 text-gray-400 dark:text-slate-400 mr-3 group-hover:text-blue-500 group-focus-within:text-blue-500 transition-colors" />
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-500 dark:text-slate-400 font-medium">Check-out</span>
-                  <input
-                    type="date"
-                    value={checkOutDate}
-                    min={checkInDate}
-                    onChange={(e) => setCheckOutDate(e.target.value)}
-                    className="outline-none text-gray-800 dark:text-white font-bold text-sm w-full bg-transparent p-0"
-                  />
-                </div>
-              </div>
+            {/* Date Range Picker */}
+            <div className="w-full md:w-auto md:min-w-[300px]">
+              <DateRangePicker
+                checkInDate={checkInDate}
+                checkOutDate={checkOutDate}
+                onCheckInChange={setCheckInDate}
+                onCheckOutChange={setCheckOutDate}
+              />
             </div>
 
             {/* Guest Selector - Enhanced */}

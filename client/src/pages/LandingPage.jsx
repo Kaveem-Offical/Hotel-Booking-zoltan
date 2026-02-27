@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Calendar, Users, MapPin, Star, Shield, Clock, Headphones, ChevronDown, ArrowRight, Quote, Plane, Heart, Award, LogOut, User } from 'lucide-react';
+import { Search, Users, MapPin, Star, Shield, Clock, Headphones, ChevronDown, ArrowRight, Quote, Plane, Heart, Award, LogOut, User } from 'lucide-react';
+import GlobeAnimation from '../components/GlobeAnimation';
+import DateRangePicker from '../components/DateRangePicker';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.png';
 import mumbaiImg from '../assets/mumbai.png';
@@ -194,7 +196,7 @@ const LandingPage = () => {
 
             {/* ══════════════ NAVBAR ══════════════ */}
             <nav className={`landing-nav ${isNavScrolled ? 'scrolled' : ''}`}>
-                <Link to="/" className="flex items-center gap-2">
+                <Link to="/search" className="flex items-center gap-2">
                     <img src={logo} alt="Zovotel" className="h-10" />
                 </Link>
                 <div className="flex items-center gap-6">
@@ -235,12 +237,9 @@ const LandingPage = () => {
 
             {/* ══════════════ HERO SECTION ══════════════ */}
             <section className="landing-hero">
-                {/* Background Effects */}
-                <div className="gradient-mesh" />
-                <div className="blob blob-1" />
-                <div className="blob blob-2" />
-                <div className="blob blob-3" />
-                <StarField />
+                {/* Globe Animation Background */}
+                <GlobeAnimation />
+                <div className="hero-overlay" />
 
                 <div className="relative z-10 w-full max-w-5xl px-4 pt-20 text-center">
                     {/* Badge */}
@@ -279,33 +278,15 @@ const LandingPage = () => {
                                 />
                             </div>
 
-                            {/* Check-in */}
-                            <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-transparent hover:border-white/10 transition-all group md:w-44">
-                                <Calendar className="w-5 h-5 text-purple-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Check-in</span>
-                                    <input
-                                        type="date"
-                                        value={checkIn}
-                                        onChange={(e) => setCheckIn(e.target.value)}
-                                        className="hero-search-input text-sm font-semibold"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Check-out */}
-                            <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-transparent hover:border-white/10 transition-all group md:w-44">
-                                <Calendar className="w-5 h-5 text-purple-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Check-out</span>
-                                    <input
-                                        type="date"
-                                        value={checkOut}
-                                        min={checkIn}
-                                        onChange={(e) => setCheckOut(e.target.value)}
-                                        className="hero-search-input text-sm font-semibold"
-                                    />
-                                </div>
+                            {/* Date Range Picker */}
+                            <div className="md:min-w-[280px]">
+                                <DateRangePicker
+                                    checkInDate={checkIn}
+                                    checkOutDate={checkOut}
+                                    onCheckInChange={setCheckIn}
+                                    onCheckOutChange={setCheckOut}
+                                    variant="dark"
+                                />
                             </div>
 
                             {/* Guests */}
