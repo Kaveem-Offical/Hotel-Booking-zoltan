@@ -22,4 +22,12 @@ router.get('/search-names', hotelController.searchHotelNames);
 router.post('/prebook', hotelController.preBookHotel);
 router.post('/book', hotelController.bookHotel);
 
+// Authenticate route (for testing/debugging token)
+router.post('/authenticate', hotelController.authenticate);
+
+// Cancellation routes
+router.post('/cancel', hotelController.sendChangeRequest);
+router.post('/cancel-status', hotelController.getChangeRequestStatus);
+
 module.exports = router;
+

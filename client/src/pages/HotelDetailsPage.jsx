@@ -911,10 +911,10 @@ const HotelDetailsPage = () => {
                                                                 {room.available && room.pricing && (
                                                                     <div className="mb-2 md:mb-0">
                                                                         <div className="text-2xl font-bold text-red-600">
-                                                                            ₹ {Math.round(room.pricing.TotalFare)}
+                                                                            ₹ {Math.round(room.pricing.TotalFare - (room.pricing.TotalTax || 0))}
                                                                         </div>
                                                                         <div className="text-xs text-gray-500">
-                                                                            per night incl. taxes
+                                                                            + Taxes & fees
                                                                         </div>
                                                                     </div>
                                                                 )}

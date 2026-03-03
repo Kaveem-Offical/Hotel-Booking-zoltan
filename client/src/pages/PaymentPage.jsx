@@ -5,11 +5,13 @@ import {
     AlertCircle, ArrowLeft, Clock, X, Loader, Lock, ChevronRight
 } from 'lucide-react';
 import { createPaymentOrder, verifyPayment } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import ErrorAlert from '../components/ErrorAlert';
 
 const PaymentPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const { addBooking } = useAuth();
 
     // Data passed from GuestDetailsPage
     const {
@@ -210,6 +212,36 @@ const PaymentPage = () => {
             // console.log('Verification response:', verifyResponse);
 
             if (verifyResponse.success) {
+                // Save booking to user's profile so it appears in My Trips
+                try {
+                    console.log('=== Saving booking to user profile ===');
+                    console.log('verifyResponse:', JSON.stringify(verifyResponse, null, 2));
+                    const savedBooking = await addBooking({
+                        hotelName: hotel?.HotelName || 'Hotel',
+                        hotelAddress: hotel?.Address || hotel?.CityName || '',
+                        hotelCode: hotel?.HotelCode || '',
+                        hotelImage: hotel?.Images?.[0] || '',
+                        checkIn: searchParams?.checkIn || '',
+                        checkOut: searchParams?.checkOut || '',
+                        totalAmount: getAmount(),
+                        currency: getCurrency(),
+                        guests: guestDetails?.length || 1,
+                        rooms: searchParams?.rooms || 1,
+                        roomName: getRoomName(),
+                        orderId: verifyResponse.orderId,
+                        paymentId: verifyResponse.paymentId,
+                        tboBookingId: verifyResponse.bookingId || '',
+                        bookingRefNo: verifyResponse.bookingRefNo || '',
+                        confirmationNo: verifyResponse.confirmationNo || '',
+                        bookingStatus: verifyResponse.bookingStatus || 'Confirmed',
+                        lastCancellationDeadline: preBookData?.Rooms?.[0]?.LastCancellationDeadline || '',
+                    });
+                    console.log('=== Booking saved successfully ===', savedBooking);
+                } catch (bookingErr) {
+                    console.error('Failed to save booking to profile:', bookingErr.message, bookingErr);
+                    // Don't block the success flow — payment already succeeded
+                }
+
                 setPaymentSuccess(true);
                 setBookingResult(verifyResponse);
             } else {

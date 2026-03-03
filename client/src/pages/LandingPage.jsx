@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Users, MapPin, Star, Shield, Clock, Headphones, ChevronDown, ArrowRight, Quote, Plane, Heart, Award, LogOut, User } from 'lucide-react';
+import { Search, Users, MapPin, Star, Shield, Clock, Headphones, ChevronDown, ArrowRight, Quote, Plane, Heart, Award, LogOut, User, Building, X, Sparkles } from 'lucide-react';
 import GlobeAnimation from '../components/GlobeAnimation';
 import DateRangePicker from '../components/DateRangePicker';
 import { useAuth } from '../context/AuthContext';
+import { fetchCities, fetchCountries, searchHotelNames } from '../services/api';
 import logo from '../assets/logo.png';
 import mumbaiImg from '../assets/mumbai.png';
 import goaImg from '../assets/goa.png';
@@ -134,6 +135,10 @@ const LandingPage = () => {
     const { currentUser, userData, logout } = useAuth();
     const [isNavScrolled, setIsNavScrolled] = useState(false);
     const [destination, setDestination] = useState('');
+    const [selectedCityCode, setSelectedCityCode] = useState(null);
+    const [selectedCountryCode, setSelectedCountryCode] = useState(null);
+    const [selectedHotelCode, setSelectedHotelCode] = useState(null);
+    const [selectedHotelInfo, setSelectedHotelInfo] = useState(null);
     const [checkIn, setCheckIn] = useState(() => {
         const d = new Date(); d.setDate(d.getDate() + 1);
         return d.toISOString().split('T')[0];
@@ -144,6 +149,18 @@ const LandingPage = () => {
     });
     const [guests, setGuests] = useState(2);
 
+    // Search overlay state
+    const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const overlayInputRef = useRef(null);
+    const countriesRef = useRef([]);
+    const citiesCacheRef = useRef({});
+
+    // Top countries to search
+    const TOP_COUNTRIES = ['IN', 'AE', 'US', 'GB', 'SG', 'TH', 'MY', 'FR', 'DE', 'AU', 'SA', 'LK', 'JP'];
+    const QUICK_CITIES = ['Mumbai', 'Dubai', 'London', 'Singapore', 'Bangkok', 'Goa', 'Paris', 'Jaipur'];
+
     useScrollReveal();
 
     // Navbar scroll handler
@@ -152,6 +169,139 @@ const LandingPage = () => {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    // Focus overlay input when opened
+    useEffect(() => {
+        if (isSearchOverlayOpen && overlayInputRef.current) {
+            setTimeout(() => overlayInputRef.current.focus(), 100);
+        }
+    }, [isSearchOverlayOpen]);
+
+    // Handle escape to close overlay
+    useEffect(() => {
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                setIsSearchOverlayOpen(false);
+                setShowDropdown(false);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, []);
+
+    // Lock body scroll when overlay is open
+    useEffect(() => {
+        if (isSearchOverlayOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [isSearchOverlayOpen]);
+
+    // Fetch countries and pre-cache cities
+    useEffect(() => {
+        const init = async () => {
+            try {
+                const data = await fetchCountries();
+                if (data?.CountryList) {
+                    countriesRef.current = data.CountryList;
+                }
+                TOP_COUNTRIES.forEach(async (code) => {
+                    try {
+                        const cityData = await fetchCities(code);
+                        if (cityData?.CityList) {
+                            citiesCacheRef.current[code] = cityData.CityList;
+                        }
+                    } catch (e) { /* silent */ }
+                });
+            } catch (e) {
+                console.error('Failed to init countries:', e);
+            }
+        };
+        init();
+    }, []);
+
+    // Helper to get country name
+    const getCountryName = useCallback((code) => {
+        const country = countriesRef.current.find(c => c.Code === code);
+        return country?.Name || code;
+    }, []);
+
+    // Fetch city + hotel suggestions with debounce (multi-country)
+    useEffect(() => {
+        const getSuggestions = async () => {
+            if (destination.length > 1) {
+                try {
+                    const searchLower = destination.toLowerCase();
+
+                    let citySuggestions = [];
+                    const countriesToSearch = Object.keys(citiesCacheRef.current).length > 0
+                        ? Object.keys(citiesCacheRef.current)
+                        : TOP_COUNTRIES;
+
+                    for (const code of countriesToSearch) {
+                        if (citiesCacheRef.current[code]) {
+                            const filtered = citiesCacheRef.current[code]
+                                .filter(c => c.Name.toLowerCase().includes(searchLower))
+                                .slice(0, 3)
+                                .map(c => ({ ...c, type: 'City', countryCode: code, countryName: getCountryName(code) }));
+                            citySuggestions = [...citySuggestions, ...filtered];
+                        } else {
+                            try {
+                                const cityData = await fetchCities(code);
+                                if (cityData?.CityList) {
+                                    citiesCacheRef.current[code] = cityData.CityList;
+                                    const filtered = cityData.CityList
+                                        .filter(c => c.Name.toLowerCase().includes(searchLower))
+                                        .slice(0, 3)
+                                        .map(c => ({ ...c, type: 'City', countryCode: code, countryName: getCountryName(code) }));
+                                    citySuggestions = [...citySuggestions, ...filtered];
+                                }
+                            } catch (e) { /* skip */ }
+                        }
+                    }
+
+                    // Deduplicate and sort
+                    const seenCodes = new Set();
+                    citySuggestions = citySuggestions.filter(c => {
+                        if (seenCodes.has(c.Code)) return false;
+                        seenCodes.add(c.Code);
+                        return true;
+                    });
+                    citySuggestions.sort((a, b) => {
+                        const aName = a.Name.toLowerCase();
+                        const bName = b.Name.toLowerCase();
+                        if (aName === searchLower && bName !== searchLower) return -1;
+                        if (bName === searchLower && aName !== searchLower) return 1;
+                        if (aName.startsWith(searchLower) && !bName.startsWith(searchLower)) return -1;
+                        if (bName.startsWith(searchLower) && !aName.startsWith(searchLower)) return 1;
+                        return 0;
+                    });
+                    citySuggestions = citySuggestions.slice(0, 8);
+
+                    let hotelSuggestions = [];
+                    try {
+                        const hotelData = await searchHotelNames(destination);
+                        if (hotelData?.suggestions) {
+                            hotelSuggestions = hotelData.suggestions.map(h => ({ ...h, type: 'Hotel' }));
+                        }
+                    } catch (e) { /* skip */ }
+
+                    setSuggestions([...citySuggestions, ...hotelSuggestions]);
+                    setShowDropdown(true);
+                } catch (error) {
+                    console.error("Failed to fetch suggestions", error);
+                }
+            } else {
+                setSuggestions([]);
+                setShowDropdown(false);
+            }
+        };
+
+        const timeoutId = setTimeout(getSuggestions, 300);
+        return () => clearTimeout(timeoutId);
+    }, [destination, getCountryName]);
 
     // Typewriter
     const typewriterText = useTypewriter(
@@ -165,10 +315,76 @@ const LandingPage = () => {
     const [guestCount, guestRef] = useCountUp(5, 2000);
     const [ratingCount, ratingRef] = useCountUp(49, 2000);
 
+    // Handle suggestion selection
+    const handleSuggestionSelect = useCallback((item) => {
+        setDestination(item.countryName ? `${item.Name}, ${item.countryName}` : item.Name);
+        setShowDropdown(false);
+        setIsSearchOverlayOpen(false);
+
+        if (item.type === 'City') {
+            setSelectedCityCode(item.Code);
+            setSelectedCountryCode(item.countryCode || 'IN');
+            setSelectedHotelCode(null);
+            setSelectedHotelInfo(null);
+        } else {
+            setSelectedHotelCode(item.Code);
+            setSelectedCityCode(null);
+            setSelectedCountryCode(null);
+            setSelectedHotelInfo({
+                HotelCode: item.Code,
+                HotelName: item.Name,
+                HotelAddress: item.Address || item.CityName || '',
+                CityName: item.CityName || '',
+                StarRating: item.StarRating || '',
+                Latitude: item.Latitude || '',
+                Longitude: item.Longitude || ''
+            });
+        }
+    }, []);
+
+    // Quick city select from popular tags (international)
+    const handleQuickCitySelect = useCallback(async (cityName) => {
+        setDestination(cityName);
+        try {
+            for (const code of TOP_COUNTRIES) {
+                const cityData = citiesCacheRef.current[code]
+                    ? { CityList: citiesCacheRef.current[code] }
+                    : await fetchCities(code);
+                if (cityData?.CityList) {
+                    citiesCacheRef.current[code] = cityData.CityList;
+                    const match = cityData.CityList.find(
+                        c => c.Name.toLowerCase() === cityName.toLowerCase()
+                    );
+                    if (match) {
+                        setSelectedCityCode(match.Code);
+                        setSelectedCountryCode(code);
+                        setSelectedHotelCode(null);
+                        setSelectedHotelInfo(null);
+                        setDestination(`${match.Name}, ${getCountryName(code)}`);
+                        return;
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to look up city:', err);
+        }
+    }, [getCountryName]);
+
     // Search handler
     const handleExplore = useCallback(() => {
-        navigate('/search', { state: { destination, checkIn, checkOut, guests } });
-    }, [navigate, destination, checkIn, checkOut, guests]);
+        navigate('/search', {
+            state: {
+                destination,
+                cityCode: selectedCityCode,
+                countryCode: selectedCountryCode,
+                hotelCode: selectedHotelCode,
+                hotelInfo: selectedHotelInfo,
+                checkIn,
+                checkOut,
+                guests
+            }
+        });
+    }, [navigate, destination, selectedCityCode, selectedCountryCode, selectedHotelCode, selectedHotelInfo, checkIn, checkOut, guests]);
 
     // Data
     const features = [
@@ -249,7 +465,7 @@ const LandingPage = () => {
                     </div>
 
                     {/* Heading */}
-                    <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold leading-tight mb-6" style={{ animation: 'fadeInUp 0.8s ease-out both' }}>
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-6" style={{ animation: 'fadeInUp 0.8s ease-out both' }}>
                         <span className="block text-white/90">Discover</span>
                         <span className="typewriter-container">
                             <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
@@ -259,23 +475,27 @@ const LandingPage = () => {
                         </span>
                     </h1>
 
-                    <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10" style={{ animation: 'fadeInUp 0.8s ease-out 0.4s both' }}>
+                    <p className="text-base sm:text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10" style={{ animation: 'fadeInUp 0.8s ease-out 0.4s both' }}>
                         Search from over 2,000,000 hotels, resorts, and hostels. Get the best prices guaranteed.
                     </p>
 
                     {/* ─── Search Bar ─── */}
                     <div className="hero-search max-w-4xl mx-auto">
                         <div className="flex flex-col md:flex-row items-stretch gap-2 p-2">
-                            {/* Destination */}
-                            <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl flex-1 border border-transparent hover:border-white/10 transition-all group">
+                            {/* Destination — opens overlay */}
+                            <div
+                                className="flex items-center gap-3 px-4 py-3 bg-white/8 rounded-xl flex-1 border border-white/10 hover:border-white/20 transition-all group cursor-pointer"
+                                onClick={() => setIsSearchOverlayOpen(true)}
+                            >
                                 <MapPin className="w-5 h-5 text-indigo-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                                <input
-                                    type="text"
-                                    value={destination}
-                                    onChange={(e) => setDestination(e.target.value)}
-                                    placeholder="Where are you going?"
-                                    className="hero-search-input font-medium"
-                                />
+                                <div className="flex-1 text-left">
+                                    {destination ? (
+                                        <span className="text-white font-medium text-sm sm:text-base">{destination}</span>
+                                    ) : (
+                                        <span className="text-white/50 font-medium text-sm sm:text-base">Where are you going?</span>
+                                    )}
+                                </div>
+                                <Search className="w-4 h-4 text-white/30 group-hover:text-white/60 transition-colors" />
                             </div>
 
                             {/* Date Range Picker */}
@@ -290,7 +510,7 @@ const LandingPage = () => {
                             </div>
 
                             {/* Guests */}
-                            <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-transparent hover:border-white/10 transition-all group md:w-36">
+                            <div className="flex items-center gap-3 px-4 py-3 bg-white/8 rounded-xl border border-white/10 hover:border-white/20 transition-all group md:w-36">
                                 <Users className="w-5 h-5 text-pink-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
                                 <div className="flex flex-col">
                                     <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Guests</span>
@@ -321,10 +541,10 @@ const LandingPage = () => {
                     {/* Quick Destination Tags */}
                     <div className="flex flex-wrap justify-center gap-2 mt-6" style={{ animation: 'fadeInUp 0.8s ease-out 1.2s both', paddingBottom: '100px' }}>
                         <span className="text-white/40 text-sm mr-2">Popular:</span>
-                        {['Mumbai', 'Delhi', 'Goa', 'Bangalore', 'Jaipur'].map((city) => (
+                        {QUICK_CITIES.map((city) => (
                             <button
                                 key={city}
-                                onClick={() => { setDestination(city); }}
+                                onClick={() => handleQuickCitySelect(city)}
                                 className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 text-sm hover:bg-white/10 hover:text-white hover:border-white/20 transition-all hover:scale-105"
                             >
                                 {city}
@@ -521,6 +741,146 @@ const LandingPage = () => {
                     </div>
                 </div>
             </footer>
+
+            {/* ══════════════ SEARCH OVERLAY ══════════════ */}
+            {isSearchOverlayOpen && (
+                <div className="landing-search-overlay">
+                    {/* Backdrop */}
+                    <div
+                        className="landing-search-backdrop"
+                        onClick={() => {
+                            setIsSearchOverlayOpen(false);
+                            setShowDropdown(false);
+                        }}
+                    />
+
+                    {/* Overlay Content */}
+                    <div className="landing-search-modal">
+                        {/* Close Button */}
+                        <button
+                            onClick={() => {
+                                setIsSearchOverlayOpen(false);
+                                setShowDropdown(false);
+                            }}
+                            className="landing-search-close"
+                        >
+                            <X className="w-7 h-7" />
+                        </button>
+
+                        {/* Search Header */}
+                        <div className="landing-search-header">
+                            <h2>
+                                <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-400" style={{ animation: 'starTwinkle 2s ease-in-out infinite' }} />
+                                Where would you like to go?
+                                <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-pink-400" style={{ animation: 'starTwinkle 2s ease-in-out infinite 0.5s' }} />
+                            </h2>
+                            <p>Search from millions of hotels worldwide</p>
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="landing-search-input-wrapper">
+                            <div className="landing-search-icon-box">
+                                <Search className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                            </div>
+                            <input
+                                ref={overlayInputRef}
+                                type="text"
+                                value={destination}
+                                onChange={(e) => {
+                                    setDestination(e.target.value);
+                                    setSelectedCityCode(null);
+                                    setSelectedCountryCode(null);
+                                    setSelectedHotelCode(null);
+                                    setSelectedHotelInfo(null);
+                                }}
+                                placeholder="Search cities, hotels, or destinations..."
+                                className="landing-search-input"
+                                autoFocus
+                            />
+                            {destination && (
+                                <button
+                                    onClick={() => {
+                                        setDestination('');
+                                        setSelectedCityCode(null);
+                                        setSelectedCountryCode(null);
+                                        setSelectedHotelCode(null);
+                                        setSelectedHotelInfo(null);
+                                    }}
+                                    className="landing-search-clear"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Suggestions */}
+                        {showDropdown && suggestions.length > 0 && (
+                            <div className="landing-search-suggestions">
+                                {suggestions.map((item, index) => (
+                                    <div
+                                        key={`${item.type}-${item.Code}`}
+                                        className="landing-suggestion-item"
+                                        style={{ animationDelay: `${index * 40}ms` }}
+                                        onClick={() => handleSuggestionSelect(item)}
+                                    >
+                                        <div className={`landing-suggestion-icon ${item.type === 'City' ? 'city' : 'hotel'}`}>
+                                            {item.type === 'City' ? (
+                                                <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
+                                            ) : (
+                                                <Building className="w-5 h-5 sm:w-6 sm:h-6" />
+                                            )}
+                                        </div>
+                                        <div className="landing-suggestion-text">
+                                            <span className="landing-suggestion-name">{item.Name}</span>
+                                            <span className="landing-suggestion-type">
+                                                {item.type === 'City' ? (item.countryName || 'City') : (item.CityName || item.Address || 'Hotel')}
+                                            </span>
+                                        </div>
+                                        <ChevronDown className="w-5 h-5 text-white/20 -rotate-90 landing-suggestion-arrow" />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Empty / Typing State */}
+                        {(!showDropdown || suggestions.length === 0) && (
+                            <div className="landing-search-empty">
+                                {destination.length === 0 ? (
+                                    <div className="landing-search-hint">
+                                        <div className="landing-search-hint-text">
+                                            <Sparkles className="w-5 h-5 text-indigo-400" />
+                                            <span>Start typing to search</span>
+                                        </div>
+                                        <div className="landing-search-quick-cities">
+                                            {QUICK_CITIES.map((city) => (
+                                                <button
+                                                    key={city}
+                                                    onClick={() => setDestination(city)}
+                                                    className="landing-search-quick-btn"
+                                                >
+                                                    {city}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : destination.length <= 1 ? (
+                                    <p className="text-white/40" style={{ animation: 'pulse 1.5s ease-in-out infinite' }}>Keep typing to see suggestions...</p>
+                                ) : (
+                                    <div className="landing-search-loading">
+                                        <div className="landing-search-spinner" />
+                                        <p>Searching...</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ESC Hint */}
+                        <p className="landing-search-esc">
+                            Press <kbd>ESC</kbd> to close
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

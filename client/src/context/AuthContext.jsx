@@ -250,16 +250,23 @@ export function AuthProvider({ children }) {
     };
 
     // Update booking status
-    const updateBookingStatus = async (bookingId, status) => {
+    const updateBookingStatus = async (bookingId, status, cancellationDetails = null) => {
         if (!currentUser) throw new Error('Please sign in');
         try {
             const bookingRef = ref(database, `users/${currentUser.uid}/bookings/${bookingId}`);
-            await update(bookingRef, {
+            const updateData = {
                 status,
                 updatedAt: new Date().toISOString()
-            });
+            };
+            // Add cancellation details if provided
+            if (cancellationDetails) {
+                updateData.cancellationDetails = cancellationDetails;
+            }
+            await update(bookingRef, updateData);
             setBookings(prev => prev.map(b =>
-                b.bookingId === bookingId ? { ...b, status } : b
+                b.bookingId === bookingId
+                    ? { ...b, status, ...(cancellationDetails ? { cancellationDetails } : {}) }
+                    : b
             ));
             return true;
         } catch (err) {

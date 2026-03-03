@@ -12,7 +12,7 @@ import SignInPage from './pages/SignInPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
-import { Hotel, LogOut, Shield, Heart, HelpCircle, User, Sun, Moon, Menu, X } from 'lucide-react';
+import { Hotel, LogOut, Shield, Heart, HelpCircle, User, Sun, Moon, Menu, X, Calendar } from 'lucide-react';
 import './styles/Auth.css';
 import logo from './assets/logo.png';
 
@@ -77,20 +77,26 @@ const NavHeader = () => {
           <>
             {/* Help Link */}
             <Link to="/help" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
-              <HelpCircle size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              <HelpCircle size={18} />
               Help
+            </Link>
+
+            {/* Bookings Link */}
+            <Link to="/profile" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
+              <Calendar size={18} />
+              Bookings
             </Link>
 
             {/* Saved Link - goes to profile */}
             <Link to="/profile" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
-              <Heart size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              <Heart size={18} />
               Saved
             </Link>
 
             {/* Admin Link */}
             {isAdmin && (
               <Link to="/admin" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
-                <Shield size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                <Shield size={18} />
                 Admin
               </Link>
             )}
@@ -115,7 +121,7 @@ const NavHeader = () => {
           <>
             {/* Help Link */}
             <Link to="/help" className="nav-link dark:text-slate-300 dark:hover:text-white" onClick={closeMobileMenu}>
-              <HelpCircle size={18} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              <HelpCircle size={18} />
               Help
             </Link>
 

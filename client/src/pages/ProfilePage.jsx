@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { cancelBooking, getCancellationStatus } from '../services/api';
 import {
     User,
     Heart,
@@ -16,7 +17,13 @@ import {
     X,
     AlertCircle,
     ChevronRight,
-    RefreshCw
+    RefreshCw,
+    CreditCard,
+    Clock,
+    Users,
+    AlertTriangle,
+    Copy,
+    CheckCircle
 } from 'lucide-react';
 import ErrorAlert from '../components/ErrorAlert';
 
@@ -55,6 +62,14 @@ const ProfilePage = () => {
 
     // Trips tab state
     const [tripsFilter, setTripsFilter] = useState('all');
+
+    // Modal states
+    const [selectedBooking, setSelectedBooking] = useState(null);
+    const [showCancelDialog, setShowCancelDialog] = useState(null);
+    const [cancelLoading, setCancelLoading] = useState(false);
+    const [cancelRemarks, setCancelRemarks] = useState('');
+    const [cancelResult, setCancelResult] = useState(null);
+    const [copiedField, setCopiedField] = useState('');
 
     // Parse star rating helper
     const parseStars = (rating) => {
@@ -153,16 +168,74 @@ const ProfilePage = () => {
         }
     };
 
-    const handleCancelBooking = async (bookingId) => {
-        if (window.confirm('Are you sure you want to cancel this booking?')) {
-            try {
-                await updateBookingStatus(bookingId, 'cancelled');
-                setSuccess('Booking cancelled successfully');
-                setTimeout(() => setSuccess(''), 3000);
-            } catch (err) {
-                setError('Failed to cancel booking');
-            }
+    const handleCancelBooking = async (booking) => {
+        if (!cancelRemarks.trim()) {
+            setError('Please enter a reason for cancellation');
+            return;
         }
+        setCancelLoading(true);
+        setCancelResult(null);
+        try {
+            // Step 1: Call TBO SendChangeRequest API
+            const tboBookingId = parseInt(booking.tboBookingId);
+            if (!tboBookingId) {
+                throw new Error('TBO Booking ID not found for this booking');
+            }
+
+            const cancelResponse = await cancelBooking(tboBookingId, cancelRemarks.trim());
+            console.log('Cancel response:', cancelResponse);
+
+            // Step 2: Fetch cancellation status for refund details
+            let cancellationDetails = {
+                changeRequestId: cancelResponse.changeRequestId,
+                changeRequestStatus: cancelResponse.changeRequestStatus,
+                cancelledAt: new Date().toISOString(),
+                remarks: cancelRemarks.trim()
+            };
+
+            if (cancelResponse.changeRequestId) {
+                try {
+                    const statusResponse = await getCancellationStatus(cancelResponse.changeRequestId);
+                    console.log('Cancellation status response:', statusResponse);
+                    cancellationDetails = {
+                        ...cancellationDetails,
+                        cancellationCharge: statusResponse.cancellationCharge !== undefined ? statusResponse.cancellationCharge : null,
+                        refundedAmount: statusResponse.refundedAmount !== undefined ? statusResponse.refundedAmount : null,
+                        statusResponseStatus: statusResponse.changeRequestStatus !== undefined ? statusResponse.changeRequestStatus : null
+                    };
+                } catch (statusErr) {
+                    console.error('Failed to fetch cancellation status:', statusErr);
+                    // Continue even if status fetch fails — cancellation was successful
+                }
+            }
+
+            // Step 3: Update Firebase booking status with cancellation details
+            await updateBookingStatus(booking.bookingId, 'cancelled', cancellationDetails);
+
+            // Show result
+            setCancelResult(cancellationDetails);
+            setSelectedBooking(null);
+            setSuccess('Booking cancelled successfully');
+            setTimeout(() => setSuccess(''), 5000);
+        } catch (err) {
+            console.error('Cancel booking error:', err);
+            const errorMsg = err.response?.data?.message || err.message || 'Failed to cancel booking';
+            setError(errorMsg);
+        } finally {
+            setCancelLoading(false);
+        }
+    };
+
+    const formatBookingDate = (dateStr) => {
+        if (!dateStr) return 'N/A';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
+    const copyToClipboard = (text, field) => {
+        navigator.clipboard.writeText(text);
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(''), 2000);
     };
 
     const getInitials = (name) => {
@@ -478,16 +551,34 @@ const ProfilePage = () => {
                                             </div>
 
                                             {/* Actions */}
-                                            <div className="flex gap-2">
-                                                {booking.status === 'booked' && (
-                                                    <button
-                                                        onClick={() => handleCancelBooking(booking.bookingId)}
-                                                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                                                    >
-                                                        <X size={14} />
-                                                        Cancel
-                                                    </button>
-                                                )}
+                                            <div className="flex flex-wrap gap-2 items-center">
+                                                {booking.status === 'booked' && (() => {
+                                                    const deadline = booking.lastCancellationDeadline ? new Date(booking.lastCancellationDeadline) : null;
+                                                    const now = new Date();
+                                                    const canCancel = !deadline || now < deadline;
+
+                                                    return canCancel ? (
+                                                        <div className="flex flex-col gap-1">
+                                                            <button
+                                                                onClick={() => setShowCancelDialog(booking)}
+                                                                className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                                                            >
+                                                                <X size={14} />
+                                                                Cancel
+                                                            </button>
+                                                            {deadline && (
+                                                                <span className="text-xs text-amber-600">
+                                                                    Free cancel until {deadline.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 bg-gray-100 rounded-lg">
+                                                            <AlertCircle size={12} />
+                                                            Cancellation deadline passed
+                                                        </span>
+                                                    );
+                                                })()}
                                                 {booking.status === 'cancelled' && (
                                                     <button
                                                         onClick={() => navigate(`/hotel/${booking.hotelCode}`)}
@@ -498,8 +589,8 @@ const ProfilePage = () => {
                                                     </button>
                                                 )}
                                                 <button
-                                                    onClick={() => navigate(`/hotel/${booking.hotelCode}`)}
-                                                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setSelectedBooking(booking)}
+                                                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
                                                 >
                                                     View Details
                                                     <ChevronRight size={14} />
@@ -739,6 +830,290 @@ const ProfilePage = () => {
                     </div>
                 )}
             </div>
+
+            {/* Booking Details Modal */}
+            {selectedBooking && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedBooking(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-t-2xl">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <h2 className="text-xl font-bold mb-1">Booking Details</h2>
+                                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                        selectedBooking.status === 'booked' ? 'bg-white/20 text-white' :
+                                        selectedBooking.status === 'completed' ? 'bg-green-400/20 text-green-100' :
+                                        'bg-red-400/20 text-red-100'
+                                    }`}>
+                                        {selectedBooking.status === 'booked' ? 'Upcoming' : selectedBooking.status?.charAt(0).toUpperCase() + selectedBooking.status?.slice(1)}
+                                    </span>
+                                </div>
+                                <button onClick={() => setSelectedBooking(null)} className="p-1 hover:bg-white/20 rounded-full transition">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 space-y-5">
+                            {/* Hotel Info */}
+                            <div className="flex gap-4">
+                                <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+                                    <img
+                                        src={selectedBooking.hotelImage || 'https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png'}
+                                        alt={selectedBooking.hotelName}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-800 text-lg">{selectedBooking.hotelName || 'Hotel'}</h3>
+                                    <div className="flex items-center text-sm text-gray-500 mt-1">
+                                        <MapPin size={14} className="mr-1 flex-shrink-0" />
+                                        <span className="line-clamp-2">{selectedBooking.hotelAddress || 'N/A'}</span>
+                                    </div>
+                                    {selectedBooking.roomName && (
+                                        <div className="text-sm text-blue-600 mt-1 font-medium">{selectedBooking.roomName}</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Stay Details */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-gray-50 rounded-xl p-3">
+                                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+                                        <Calendar size={12} />
+                                        Check-in
+                                    </div>
+                                    <div className="font-semibold text-gray-800 text-sm">{formatBookingDate(selectedBooking.checkIn)}</div>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-3">
+                                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+                                        <Calendar size={12} />
+                                        Check-out
+                                    </div>
+                                    <div className="font-semibold text-gray-800 text-sm">{formatBookingDate(selectedBooking.checkOut)}</div>
+                                </div>
+                            </div>
+
+                            {/* Guest & Room Info */}
+                            <div className="flex gap-3">
+                                <div className="flex-1 bg-gray-50 rounded-xl p-3">
+                                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+                                        <Users size={12} />
+                                        Guests
+                                    </div>
+                                    <div className="font-semibold text-gray-800 text-sm">{selectedBooking.guests || 1} Guest(s)</div>
+                                </div>
+                                <div className="flex-1 bg-gray-50 rounded-xl p-3">
+                                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+                                        <CreditCard size={12} />
+                                        Total Paid
+                                    </div>
+                                    <div className="font-bold text-blue-600 text-sm">₹{selectedBooking.totalAmount?.toLocaleString('en-IN') || 'N/A'}</div>
+                                </div>
+                            </div>
+
+                            {/* Booking IDs */}
+                            <div className="bg-gray-50 rounded-xl p-4 space-y-2.5">
+                                <h4 className="text-sm font-semibold text-gray-700 mb-2">Reference Details</h4>
+                                {[
+                                    { label: 'Booking ID', value: selectedBooking.bookingId },
+                                    { label: 'Order ID', value: selectedBooking.orderId },
+                                    { label: 'Payment ID', value: selectedBooking.paymentId },
+                                    { label: 'TBO Booking ID', value: selectedBooking.tboBookingId },
+                                    { label: 'Reference No', value: selectedBooking.bookingRefNo },
+                                    { label: 'Confirmation No', value: selectedBooking.confirmationNo },
+                                ].filter(item => item.value).map(item => (
+                                    <div key={item.label} className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">{item.label}</span>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-xs font-mono text-gray-700">{item.value?.length > 20 ? `...${item.value.slice(-15)}` : item.value}</span>
+                                            <button
+                                                onClick={() => copyToClipboard(item.value, item.label)}
+                                                className="p-0.5 hover:bg-gray-200 rounded transition"
+                                                title="Copy"
+                                            >
+                                                {copiedField === item.label ? <CheckCircle size={12} className="text-green-500" /> : <Copy size={12} className="text-gray-400" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Cancellation Deadline */}
+                            {selectedBooking.lastCancellationDeadline && (
+                                <div className={`rounded-xl p-3 flex items-center gap-2 ${
+                                    new Date() < new Date(selectedBooking.lastCancellationDeadline)
+                                        ? 'bg-green-50 text-green-700'
+                                        : 'bg-red-50 text-red-600'
+                                }`}>
+                                    <Clock size={16} />
+                                    <div className="text-sm">
+                                        {new Date() < new Date(selectedBooking.lastCancellationDeadline)
+                                            ? <>Free cancellation until <strong>{formatBookingDate(selectedBooking.lastCancellationDeadline)}</strong></>
+                                            : <>Cancellation deadline passed ({formatBookingDate(selectedBooking.lastCancellationDeadline)})</>
+                                        }
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Booked On */}
+                            <div className="text-xs text-gray-400 text-center">
+                                Booked on {formatBookingDate(selectedBooking.createdAt)}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-3">
+                                {selectedBooking.status === 'booked' && (() => {
+                                    const deadline = selectedBooking.lastCancellationDeadline ? new Date(selectedBooking.lastCancellationDeadline) : null;
+                                    const canCancel = !deadline || new Date() < deadline;
+                                    return canCancel ? (
+                                        <button
+                                            onClick={() => { setShowCancelDialog(selectedBooking); }}
+                                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
+                                        >
+                                            <X size={16} />
+                                            Cancel Booking
+                                        </button>
+                                    ) : null;
+                                })()}
+                                <button
+                                    onClick={() => setSelectedBooking(null)}
+                                    className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cancel Confirmation Dialog */}
+            {showCancelDialog && (
+                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => !cancelLoading && !cancelResult && (setShowCancelDialog(null), setCancelRemarks(''), setCancelResult(null))}>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6">
+                            {cancelResult ? (
+                                /* Cancellation Result */
+                                <>
+                                    <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <CheckCircle size={28} className="text-green-500" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-gray-800 text-center mb-2">Booking Cancelled</h3>
+                                    <p className="text-gray-500 text-sm text-center mb-5">
+                                        Your booking at <strong className="text-gray-700">{showCancelDialog.hotelName}</strong> has been cancelled.
+                                    </p>
+
+                                    {/* Refund Details */}
+                                    <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2">
+                                        {cancelResult.cancellationCharge !== undefined && (
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-gray-500">Cancellation Charge</span>
+                                                <span className="font-medium text-red-600">₹{cancelResult.cancellationCharge?.toLocaleString('en-IN') || '0'}</span>
+                                            </div>
+                                        )}
+                                        {cancelResult.refundedAmount !== undefined && (
+                                            <div className="flex justify-between text-sm border-t pt-2">
+                                                <span className="text-gray-500">Refund Amount</span>
+                                                <span className="font-bold text-green-600">₹{cancelResult.refundedAmount?.toLocaleString('en-IN') || '0'}</span>
+                                            </div>
+                                        )}
+                                        {cancelResult.changeRequestId && (
+                                            <div className="flex justify-between text-sm border-t pt-2">
+                                                <span className="text-gray-500">Request ID</span>
+                                                <span className="font-medium text-gray-700">{cancelResult.changeRequestId}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={() => { setShowCancelDialog(null); setCancelRemarks(''); setCancelResult(null); }}
+                                        className="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors"
+                                    >
+                                        Done
+                                    </button>
+                                </>
+                            ) : (
+                                /* Cancellation Confirmation */
+                                <>
+                                    {/* Warning Icon */}
+                                    <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <AlertTriangle size={28} className="text-red-500" />
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-gray-800 text-center mb-2">Cancel Booking?</h3>
+                                    <p className="text-gray-500 text-sm text-center mb-5">
+                                        Are you sure you want to cancel your booking at <strong className="text-gray-700">{showCancelDialog.hotelName}</strong>?
+                                    </p>
+
+                                    {/* Booking Summary */}
+                                    <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">Check-in</span>
+                                            <span className="font-medium text-gray-700">{formatBookingDate(showCancelDialog.checkIn)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">Check-out</span>
+                                            <span className="font-medium text-gray-700">{formatBookingDate(showCancelDialog.checkOut)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm border-t pt-2">
+                                            <span className="text-gray-500">Amount</span>
+                                            <span className="font-bold text-gray-800">₹{showCancelDialog.totalAmount?.toLocaleString('en-IN') || 'N/A'}</span>
+                                        </div>
+                                    </div>
+
+                                    {showCancelDialog.lastCancellationDeadline && new Date() < new Date(showCancelDialog.lastCancellationDeadline) && (
+                                        <div className="bg-green-50 rounded-lg p-3 mb-5 text-center">
+                                            <p className="text-xs text-green-700">
+                                                <CheckCircle size={12} className="inline mr-1" />
+                                                This booking is eligible for free cancellation
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Cancellation Remarks */}
+                                    <div className="mb-5">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Reason for cancellation <span className="text-red-500">*</span></label>
+                                        <textarea
+                                            value={cancelRemarks}
+                                            onChange={(e) => setCancelRemarks(e.target.value)}
+                                            placeholder="Please provide a reason for cancellation..."
+                                            rows={3}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                                            disabled={cancelLoading}
+                                        />
+                                    </div>
+
+                                    <p className="text-xs text-gray-400 text-center mb-5">This action cannot be undone.</p>
+
+                                    {/* Buttons */}
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => { setShowCancelDialog(null); setCancelRemarks(''); }}
+                                            disabled={cancelLoading}
+                                            className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+                                        >
+                                            Keep Booking
+                                        </button>
+                                        <button
+                                            onClick={() => handleCancelBooking(showCancelDialog)}
+                                            disabled={cancelLoading || !cancelRemarks.trim()}
+                                            className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {cancelLoading ? (
+                                                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Cancelling...</>
+                                            ) : (
+                                                <><X size={16} /> Yes, Cancel</>
+                                            )}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

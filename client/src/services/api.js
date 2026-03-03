@@ -6,7 +6,7 @@ import {
   getCachedHotelDetails
 } from './staticDataService';
 
-const SERVER_URL = 'https://hotel-booking-zoltan-1.onrender.com' || 'http://localhost:5000';
+const SERVER_URL = 'http://localhost:5001';
 const API_BASE_URL = `${SERVER_URL}/api/hotels`;
 
 const api = axios.create({
@@ -266,6 +266,42 @@ export const getBookingDetails = async (orderId) => {
     return response.data;
   } catch (error) {
     console.error('Error fetching booking details:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Cancel a hotel booking via TBO SendChangeRequest API
+ * @param {number} bookingId - TBO Booking ID
+ * @param {string} remarks - Reason for cancellation
+ */
+export const cancelBooking = async (bookingId, remarks) => {
+  try {
+    console.log('Cancelling booking:', bookingId, remarks);
+    const response = await api.post('/cancel', {
+      BookingId: bookingId,
+      Remarks: remarks
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error cancelling booking:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get cancellation status and refund details via TBO GetChangeRequestStatus API
+ * @param {number} changeRequestId - Change Request ID from SendChangeRequest response
+ */
+export const getCancellationStatus = async (changeRequestId) => {
+  try {
+    console.log('Fetching cancellation status for:', changeRequestId);
+    const response = await api.post('/cancel-status', {
+      ChangeRequestId: changeRequestId
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching cancellation status:', error.response?.data || error.message);
     throw error;
   }
 };

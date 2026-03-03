@@ -860,7 +860,7 @@ body {
   margin-bottom: 2px;
 }
 .drp-variant-light .drp-trigger-label { color: #94a3b8; }
-.drp-variant-dark .drp-trigger-label { color: rgba(255,255,255,0.4); }
+.drp-variant-dark .drp-trigger-label { color: rgba(255,255,255,0.8); }
 .dark .drp-variant-light .drp-trigger-label { color: #64748b; }
 
 .drp-trigger-date {
@@ -916,7 +916,7 @@ body {
   top: calc(100% + 0.625rem);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 9999;
   border-radius: 1.25rem;
   padding: 1.75rem;
   min-width: 420px;
@@ -935,7 +935,7 @@ body {
     0 0 0 1px rgba(255, 255, 255, 0.8) inset;
 }
 .drp-variant-dark .drp-dropdown {
-  background: rgba(15, 12, 41, 0.97);
+  background: rgba(15, 12, 41, 1);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1114,7 +1114,7 @@ body {
   letter-spacing: 0.04em;
 }
 .drp-variant-light .drp-day-name { color: #94a3b8; }
-.drp-variant-dark .drp-day-name { color: rgba(255,255,255,0.3); }
+.drp-variant-dark .drp-day-name { color: rgba(255,255,255,0.7); }
 .dark .drp-variant-light .drp-day-name { color: #64748b; }
 
 .drp-days {
@@ -1148,7 +1148,7 @@ body {
   font-weight: 500;
 }
 .drp-variant-light .drp-day-number { color: #334155; }
-.drp-variant-dark .drp-day-number { color: rgba(255,255,255,0.8); }
+.drp-variant-dark .drp-day-number { color: #fff; }
 .dark .drp-variant-light .drp-day-number { color: #cbd5e1; }
 
 /* Hover */

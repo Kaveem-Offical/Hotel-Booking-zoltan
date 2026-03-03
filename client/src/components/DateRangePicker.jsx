@@ -240,7 +240,7 @@ const DateRangePicker = ({
     (currentMonth.year === today.getFullYear() && currentMonth.month > today.getMonth());
 
   return (
-    <div className={`drp-container ${isDark ? 'drp-variant-dark' : 'drp-variant-light'}`} ref={containerRef}>
+    <div className={`drp-container h-[100%] ${isDark ? 'drp-variant-dark' : 'drp-variant-light'}`} ref={containerRef}>
       {/* ── Trigger ── */}
       <div
         className={`drp-trigger ${isOpen ? 'drp-trigger-active' : ''}`}

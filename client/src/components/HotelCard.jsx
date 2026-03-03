@@ -51,9 +51,11 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   const roomType = getVal(roomData.Name?.[0] || hotel.roomType);
 
   // Price handling
-  // API structure: hotel.Rooms[0].TotalFare or hotel.Rooms[0].DayRates[0][0].BasePrice
-  const totalFare = roomData.DayRates?.[0]?.[0]?.BasePrice || roomData.TotalFare;
-  const originalPrice = totalFare ? Math.round(totalFare) : "NA";
+  // API structure: hotel.Rooms[0].TotalFare (includes tax)
+  const totalFare = roomData.TotalFare || roomData.DayRates?.[0]?.[0]?.BasePrice;
+  const totalTax = roomData.TotalTax || 0;
+  const basePrice = totalFare ? totalFare - totalTax : null;
+  const originalPrice = basePrice ? Math.round(basePrice) : "NA";
 
   // If we have a price, we can try to show a discount if applicable, or just show the price.
   // The prompt asked for "real data", so if no discount info is in API, we shouldn't fake it.
@@ -236,7 +238,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
               {finalPrice !== "NA" ? `₹ ${finalPrice}` : "Price NA"}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              {tax !== "NA" ? `+ ₹ ${tax} taxes & fees` : "+ Taxes & fees NA"}
+              {finalPrice !== "NA" ? "+ Taxes & fees" : "Taxes & fees NA"}
             </div>
 
             <button className="w-full mt-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-1 transform hover:-translate-y-0.5 active:translate-y-0 btn-shine overflow-hidden relative">

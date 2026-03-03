@@ -1,6 +1,7 @@
 const axios = require('axios');
 const config = require('../config/config');
 const firebaseService = require('../services/firebaseDataService');
+const authService = require('../services/authService');
 
 // Create axios instance with basic auth for static data endpoints
 const createStaticAxiosInstance = () => {
@@ -627,6 +628,194 @@ exports.searchHotelNames = async (req, res) => {
     console.error('Search hotel names error:', error.message);
     res.status(500).json({
       error: 'Failed to search hotel names',
+      message: error.message
+    });
+  }
+};
+
+// SendChangeRequest - Cancel a hold or vouchered booking via TBO API
+exports.sendChangeRequest = async (req, res) => {
+  try {
+    const { BookingId, Remarks, EndUserIp } = req.body;
+
+    // Validation
+    if (!BookingId || !Remarks) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        required: ['BookingId', 'Remarks']
+      });
+    }
+
+    console.log(`\n=== SendChangeRequest (Cancel Booking) ===`);
+    console.log(`BookingId: ${BookingId}`);
+    console.log(`Remarks: ${Remarks}`);
+
+    // Get a valid TokenId from the Authenticate API
+    const tokenId = await authService.getTokenId();
+
+    const changeRequest = {
+      BookingMode: 5,
+      RequestType: 4, // HotelCancel
+      Remarks,
+      BookingId,
+      EndUserIp: EndUserIp || process.env.TBO_END_USER_IP || req.ip || '127.0.0.1',
+      TokenId: tokenId
+    };
+
+    console.log('SendChangeRequest Body:', JSON.stringify(changeRequest, null, 2));
+
+    const axiosInstance = createSearchAxiosInstance();
+
+    const response = await axiosInstance.post(
+      config.tboApi.sendChangeRequestUrl,
+      changeRequest
+    );
+
+    console.log('SendChangeRequest Response:', JSON.stringify(response.data, null, 2));
+
+    const result = response.data.HotelChangeRequestResult || response.data;
+
+    // Check for errors
+    if (result.Error && result.Error.ErrorCode !== 0) {
+      return res.status(400).json({
+        error: 'Cancellation request failed',
+        message: result.Error.ErrorMessage,
+        details: result
+      });
+    }
+
+    // Check response status
+    if (result.ResponseStatus !== 1) {
+      return res.status(400).json({
+        error: 'Cancellation request failed',
+        message: `Response status: ${result.ResponseStatus}`,
+        details: result
+      });
+    }
+
+    res.json({
+      success: true,
+      changeRequestId: result.ChangeRequestId,
+      changeRequestStatus: result.ChangeRequestStatus,
+      responseStatus: result.ResponseStatus,
+      traceId: result.TraceId
+    });
+  } catch (error) {
+    console.error('\n=== SendChangeRequest Error ===');
+    console.error('Error Message:', error.message);
+
+    if (error.response) {
+      console.error('Status Code:', error.response.status);
+      console.error('Error Data:', JSON.stringify(error.response.data, null, 2));
+
+      return res.status(error.response.status).json({
+        error: 'Cancellation request failed',
+        message: error.response.data?.Error?.ErrorMessage || error.message,
+        details: error.response.data
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to send cancellation request',
+      message: error.message
+    });
+  }
+};
+
+// GetChangeRequestStatus - Check cancellation status and refund details
+exports.getChangeRequestStatus = async (req, res) => {
+  try {
+    const { ChangeRequestId, EndUserIp } = req.body;
+
+    // Validation
+    if (!ChangeRequestId) {
+      return res.status(400).json({
+        error: 'Missing required field',
+        required: ['ChangeRequestId']
+      });
+    }
+
+    console.log(`\n=== GetChangeRequestStatus ===`);
+    console.log(`ChangeRequestId: ${ChangeRequestId}`);
+
+    // Get a valid TokenId from the Authenticate API
+    const tokenId = await authService.getTokenId();
+
+    const statusRequest = {
+      BookingMode: 5,
+      ChangeRequestId,
+      EndUserIp: EndUserIp || process.env.TBO_END_USER_IP || req.ip || '127.0.0.1',
+      TokenId: tokenId
+    };
+
+    console.log('GetChangeRequestStatus Body:', JSON.stringify(statusRequest, null, 2));
+
+    const axiosInstance = createSearchAxiosInstance();
+
+    const response = await axiosInstance.post(
+      config.tboApi.getChangeRequestStatusUrl,
+      statusRequest
+    );
+
+    console.log('GetChangeRequestStatus Response:', JSON.stringify(response.data, null, 2));
+
+    const result = response.data.HotelChangeRequestStatusResult || response.data;
+
+    // Check for errors
+    if (result.Error && result.Error.ErrorCode !== 0) {
+      return res.status(400).json({
+        error: 'Failed to get cancellation status',
+        message: result.Error.ErrorMessage,
+        details: result
+      });
+    }
+
+    res.json({
+      success: true,
+      changeRequestId: result.ChangeRequestId,
+      changeRequestStatus: result.ChangeRequestStatus,
+      cancellationCharge: result.CancellationCharge !== undefined ? result.CancellationCharge : null,
+      refundedAmount: result.RefundedAmount !== undefined ? result.RefundedAmount : null,
+      responseStatus: result.ResponseStatus,
+      traceId: result.TraceId
+    });
+  } catch (error) {
+    console.error('\n=== GetChangeRequestStatus Error ===');
+    console.error('Error Message:', error.message);
+
+    if (error.response) {
+      console.error('Status Code:', error.response.status);
+      console.error('Error Data:', JSON.stringify(error.response.data, null, 2));
+
+      return res.status(error.response.status).json({
+        error: 'Failed to get cancellation status',
+        message: error.response.data?.Error?.ErrorMessage || error.message,
+        details: error.response.data
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to get cancellation status',
+      message: error.message
+    });
+  }
+};
+
+// Authenticate - Get a TokenId from TBO (for testing/debugging)
+exports.authenticate = async (req, res) => {
+  try {
+    console.log('\n=== Manual Authenticate Request ===');
+    const result = await authService.authenticate();
+    res.json({
+      success: true,
+      tokenId: result.tokenId,
+      member: result.member,
+      status: result.status
+    });
+  } catch (error) {
+    console.error('Authenticate Error:', error.message);
+    res.status(500).json({
+      error: 'Authentication failed',
       message: error.message
     });
   }
