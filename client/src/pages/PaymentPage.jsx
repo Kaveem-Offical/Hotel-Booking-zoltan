@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
     MapPin, Star, Calendar, Users, CreditCard, Shield, Check,
-    AlertCircle, ArrowLeft, Clock, X, Loader, Lock, ChevronRight
+    AlertCircle, ArrowLeft, Clock, X, Loader, Lock, ChevronRight, Tag
 } from 'lucide-react';
-import { createPaymentOrder, verifyPayment } from '../services/api';
+import { createPaymentOrder, verifyPayment, validateCoupon } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ErrorAlert from '../components/ErrorAlert';
 
@@ -22,6 +22,7 @@ const PaymentPage = () => {
         preBookData,
         guestDetails,
         contactDetails,
+        isInternational,
         netAmount
     } = location.state || {};
 
@@ -31,6 +32,12 @@ const PaymentPage = () => {
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [bookingResult, setBookingResult] = useState(null);
     const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+
+    // Coupon state
+    const [couponCode, setCouponCode] = useState('');
+    const [couponApplied, setCouponApplied] = useState(null); // { code, discount, finalAmount, coupon }
+    const [couponLoading, setCouponLoading] = useState(false);
+    const [couponError, setCouponError] = useState('');
 
     // Load Razorpay script
     useEffect(() => {
@@ -79,6 +86,36 @@ const PaymentPage = () => {
     // Get currency and amount
     const getCurrency = () => preBookData?.Currency || 'INR';
     const getAmount = () => netAmount || preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare || 0;
+    const getFinalAmount = () => couponApplied ? couponApplied.finalAmount : getAmount();
+
+    // Handle coupon apply
+    const handleApplyCoupon = async () => {
+        if (!couponCode.trim()) return;
+        setCouponLoading(true);
+        setCouponError('');
+        try {
+            const res = await validateCoupon(couponCode.trim(), getAmount());
+            if (res.success) {
+                setCouponApplied({
+                    code: res.coupon.code,
+                    discount: res.discount,
+                    finalAmount: res.finalAmount,
+                    coupon: res.coupon
+                });
+            }
+        } catch (err) {
+            setCouponError(err.response?.data?.error || 'Invalid coupon code');
+            setCouponApplied(null);
+        } finally {
+            setCouponLoading(false);
+        }
+    };
+
+    const handleRemoveCoupon = () => {
+        setCouponApplied(null);
+        setCouponCode('');
+        setCouponError('');
+    };
 
     // Handle payment
     const handlePayment = async () => {
@@ -101,16 +138,16 @@ const PaymentPage = () => {
                 Email: guest.isLead ? contactDetails.email : '',
                 PaxType: guest.type === 'adult' ? 1 : 2,
                 LeadPassenger: guest.isLead,
-                Age: guest.type === 'child' ? parseInt(guest.age) : null,
-                PassportNo: '',
-                PassportIssueDate: '0001-01-01T00:00:00',
-                PassportExpDate: '0001-01-01T00:00:00',
-                PAN: ''
+                Age: parseInt(guest.age) || (guest.type === 'child' ? 5 : 25), // Defaults if missing somehow
+                PassportNo: isInternational ? contactDetails.passportNo : '',
+                PassportIssueDate: isInternational && contactDetails.passportIssueDate ? new Date(contactDetails.passportIssueDate).toISOString() : '0001-01-01T00:00:00',
+                PassportExpDate: isInternational && contactDetails.passportExpDate ? new Date(contactDetails.passportExpDate).toISOString() : '0001-01-01T00:00:00',
+                PAN: isInternational ? contactDetails.panNo : ''
             }));
 
             // Create payment order
             const orderData = {
-                amount: getAmount(),
+                amount: getFinalAmount(),
                 currency: getCurrency(),
                 bookingCode,
                 guestNationality: contactDetails.nationality,
@@ -139,7 +176,14 @@ const PaymentPage = () => {
                     children: searchParams?.children,
                     rooms: searchParams?.rooms
                 },
-                contactDetails
+                contactDetails,
+                // Markup tracking
+                originalAmount: room?.OriginalTotalFare || getAmount(),
+                markupAmount: room?.OriginalTotalFare ? (getAmount() - room.OriginalTotalFare) : 0,
+                markupPercentage: room?.MarkupPercentage || 0,
+                // Coupon tracking
+                couponCode: couponApplied?.code || null,
+                couponDiscount: couponApplied?.discount || 0
             };
 
             // console.log('Creating payment order:', orderData);
@@ -514,7 +558,7 @@ const PaymentPage = () => {
                             </h2>
 
                             {/* Price Breakdown */}
-                            <div className="space-y-3 mb-6">
+                            <div className="space-y-3 mb-4">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-600">Room ({nights} night{nights > 1 ? 's' : ''})</span>
                                     <span className="text-gray-800">
@@ -527,11 +571,81 @@ const PaymentPage = () => {
                                         {currency} {(amount * 0.18).toFixed(2)}
                                     </span>
                                 </div>
+                                {couponApplied && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-green-600 flex items-center gap-1">
+                                            <Tag size={12} /> Coupon ({couponApplied.code})
+                                        </span>
+                                        <span className="text-green-600 font-semibold">- {currency} {couponApplied.discount.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 <div className="border-t pt-3 flex justify-between font-bold">
                                     <span className="text-gray-800">Total Amount</span>
-                                    <span className="text-xl text-blue-600">
-                                        {currency} {amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </span>
+                                    <div className="text-right">
+                                        {couponApplied && (
+                                            <div className="text-xs text-gray-400 line-through">
+                                                {currency} {amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </div>
+                                        )}
+                                        <span className="text-xl text-blue-600">
+                                            {currency} {getFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Coupon Code Input */}
+                            <div className="mb-6">
+                                <div className="border border-dashed border-gray-300 rounded-lg p-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Tag size={16} className="text-indigo-500" />
+                                        <span className="text-sm font-medium text-gray-700">Have a coupon code?</span>
+                                    </div>
+                                    {couponApplied ? (
+                                        <div className="flex items-center justify-between bg-green-50 rounded-lg px-3 py-2">
+                                            <div className="flex items-center gap-2">
+                                                <Check size={16} className="text-green-600" />
+                                                <span className="text-sm font-semibold text-green-700">{couponApplied.code}</span>
+                                                <span className="text-xs text-green-600">
+                                                    ({couponApplied.coupon.discountType === 'percentage'
+                                                        ? `${couponApplied.coupon.discountValue}% off`
+                                                        : `₹${couponApplied.coupon.discountValue} off`})
+                                                </span>
+                                            </div>
+                                            <button onClick={handleRemoveCoupon}
+                                                className="text-red-500 hover:text-red-700 transition">
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={couponCode}
+                                                    onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                                                    placeholder="Enter coupon code"
+                                                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 uppercase"
+                                                    onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
+                                                />
+                                                <button
+                                                    onClick={handleApplyCoupon}
+                                                    disabled={couponLoading || !couponCode.trim()}
+                                                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${couponLoading || !couponCode.trim()
+                                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                                        }`}
+                                                >
+                                                    {couponLoading ? <Loader size={14} className="animate-spin" /> : 'Apply'}
+                                                </button>
+                                            </div>
+                                            {couponError && (
+                                                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                                                    <AlertCircle size={12} /> {couponError}
+                                                </p>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -564,7 +678,7 @@ const PaymentPage = () => {
                                 ) : (
                                     <>
                                         <Lock size={18} />
-                                        Pay {currency} {amount.toLocaleString('en-IN')}
+                                        Pay {currency} {getFinalAmount().toLocaleString('en-IN')}
                                     </>
                                 )}
                             </button>

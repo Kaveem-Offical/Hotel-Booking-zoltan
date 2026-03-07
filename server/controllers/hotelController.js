@@ -2,6 +2,7 @@ const axios = require('axios');
 const config = require('../config/config');
 const firebaseService = require('../services/firebaseDataService');
 const authService = require('../services/authService');
+const { database } = require('../config/firebaseAdmin');
 
 // Create axios instance with basic auth for static data endpoints
 const createStaticAxiosInstance = () => {
@@ -22,6 +23,79 @@ const createSearchAxiosInstance = () => {
     auth: config.tboApi.apiAuth
   });
 };
+
+/**
+ * Helper: Get current active markup percentage from Firebase
+ */
+async function getActiveMarkupPercentage() {
+  try {
+    const snap = await database.ref('settings/markup').once('value');
+    const settings = snap.val();
+    if (settings && settings.isActive && settings.percentage > 0) {
+      return settings.percentage;
+    }
+    return 0;
+  } catch (err) {
+    console.error('Error reading markup settings:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * Helper: Apply markup to a hotel search result
+ */
+function applyMarkupToResults(hotelResults, markupPct) {
+  if (!hotelResults || markupPct <= 0) return hotelResults;
+  const multiplier = 1 + (markupPct / 100);
+
+  return hotelResults.map(hotel => {
+    if (hotel.Rooms && Array.isArray(hotel.Rooms)) {
+      hotel.Rooms = hotel.Rooms.map(room => {
+        // Store original prices
+        room.OriginalTotalFare = room.TotalFare;
+        room.OriginalTotalTax = room.TotalTax;
+
+        // Apply markup to the fare
+        room.TotalFare = parseFloat((room.TotalFare * multiplier).toFixed(2));
+        room.TotalTax = parseFloat((room.TotalTax * multiplier).toFixed(2));
+
+        if (room.RoomPromotion) {
+          room.OriginalRoomPromotion = room.RoomPromotion;
+          room.RoomPromotion = parseFloat((room.RoomPromotion * multiplier).toFixed(2));
+        }
+        room.MarkupPercentage = markupPct;
+
+        // Also mark DayRates if present
+        if (room.DayRates && Array.isArray(room.DayRates)) {
+          room.DayRates = room.DayRates.map(dayGroup => {
+            if (Array.isArray(dayGroup)) {
+              return dayGroup.map(d => ({
+                ...d,
+                OriginalBasePrice: d.BasePrice,
+                BasePrice: parseFloat((d.BasePrice * multiplier).toFixed(2))
+              }));
+            }
+            return dayGroup;
+          });
+        }
+
+        return room;
+      });
+    }
+
+    // Apply markup to hotel-level published price if present
+    if (hotel.MinPrice) {
+      hotel.OriginalMinPrice = hotel.MinPrice;
+      hotel.MinPrice = parseFloat((hotel.MinPrice * multiplier).toFixed(2));
+    }
+    if (hotel.PublishedPrice) {
+      hotel.OriginalPublishedPrice = hotel.PublishedPrice;
+      hotel.PublishedPrice = parseFloat((hotel.PublishedPrice * multiplier).toFixed(2));
+    }
+
+    return hotel;
+  });
+}
 
 // Get city list by country code - Firebase first, then TBO API
 exports.getCityList = async (req, res) => {
@@ -281,6 +355,14 @@ exports.searchHotel = async (req, res) => {
 
       const hotel = response.data.HotelResult[0];
       console.log('Rooms found:', hotel.Rooms?.length || 0);
+    }
+
+    // Apply markup if active
+    const markupPct = await getActiveMarkupPercentage();
+    if (markupPct > 0 && response.data.HotelResult) {
+      console.log(`Applying markup: ${markupPct}%`);
+      response.data.HotelResult = applyMarkupToResults(response.data.HotelResult, markupPct);
+      response.data.AppliedMarkup = markupPct;
     }
 
     res.json(response.data);

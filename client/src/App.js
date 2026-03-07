@@ -206,6 +206,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {/* Admin Dashboard - has its own layout */}
       {/* Profile Page */}
       <Route
         path="/profile"

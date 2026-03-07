@@ -41,7 +41,11 @@ exports.createOrder = async (req, res) => {
             hotelInfo,
             roomInfo,
             searchParams,
-            contactDetails
+            contactDetails,
+            // Markup tracking
+            originalAmount,
+            markupAmount,
+            markupPercentage
         } = req.body;
 
         // Validation
@@ -55,6 +59,7 @@ exports.createOrder = async (req, res) => {
         console.log('\n=== Creating Razorpay Order ===');
         console.log(`Amount: ${amount} ${currency}`);
         console.log(`BookingCode: ${bookingCode}`);
+        if (markupAmount) console.log(`Markup: ${markupPercentage}% = ₹${markupAmount}`);
 
         // Create Razorpay order
         const orderOptions = {
@@ -86,6 +91,10 @@ exports.createOrder = async (req, res) => {
             roomInfo: roomInfo || null,
             searchParams: searchParams || null,
             contactDetails: contactDetails || null,
+            // Markup tracking
+            originalAmount: originalAmount || amount,
+            markupAmount: markupAmount || 0,
+            markupPercentage: markupPercentage || 0,
             status: 'pending',
             createdAt: new Date().toISOString()
         });

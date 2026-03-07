@@ -4,6 +4,7 @@ const config = require('./config/config');
 const hotelRoutes = require('./routes/hotelRoutes');
 const syncRoutes = require('./routes/syncRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use((req, res, next) => {
 app.use('/api/hotels', hotelRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

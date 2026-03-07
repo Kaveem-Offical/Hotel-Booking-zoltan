@@ -6,7 +6,7 @@ import {
   getCachedHotelDetails
 } from './staticDataService';
 
-const SERVER_URL = 'http://localhost:5001';
+const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const API_BASE_URL = `${SERVER_URL}/api/hotels`;
 
 const api = axios.create({
@@ -304,6 +304,128 @@ export const getCancellationStatus = async (changeRequestId) => {
     console.error('Error fetching cancellation status:', error.response?.data || error.message);
     throw error;
   }
+};
+
+/**
+ * Get agency balance from TBO API (Admin)
+ */
+export const getAgencyBalance = async () => {
+  try {
+    const response = await axios.get(`${SERVER_URL}/api/admin/balance`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching agency balance:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get dashboard stats (Admin)
+ */
+export const getDashboardStats = async () => {
+  try {
+    const response = await axios.get(`${SERVER_URL}/api/admin/stats`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get all bookings for admin management
+ * @param {Object} filters - Optional filters { status, email, dateFrom, dateTo, search }
+ */
+export const getAllAdminBookings = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams(filters).toString();
+    const url = params ? `${SERVER_URL}/api/admin/bookings?${params}` : `${SERVER_URL}/api/admin/bookings`;
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching admin bookings:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get full user details (Admin)
+ * @param {string} uid - User UID
+ */
+export const getUserDetails = async (uid) => {
+  try {
+    const response = await axios.get(`${SERVER_URL}/api/admin/users/${uid}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user details:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get markup settings
+ */
+export const getMarkupSettings = async () => {
+  try {
+    const response = await axios.get(`${SERVER_URL}/api/admin/markup`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching markup settings:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Set markup settings
+ */
+export const setMarkupSettings = async (data) => {
+  try {
+    const response = await axios.post(`${SERVER_URL}/api/admin/markup`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error saving markup settings:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get commission stats
+ */
+export const getCommissionStats = async () => {
+  try {
+    const response = await axios.get(`${SERVER_URL}/api/admin/commission`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching commission stats:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// ===== Coupon APIs =====
+
+export const createCoupon = async (data) => {
+  const response = await axios.post(`${SERVER_URL}/api/admin/coupons`, data);
+  return response.data;
+};
+
+export const getAllCoupons = async () => {
+  const response = await axios.get(`${SERVER_URL}/api/admin/coupons`);
+  return response.data;
+};
+
+export const updateCoupon = async (code, data) => {
+  const response = await axios.put(`${SERVER_URL}/api/admin/coupons/${code}`, data);
+  return response.data;
+};
+
+export const deleteCoupon = async (code) => {
+  const response = await axios.delete(`${SERVER_URL}/api/admin/coupons/${code}`);
+  return response.data;
+};
+
+export const validateCoupon = async (code, bookingAmount) => {
+  const response = await axios.post(`${SERVER_URL}/api/admin/coupons/validate`, { code, bookingAmount });
+  return response.data;
 };
 
 export default api;

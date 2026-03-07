@@ -56,7 +56,11 @@ const GuestDetailsPage = () => {
         lastName: '',
         email: '',
         phone: '',
-        nationality: 'IN'
+        nationality: 'IN',
+        passportNo: '',
+        passportIssueDate: '',
+        passportExpDate: '',
+        panNo: ''
     });
 
     const [guestDetails, setGuestDetails] = useState([]);
@@ -71,6 +75,9 @@ const GuestDetailsPage = () => {
     const childrenCount = searchParams?.children || 0;
     const totalGuests = adultsCount + childrenCount;
 
+    // Check if international booking
+    const isInternational = hotel?.CountryCode !== 'IN';
+
     // Initialize guest details
     useEffect(() => {
         const guests = [];
@@ -81,7 +88,7 @@ const GuestDetailsPage = () => {
                 firstName: '',
                 middleName: '',
                 lastName: '',
-                age: null,
+                age: '',
                 isLead: i === 0
             });
         }
@@ -187,6 +194,21 @@ const GuestDetailsPage = () => {
             newErrors.contactPhone = 'Invalid phone number (10-15 digits)';
         }
 
+        if (isInternational) {
+            if (!contactDetails.passportNo.trim()) {
+                newErrors.contactPassportNo = 'Passport number is required for international bookings';
+            }
+            if (!contactDetails.passportIssueDate) {
+                newErrors.contactPassportIssueDate = 'Passport issue date is required';
+            }
+            if (!contactDetails.passportExpDate) {
+                newErrors.contactPassportExpDate = 'Passport expiry date is required';
+            }
+            if (!contactDetails.panNo.trim()) {
+                newErrors.contactPanNo = 'PAN number is required for international bookings';
+            }
+        }
+
         // Guest details validation
         guestDetails.forEach((guest, index) => {
             if (!guest.firstName.trim()) {
@@ -211,6 +233,10 @@ const GuestDetailsPage = () => {
 
             if (guest.type === 'child' && (!guest.age || guest.age < 0 || guest.age > 12)) {
                 newErrors[`guest${index}Age`] = 'Valid child age (0-12) is required';
+            }
+
+            if (guest.type === 'adult' && (!guest.age || guest.age < 12)) {
+                newErrors[`guest${index}Age`] = 'Valid adult age (12+) is required';
             }
         });
 
@@ -244,6 +270,7 @@ const GuestDetailsPage = () => {
                     preBookData,
                     guestDetails,
                     contactDetails,
+                    isInternational,
                     netAmount: preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare
                 }
             });
@@ -801,6 +828,80 @@ const GuestDetailsPage = () => {
                                         </select>
                                     </div>
                                 </div>
+                                {isInternational && (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Passport Number <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={contactDetails.passportNo}
+                                                onChange={(e) => {
+                                                    setContactDetails(prev => ({ ...prev, passportNo: e.target.value }));
+                                                    setErrors(prev => ({ ...prev, contactPassportNo: null }));
+                                                }}
+                                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.contactPassportNo ? 'border-red-500' : 'border-gray-300'}`}
+                                                placeholder="Enter passport number"
+                                            />
+                                            {errors.contactPassportNo && (
+                                                <p className="text-red-500 text-xs mt-1">{errors.contactPassportNo}</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                PAN Number <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={contactDetails.panNo}
+                                                onChange={(e) => {
+                                                    setContactDetails(prev => ({ ...prev, panNo: e.target.value.toUpperCase() }));
+                                                    setErrors(prev => ({ ...prev, contactPanNo: null }));
+                                                }}
+                                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition uppercase ${errors.contactPanNo ? 'border-red-500' : 'border-gray-300'}`}
+                                                placeholder="ABCDE1234F"
+                                            />
+                                            {errors.contactPanNo && (
+                                                <p className="text-red-500 text-xs mt-1">{errors.contactPanNo}</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Passport Issue Date <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={contactDetails.passportIssueDate}
+                                                onChange={(e) => {
+                                                    setContactDetails(prev => ({ ...prev, passportIssueDate: e.target.value }));
+                                                    setErrors(prev => ({ ...prev, contactPassportIssueDate: null }));
+                                                }}
+                                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.contactPassportIssueDate ? 'border-red-500' : 'border-gray-300'}`}
+                                            />
+                                            {errors.contactPassportIssueDate && (
+                                                <p className="text-red-500 text-xs mt-1">{errors.contactPassportIssueDate}</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Passport Expiry Date <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={contactDetails.passportExpDate}
+                                                onChange={(e) => {
+                                                    setContactDetails(prev => ({ ...prev, passportExpDate: e.target.value }));
+                                                    setErrors(prev => ({ ...prev, contactPassportExpDate: null }));
+                                                }}
+                                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.contactPassportExpDate ? 'border-red-500' : 'border-gray-300'}`}
+                                            />
+                                            {errors.contactPassportExpDate && (
+                                                <p className="text-red-500 text-xs mt-1">{errors.contactPassportExpDate}</p>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -891,25 +992,22 @@ const GuestDetailsPage = () => {
                                                     <p className="text-red-500 text-xs mt-1">{errors[`guest${index}LastName`]}</p>
                                                 )}
                                             </div>
-                                            {guest.type === 'child' && (
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                        Age <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max="12"
-                                                        value={guest.age || ''}
-                                                        onChange={(e) => updateGuest(index, 'age', e.target.value)}
-                                                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}Age`] ? 'border-red-500' : 'border-gray-300'}`}
-                                                        placeholder="Age"
-                                                    />
-                                                    {errors[`guest${index}Age`] && (
-                                                        <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>
-                                                    )}
-                                                </div>
-                                            )}
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                    Age <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={guest.age || ''}
+                                                    onChange={(e) => updateGuest(index, 'age', e.target.value)}
+                                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}Age`] ? 'border-red-500' : 'border-gray-300'}`}
+                                                    placeholder="Age"
+                                                />
+                                                {errors[`guest${index}Age`] && (
+                                                    <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
