@@ -678,7 +678,15 @@
   width: 100%;
   max-width: 720px;
   margin: 0 0.75rem;
+  max-height: 90vh; /* Allow it to fit within view */
+  display: flex;
+  flex-direction: column;
   animation: modalScaleIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.landing-search-modal .bg-\[\#0f0c29\]\/90 {
+  overflow-y: auto; /* Enable scroll if calendar gets too tall */
+  max-height: 70vh; /* Leave room for header & close button */
 }
 
 .landing-search-close {

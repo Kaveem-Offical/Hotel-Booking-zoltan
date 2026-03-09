@@ -924,6 +924,19 @@ body {
   transform-origin: top center;
 }
 
+/* Inline mode overrides */
+.drp-dropdown.drp-inline {
+  position: static;
+  transform: none;
+  animation: none;
+  min-width: 0;
+  width: 100%;
+  box-shadow: none !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0;
+}
+
 .drp-variant-light .drp-dropdown {
   background: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(24px);
@@ -1079,13 +1092,21 @@ body {
 /* ─── Calendar Grid ─── */
 .drp-calendars {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2rem;
   animation: drpFadeInUp 0.35s ease-out 0.2s both;
 }
 
+@media (max-width: 768px) {
+  .drp-calendars {
+    gap: 1.5rem;
+  }
+}
+
 .drp-month-grid {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 280px;
+  min-width: 280px;
 }
 
 .drp-month-title {
@@ -1340,8 +1361,8 @@ body {
 }
 
 /* ─── Responsive ─── */
-@media (max-width: 640px) {
-  .drp-dropdown {
+@media (max-width: 800px) {
+  .drp-dropdown:not(.drp-inline) {
     position: fixed;
     top: auto;
     bottom: 0;
@@ -1355,9 +1376,24 @@ body {
     animation: drpSlideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
 
+  .drp-dropdown.drp-inline {
+    padding: 0;
+    min-width: 0;
+    border-radius: 0;
+    animation: none;
+  }
+
   .drp-calendars {
-    flex-direction: column;
     gap: 1.25rem;
+  }
+
+  .drp-month-title {
+    font-size: 1.125rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .drp-day-cell {
+    min-height: 2.75rem;
   }
 
   @keyframes drpSlideUp {

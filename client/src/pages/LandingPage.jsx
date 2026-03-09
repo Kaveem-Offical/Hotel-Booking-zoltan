@@ -129,6 +129,15 @@ const StarField = () => {
     );
 };
 
+// ─── Format Date Helper ──────────────────────────────────────
+const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+};
+
 // ─── Main Component ──────────────────────────────────────────
 const LandingPage = () => {
     const navigate = useNavigate();
@@ -151,6 +160,7 @@ const LandingPage = () => {
 
     // Search overlay state
     const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
+    const [isCalendarOverlayOpen, setIsCalendarOverlayOpen] = useState(false);
     const [suggestions, setSuggestions] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const overlayInputRef = useRef(null);
@@ -182,6 +192,7 @@ const LandingPage = () => {
         const handleEscape = (e) => {
             if (e.key === 'Escape') {
                 setIsSearchOverlayOpen(false);
+                setIsCalendarOverlayOpen(false);
                 setShowDropdown(false);
             }
         };
@@ -191,13 +202,13 @@ const LandingPage = () => {
 
     // Lock body scroll when overlay is open
     useEffect(() => {
-        if (isSearchOverlayOpen) {
+        if (isSearchOverlayOpen || isCalendarOverlayOpen) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = '';
         }
         return () => { document.body.style.overflow = ''; };
-    }, [isSearchOverlayOpen]);
+    }, [isSearchOverlayOpen, isCalendarOverlayOpen]);
 
     // Fetch countries and pre-cache cities
     useEffect(() => {
@@ -498,15 +509,22 @@ const LandingPage = () => {
                                 <Search className="w-4 h-4 text-white/30 group-hover:text-white/60 transition-colors" />
                             </div>
 
-                            {/* Date Range Picker */}
-                            <div className="md:min-w-[280px]">
-                                <DateRangePicker
-                                    checkInDate={checkIn}
-                                    checkOutDate={checkOut}
-                                    onCheckInChange={setCheckIn}
-                                    onCheckOutChange={setCheckOut}
-                                    variant="dark"
-                                />
+                            {/* Date Picker Button */}
+                            <div 
+                                className="flex items-center gap-3 px-4 py-3 bg-white/8 rounded-xl border border-white/10 hover:border-white/20 transition-all group md:min-w-[280px] cursor-pointer"
+                                onClick={() => setIsCalendarOverlayOpen(true)}
+                            >
+                                <Clock className="w-5 h-5 text-indigo-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                <div className="flex-1 text-left flex flex-col pt-1">
+                                    <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold leading-none mb-1">When</span>
+                                    {checkIn && checkOut ? (
+                                        <span className="text-white font-medium text-sm sm:text-base leading-none">
+                                            {formatDisplayDate(checkIn)} - {formatDisplayDate(checkOut)}
+                                        </span>
+                                    ) : (
+                                        <span className="text-white/50 font-medium text-sm sm:text-base leading-none">Select Dates</span>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Guests */}
@@ -876,6 +894,63 @@ const LandingPage = () => {
 
                         {/* ESC Hint */}
                         <p className="landing-search-esc">
+                            Press <kbd>ESC</kbd> to close
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════ CALENDAR OVERLAY ══════════════ */}
+            {isCalendarOverlayOpen && (
+                <div className="landing-search-overlay">
+                    {/* Backdrop */}
+                    <div
+                        className="landing-search-backdrop"
+                        onClick={() => setIsCalendarOverlayOpen(false)}
+                    />
+
+                    {/* Overlay Content */}
+                    <div className="landing-search-modal" style={{ maxWidth: '600px' }}>
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setIsCalendarOverlayOpen(false)}
+                            className="landing-search-close"
+                        >
+                            <X className="w-7 h-7" />
+                        </button>
+
+                        {/* Calendar Header */}
+                        <div className="landing-search-header">
+                            <h2>
+                                <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-400" />
+                                When are you travelling?
+                            </h2>
+                            <p>Select your check-in and check-out dates</p>
+                        </div>
+
+                        {/* Calendar Body */}
+                        <div className="bg-[#0f0c29]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 sm:p-6 shadow-2xl">
+                            <DateRangePicker
+                                checkInDate={checkIn}
+                                checkOutDate={checkOut}
+                                onCheckInChange={setCheckIn}
+                                onCheckOutChange={setCheckOut}
+                                variant="dark"
+                                inline={true}
+                            />
+                            
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={() => setIsCalendarOverlayOpen(false)}
+                                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold transition-all shadow-lg hover:shadow-indigo-500/25"
+                                >
+                                    Confirm Dates
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* ESC Hint */}
+                        <p className="landing-search-esc mt-6">
                             Press <kbd>ESC</kbd> to close
                         </p>
                     </div>

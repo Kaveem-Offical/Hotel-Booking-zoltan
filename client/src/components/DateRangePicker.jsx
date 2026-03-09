@@ -142,9 +142,10 @@ const DateRangePicker = ({
   checkOutDate,
   onCheckInChange,
   onCheckOutChange,
-  variant = 'light'
+  variant = 'light',
+  inline = false
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(inline);
   const [selecting, setSelecting] = useState('checkIn'); // 'checkIn' or 'checkOut'
   const [hoverDate, setHoverDate] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -172,7 +173,7 @@ const DateRangePicker = ({
   useEffect(() => {
     const handleClick = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setIsOpen(false);
+        if (!inline) setIsOpen(false);
         setHoverDate(null);
       }
     };
@@ -185,7 +186,10 @@ const DateRangePicker = ({
   // Close on Escape
   useEffect(() => {
     const handleKey = (e) => {
-      if (e.key === 'Escape') { setIsOpen(false); setHoverDate(null); }
+      if (e.key === 'Escape') { 
+        if (!inline) setIsOpen(false); 
+        setHoverDate(null); 
+      }
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
@@ -212,7 +216,9 @@ const DateRangePicker = ({
         onCheckOutChange(dateStr);
         setSelecting('checkIn');
         // Close after both dates selected, with a small delay for visual feedback
-        setTimeout(() => setIsOpen(false), 300);
+        if (!inline) {
+          setTimeout(() => setIsOpen(false), 300);
+        }
       }
     }
   };
@@ -242,11 +248,12 @@ const DateRangePicker = ({
   return (
     <div className={`drp-container h-[100%] ${isDark ? 'drp-variant-dark' : 'drp-variant-light'}`} ref={containerRef}>
       {/* ── Trigger ── */}
-      <div
-        className={`drp-trigger ${isOpen ? 'drp-trigger-active' : ''}`}
-        onClick={() => { setIsOpen(!isOpen); setSelecting('checkIn'); }}
-        style={{height: '100%'}}
-      >
+      {!inline && (
+        <div
+          className={`drp-trigger ${isOpen ? 'drp-trigger-active' : ''}`}
+          onClick={() => { setIsOpen(!isOpen); setSelecting('checkIn'); }}
+          style={{height: '100%'}}
+        >
         <div className="drp-trigger-section drp-trigger-checkin">
           <Calendar className="drp-trigger-icon" />
           <div className="drp-trigger-content">
@@ -274,11 +281,12 @@ const DateRangePicker = ({
             <span className="drp-trigger-date">{formatDisplayDate(checkOutDate)}</span>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* ── Calendar Dropdown ── */}
-      {isOpen && (
-        <div className="drp-dropdown">
+      {(isOpen || inline) && (
+        <div className={`drp-dropdown ${inline ? 'drp-inline' : ''}`} style={inline ? { position: 'static', marginTop: 0, boxShadow: 'none' } : {}}>
           {/* Selection indicator */}
           <div className="drp-selection-tabs">
             <button
