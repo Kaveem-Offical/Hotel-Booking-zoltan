@@ -5,13 +5,15 @@ import {
     LayoutDashboard, Users, ShoppingBag, Wallet, LogOut, Home, Search,
     TrendingUp, TrendingDown, DollarSign, Calendar, Hotel, XCircle, CheckCircle,
     Clock, AlertTriangle, BarChart3, PieChart, Activity, RefreshCw, Menu, X,
-    Eye, Ban, CreditCard, MapPin, Moon, BedDouble, Percent, ArrowUpRight, Tag, Trash2, Plus, ToggleLeft, ToggleRight
+    Eye, Ban, CreditCard, MapPin, Moon, BedDouble, Percent, ArrowUpRight, Tag, Trash2, Plus, ToggleLeft, ToggleRight,
+    MessageCircle
 } from 'lucide-react';
 import {
     LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RePieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { getAgencyBalance, getDashboardStats, getAllAdminBookings, cancelBooking, getCancellationStatus, getUserDetails, getMarkupSettings, setMarkupSettings as saveMarkupAPI, getCommissionStats, createCoupon as createCouponAPI, getAllCoupons, updateCoupon as updateCouponAPI, deleteCoupon as deleteCouponAPI } from '../services/api';
+import AdminChatSection from '../components/AdminChatSection';
 import '../styles/AdminDashboard.css';
 import logo from '../assets/logo.png';
 
@@ -280,6 +282,7 @@ const AdminPage = () => {
         { id: 'markup', label: 'Markup & Pricing', icon: Percent },
         { id: 'commission', label: 'Commission', icon: TrendingUp },
         { id: 'coupons', label: 'Coupons', icon: Tag },
+        { id: 'chat', label: 'Chat Support', icon: MessageCircle },
     ];
 
     return (
@@ -1708,6 +1711,11 @@ const AdminPage = () => {
                                 </div>
                             </div>
                         </>
+                    )}
+
+                    {/* ====== CHAT SUPPORT SECTION ====== */}
+                    {activeSection === 'chat' && (
+                        <AdminChatSection currentUser={currentUser} userData={userData} />
                     )}
                 </div>
             </div>

@@ -428,4 +428,31 @@ export const validateCoupon = async (code, bookingAmount) => {
   return response.data;
 };
 
+// ===== Chat Support APIs =====
+
+export const sendChatMessage = async (data) => {
+  const response = await axios.post(`${SERVER_URL}/api/chat/send`, data);
+  return response.data;
+};
+
+export const getChatConversations = async () => {
+  const response = await axios.get(`${SERVER_URL}/api/chat/conversations`);
+  return response.data;
+};
+
+export const toggleChatPin = async (chatId) => {
+  const response = await axios.post(`${SERVER_URL}/api/chat/pin/${chatId}`);
+  return response.data;
+};
+
+export const markChatAsRead = async (chatId) => {
+  const response = await axios.post(`${SERVER_URL}/api/chat/read/${chatId}`);
+  return response.data;
+};
+
+export const cleanupOldChats = async () => {
+  const response = await axios.delete(`${SERVER_URL}/api/chat/cleanup`);
+  return response.data;
+};
+
 export default api;

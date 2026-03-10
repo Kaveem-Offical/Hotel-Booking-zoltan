@@ -12,6 +12,7 @@ import SignInPage from './pages/SignInPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
+import ChatWidget from './components/ChatWidget';
 import { Hotel, LogOut, Shield, Heart, HelpCircle, User, Sun, Moon, Menu, X, Calendar } from 'lucide-react';
 import './styles/Auth.css';
 import logo from './assets/logo.png';
@@ -258,6 +259,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <AppRoutes />
+          <ChatWidget />
         </AuthProvider>
       </ThemeProvider>
     </Router>
