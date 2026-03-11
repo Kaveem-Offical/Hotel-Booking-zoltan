@@ -15,14 +15,11 @@ const ChatWidget = () => {
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
 
-    // Don't render for admin users or unauthenticated users
-    if (!currentUser || isAdmin) return null;
-
-    const chatId = currentUser.uid;
+    const chatId = currentUser?.uid;
 
     // Listen for messages in real-time
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
+        if (!chatId || isAdmin) return;
         const messagesRef = ref(database, `supportChats/${chatId}/messages`);
         const unsubscribe = onValue(messagesRef, (snapshot) => {
             const data = snapshot.val();
@@ -42,10 +39,9 @@ const ChatWidget = () => {
             }
         });
         return () => unsubscribe();
-    }, [chatId, isOpen]);
+    }, [chatId, isAdmin, isOpen]);
 
     // Scroll to bottom when messages change or chat opens
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
         if (isOpen && messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -53,12 +49,14 @@ const ChatWidget = () => {
     }, [messages, isOpen]);
 
     // Focus input when chat opens
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
         if (isOpen && inputRef.current) {
             inputRef.current.focus();
         }
     }, [isOpen]);
+
+    // Don't render for admin users or unauthenticated users
+    if (!currentUser || isAdmin) return null;
 
     const handleOpen = () => {
         setIsOpen(true);

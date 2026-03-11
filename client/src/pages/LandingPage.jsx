@@ -430,6 +430,9 @@ const LandingPage = () => {
                     <Link to="/search" className="text-white/70 hover:text-white text-sm font-medium transition-colors hidden sm:block">
                         Hotels
                     </Link>
+                    <Link to="/help" onClick={() => window.scrollTo(0, 0)} className="text-white/70 hover:text-white text-sm font-medium transition-colors hidden sm:block">
+                        Help Center
+                    </Link>
                     {currentUser ? (
                         <>
                             <Link to="/profile" className="text-white/70 hover:text-white text-sm font-medium transition-colors flex items-center gap-1">
@@ -510,7 +513,7 @@ const LandingPage = () => {
                             </div>
 
                             {/* Date Picker Button */}
-                            <div 
+                            <div
                                 className="flex items-center gap-3 px-4 py-3 bg-white/8 rounded-xl border border-white/10 hover:border-white/20 transition-all group md:min-w-[280px] cursor-pointer"
                                 onClick={() => setIsCalendarOverlayOpen(true)}
                             >
@@ -727,16 +730,34 @@ const LandingPage = () => {
                         <div>
                             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Company</h4>
                             <ul className="space-y-2">
-                                {['About Us', 'Careers', 'Press', 'Blog'].map((item) => (
-                                    <li key={item}><span className="text-white/40 hover:text-white text-sm cursor-pointer transition-colors">{item}</span></li>
+                                {[
+                                    { label: 'About Us', path: '/about' },
+                                    { label: 'Careers', path: '#' },
+                                    { label: 'Press', path: '#' },
+                                    { label: 'Blog', path: '#' }
+                                ].map((item) => (
+                                    <li key={item.label}>
+                                        <Link to={item.path} onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-sm cursor-pointer transition-colors">
+                                            {item.label}
+                                        </Link>
+                                    </li>
                                 ))}
                             </ul>
                         </div>
                         <div>
                             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Support</h4>
                             <ul className="space-y-2">
-                                {['Help Center', 'Safety', 'Cancellation', 'Contact Us'].map((item) => (
-                                    <li key={item}><span className="text-white/40 hover:text-white text-sm cursor-pointer transition-colors">{item}</span></li>
+                                {[
+                                    { label: 'Help Center', path: '/help' },
+                                    { label: 'Safety', path: '/safety' },
+                                    { label: 'Cancellation', path: '/cancellation' },
+                                    { label: 'Contact Us', path: '/contact' }
+                                ].map((item) => (
+                                    <li key={item.label}>
+                                        <Link to={item.path} onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-sm cursor-pointer transition-colors">
+                                            {item.label}
+                                        </Link>
+                                    </li>
                                 ))}
                             </ul>
                         </div>
@@ -938,7 +959,7 @@ const LandingPage = () => {
                                 variant="dark"
                                 inline={true}
                             />
-                            
+
                             <div className="mt-6 flex justify-end">
                                 <button
                                     onClick={() => setIsCalendarOverlayOpen(false)}

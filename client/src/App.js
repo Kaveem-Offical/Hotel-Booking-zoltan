@@ -12,6 +12,11 @@ import SignInPage from './pages/SignInPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
+import HelpCenterPage from './pages/HelpCenterPage';
+import ContactUsPage from './pages/ContactUsPage';
+import CancellationPage from './pages/CancellationPage';
+import SafetyPage from './pages/SafetyPage';
+import AboutUsPage from './pages/AboutUsPage';
 import ChatWidget from './components/ChatWidget';
 import { Hotel, LogOut, Shield, Heart, HelpCircle, User, Sun, Moon, Menu, X, Calendar } from 'lucide-react';
 import './styles/Auth.css';
@@ -226,26 +231,39 @@ function AppRoutes() {
         path="/help"
         element={
           <Layout>
-            <div style={{
-              minHeight: 'calc(100vh - 70px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'var(--agoda-bg)',
-              padding: '2rem'
-            }}>
-              <div style={{
-                textAlign: 'center',
-                background: 'white',
-                padding: '3rem',
-                borderRadius: '12px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-              }}>
-                <HelpCircle size={64} style={{ color: 'var(--agoda-blue)', marginBottom: '1rem' }} />
-                <h2 style={{ color: 'var(--agoda-dark)', marginBottom: '0.5rem' }}>Help Center</h2>
-                <p style={{ color: 'var(--agoda-gray)' }}>Need assistance? We're here to help!</p>
-              </div>
-            </div>
+            <HelpCenterPage />
+          </Layout>
+        }
+      />
+      <Route
+        path="/contact"
+        element={
+          <Layout>
+            <ContactUsPage />
+          </Layout>
+        }
+      />
+      <Route
+        path="/cancellation"
+        element={
+          <Layout>
+            <CancellationPage />
+          </Layout>
+        }
+      />
+      <Route
+        path="/safety"
+        element={
+          <Layout>
+            <SafetyPage />
+          </Layout>
+        }
+      />
+      <Route
+        path="/about"
+        element={
+          <Layout>
+            <AboutUsPage />
           </Layout>
         }
       />

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import '../styles/Profile.css';
 import { useAuth } from '../context/AuthContext';
 import { cancelBooking, getCancellationStatus } from '../services/api';
 import {
@@ -279,11 +280,11 @@ const ProfilePage = () => {
     return (
         <div className="min-h-screen bg-gray-100">
             {/* Profile Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-8">
-                <div className="container mx-auto px-4">
-                    <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="profile-header-gradient text-white py-12 relative overflow-hidden">
+                <div className="container mx-auto px-4 relative z-10">
+                    <div className="flex flex-col md:flex-row items-center gap-8 animate-fade-in-up stagger-1">
                         {/* Avatar */}
-                        <div className="w-24 h-24 rounded-full bg-white text-blue-600 flex items-center justify-center text-3xl font-bold shadow-lg">
+                        <div className="w-28 h-28 rounded-full glass-avatar text-blue-600 flex items-center justify-center text-4xl font-bold shadow-xl">
                             {getInitials(userData?.username || currentUser?.email)}
                         </div>
 
@@ -416,22 +417,22 @@ const ProfilePage = () => {
                     <div className="flex gap-0 overflow-x-auto scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('trips')}
-                            className={`px-4 sm:px-6 py-4 font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap text-sm sm:text-base ${activeTab === 'trips'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-600 hover:text-gray-800'
+                            className={`tab-button px-4 sm:px-6 py-4 font-medium flex items-center gap-2 whitespace-nowrap text-sm sm:text-base transition-colors ${activeTab === 'trips'
+                                ? 'text-blue-600 active'
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                                 }`}
                         >
-                            <Calendar size={18} />
+                            <Calendar size={18} className={activeTab === 'trips' ? 'animate-bounce' : ''} />
                             My Trips
                         </button>
                         <button
                             onClick={() => setActiveTab('saved')}
-                            className={`px-4 sm:px-6 py-4 font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap text-sm sm:text-base ${activeTab === 'saved'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-600 hover:text-gray-800'
+                            className={`tab-button px-4 sm:px-6 py-4 font-medium flex items-center gap-2 whitespace-nowrap text-sm sm:text-base transition-colors ${activeTab === 'saved'
+                                ? 'text-blue-600 active'
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                                 }`}
                         >
-                            <Heart size={18} />
+                            <Heart size={18} className={activeTab === 'saved' ? 'animate-pulse' : ''} />
                             Saved Hotels
                             {likedHotelsArray.length > 0 && (
                                 <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">
@@ -441,9 +442,9 @@ const ProfilePage = () => {
                         </button>
                         <button
                             onClick={() => setActiveTab('settings')}
-                            className={`px-4 sm:px-6 py-4 font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap text-sm sm:text-base ${activeTab === 'settings'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-600 hover:text-gray-800'
+                            className={`tab-button px-4 sm:px-6 py-4 font-medium flex items-center gap-2 whitespace-nowrap text-sm sm:text-base transition-colors ${activeTab === 'settings'
+                                ? 'text-blue-600 active'
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                                 }`}
                         >
                             <Settings size={18} />
@@ -494,11 +495,12 @@ const ProfilePage = () => {
                                 </button>
                             </div>
                         ) : (
-                            <div className="space-y-4">
-                                {filteredBookings.map((booking) => (
+                            <div className="space-y-4 animate-fade-in-up stagger-2">
+                                {filteredBookings.map((booking, index) => (
                                     <div
                                         key={booking.bookingId}
-                                        className="bg-white rounded-lg shadow-sm p-4 flex flex-col md:flex-row gap-4"
+                                        className="trip-card bg-white rounded-xl shadow-sm p-5 flex flex-col md:flex-row gap-5"
+                                        style={{ animationDelay: `${index * 0.1}s` }}
                                     >
                                         {/* Hotel Image */}
                                         <div className="w-full md:w-48 h-32 rounded-lg overflow-hidden bg-gray-200">
@@ -620,11 +622,12 @@ const ProfilePage = () => {
                                 </button>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {likedHotelsArray.map((hotel) => (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up stagger-2">
+                                {likedHotelsArray.map((hotel, index) => (
                                     <div
                                         key={hotel.HotelCode}
-                                        className="bg-white rounded-lg shadow-sm overflow-hidden group cursor-pointer hover:shadow-md transition-shadow"
+                                        className="saved-hotel-card bg-white rounded-2xl shadow-sm overflow-hidden group cursor-pointer"
+                                        style={{ animationDelay: `${index * 0.1}s` }}
                                         onClick={() => navigate(`/hotel/${hotel.HotelCode}`)}
                                     >
                                         {/* Image */}
@@ -680,11 +683,10 @@ const ProfilePage = () => {
                     </div>
                 )}
 
-                {/* Account Settings Tab */}
                 {activeTab === 'settings' && (
-                    <div className="max-w-2xl">
+                    <div className="max-w-2xl mx-auto animate-fade-in-up stagger-2">
                         {/* Personal Information */}
-                        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <div className="bg-white rounded-2xl shadow-sm p-8 mb-8 border border-gray-100 hover:shadow-md transition-shadow duration-300">
                             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                                 <User size={20} />
                                 Personal Information
@@ -743,7 +745,7 @@ const ProfilePage = () => {
                         </div>
 
                         {/* Security */}
-                        <div className="bg-white rounded-lg shadow-sm p-6">
+                        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-md transition-shadow duration-300">
                             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                                 <Lock size={20} />
                                 Security
@@ -840,11 +842,10 @@ const ProfilePage = () => {
                             <div className="flex items-start justify-between">
                                 <div>
                                     <h2 className="text-xl font-bold mb-1">Booking Details</h2>
-                                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                        selectedBooking.status === 'booked' ? 'bg-white/20 text-white' :
-                                        selectedBooking.status === 'completed' ? 'bg-green-400/20 text-green-100' :
-                                        'bg-red-400/20 text-red-100'
-                                    }`}>
+                                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${selectedBooking.status === 'booked' ? 'bg-white/20 text-white' :
+                                            selectedBooking.status === 'completed' ? 'bg-green-400/20 text-green-100' :
+                                                'bg-red-400/20 text-red-100'
+                                        }`}>
                                         {selectedBooking.status === 'booked' ? 'Upcoming' : selectedBooking.status?.charAt(0).toUpperCase() + selectedBooking.status?.slice(1)}
                                     </span>
                                 </div>
@@ -942,11 +943,10 @@ const ProfilePage = () => {
 
                             {/* Cancellation Deadline */}
                             {selectedBooking.lastCancellationDeadline && (
-                                <div className={`rounded-xl p-3 flex items-center gap-2 ${
-                                    new Date() < new Date(selectedBooking.lastCancellationDeadline)
+                                <div className={`rounded-xl p-3 flex items-center gap-2 ${new Date() < new Date(selectedBooking.lastCancellationDeadline)
                                         ? 'bg-green-50 text-green-700'
                                         : 'bg-red-50 text-red-600'
-                                }`}>
+                                    }`}>
                                     <Clock size={16} />
                                     <div className="text-sm">
                                         {new Date() < new Date(selectedBooking.lastCancellationDeadline)
