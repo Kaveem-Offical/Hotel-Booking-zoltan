@@ -6,7 +6,7 @@ import {
   getCachedHotelDetails
 } from './staticDataService';
 
-const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 const API_BASE_URL = `${SERVER_URL}/api/hotels`;
 
 const api = axios.create({
@@ -387,6 +387,33 @@ export const setMarkupSettings = async (data) => {
     throw error;
   }
 };
+
+/**
+ * Get pricing strategies
+ */
+export const getPricingStrategies = async () => {
+  try {
+    const response = await axios.get(`${SERVER_URL}/api/admin/pricing-strategies`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching pricing strategies:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Update pricing strategies
+ */
+export const updatePricingStrategies = async (data) => {
+  try {
+    const response = await axios.post(`${SERVER_URL}/api/admin/pricing-strategies`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error saving pricing strategies:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 
 /**
  * Get commission stats

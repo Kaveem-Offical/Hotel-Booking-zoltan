@@ -547,6 +547,62 @@ exports.setMarkupSettings = async (req, res) => {
 };
 
 /**
+ * Get all pricing strategies
+ */
+exports.getPricingStrategies = async (req, res) => {
+    try {
+        const settingsRef = database.ref('settings/pricing_strategies');
+        const snap = await settingsRef.once('value');
+        const strategies = snap.val() || {};
+
+        res.json({
+            success: true,
+            strategies
+        });
+    } catch (error) {
+        console.error('GetPricingStrategies Error:', error.message);
+        res.status(500).json({ error: 'Failed to fetch pricing strategies', message: error.message });
+    }
+};
+
+/**
+ * Update pricing strategies
+ */
+exports.updatePricingStrategies = async (req, res) => {
+    try {
+        const updates = req.body;
+        
+        if (!updates || typeof updates !== 'object') {
+            return res.status(400).json({ error: 'Invalid configuration updates' });
+        }
+
+        console.log('\n=== Updating Pricing Strategies ===');
+        const settingsRef = database.ref('settings/pricing_strategies');
+        
+        // Either update specific strategies or overwrite all if provided as a whole object.
+        await settingsRef.update(updates);
+        
+        // Also fetch to return the new state
+        const snap = await settingsRef.once('value');
+
+        // Optional: clear cache on pricing engine via some pubsub or direct call if in same process
+        const pricingEngine = require('../services/pricingEngine');
+        if (pricingEngine && pricingEngine.clearCache) {
+            pricingEngine.clearCache();
+        }
+
+        res.json({
+            success: true,
+            strategies: snap.val(),
+            message: 'Pricing strategies updated successfully'
+        });
+    } catch (error) {
+        console.error('UpdatePricingStrategies Error:', error.message);
+        res.status(500).json({ error: 'Failed to save pricing strategies', message: error.message });
+    }
+};
+
+/**
  * Get commission earnings stats
  */
 exports.getCommissionStats = async (req, res) => {

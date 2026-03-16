@@ -12,7 +12,7 @@ import {
     LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RePieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { getAgencyBalance, getDashboardStats, getAllAdminBookings, cancelBooking, getCancellationStatus, getUserDetails, getMarkupSettings, setMarkupSettings as saveMarkupAPI, getCommissionStats, createCoupon as createCouponAPI, getAllCoupons, updateCoupon as updateCouponAPI, deleteCoupon as deleteCouponAPI } from '../services/api';
+import { getAgencyBalance, getDashboardStats, getAllAdminBookings, cancelBooking, getCancellationStatus, getUserDetails, getMarkupSettings, setMarkupSettings as saveMarkupAPI, getCommissionStats, createCoupon as createCouponAPI, getAllCoupons, updateCoupon as updateCouponAPI, deleteCoupon as deleteCouponAPI, getPricingStrategies, updatePricingStrategies } from '../services/api';
 import AdminChatSection from '../components/AdminChatSection';
 import '../styles/AdminDashboard.css';
 import logo from '../assets/logo.png';
@@ -52,6 +52,12 @@ const AdminPage = () => {
     const [commissionData, setCommissionData] = useState(null);
     const [commissionLoading, setCommissionLoading] = useState(false);
     const [showCommissionDetails, setShowCommissionDetails] = useState(false);
+
+    // Pricing Strategies state
+    const [pricingStrategies, setPricingStrategies] = useState(null);
+    const [strategiesLoading, setStrategiesLoading] = useState(false);
+    const [strategiesSaving, setStrategiesSaving] = useState(false);
+    const [strategiesMsg, setStrategiesMsg] = useState('');
 
     // Coupon state
     const [coupons, setCoupons] = useState([]);
@@ -126,6 +132,48 @@ const AdminPage = () => {
 
         return () => { if (unsubscribe) unsubscribe(); };
     }, [currentUser, isAdmin, getAllUsers, navigate, fetchDashboardData]);
+
+    // Fetch dynamic pricing strategies
+    useEffect(() => {
+        if (activeSection === 'pricing-strategies' && !pricingStrategies) {
+            setStrategiesLoading(true);
+            getPricingStrategies()
+                .then(res => {
+                    if (res?.success) setPricingStrategies(res.strategies || {});
+                })
+                .catch(err => {
+                    console.error('Error fetching pricing strategies:', err);
+                    setPricingStrategies({});
+                })
+                .finally(() => setStrategiesLoading(false));
+        }
+    }, [activeSection, pricingStrategies]);
+
+    const handleUpdateStrategy = async (strategyKey, updates) => {
+        const updatedStrategies = {
+            ...pricingStrategies,
+            [strategyKey]: {
+                ...(pricingStrategies[strategyKey] || {}),
+                ...updates
+            }
+        };
+        setPricingStrategies(updatedStrategies);
+    };
+    
+    const savePricingStrategies = async () => {
+        setStrategiesSaving(true);
+        setStrategiesMsg('');
+        try {
+            await updatePricingStrategies(pricingStrategies);
+            setStrategiesMsg('✓ Saved successfully!');
+            setTimeout(() => setStrategiesMsg(''), 3000);
+        } catch (err) {
+            setStrategiesMsg('Failed to save');
+            console.error(err);
+        } finally {
+            setStrategiesSaving(false);
+        }
+    };
 
     const handleLogout = async () => {
         try {
@@ -280,6 +328,7 @@ const AdminPage = () => {
         { id: 'users', label: 'Users', icon: Users },
         { id: 'balance', label: 'Agency Balance', icon: Wallet },
         { id: 'markup', label: 'Markup & Pricing', icon: Percent },
+        { id: 'pricing-strategies', label: 'Dynamic Pricing', icon: DollarSign },
         { id: 'commission', label: 'Commission', icon: TrendingUp },
         { id: 'coupons', label: 'Coupons', icon: Tag },
         { id: 'chat', label: 'Chat Support', icon: MessageCircle },
@@ -1477,6 +1526,178 @@ const AdminPage = () => {
                                 </div>
                             </div>
                         </>
+                    )}
+
+                    {/* ====== PRICING STRATEGIES SECTION ====== */}
+                    {activeSection === 'pricing-strategies' && (
+                        <div className="widget-card">
+                            <div className="widget-card-header">
+                                <div className="widget-card-title"><DollarSign /> Dynamic Pricing Strategies</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    {strategiesMsg && <span style={{ color: strategiesMsg.includes('Failed') ? '#ef4444' : '#22c55e', fontSize: '0.85rem' }}>{strategiesMsg}</span>}
+                                    <button 
+                                        className="action-btn view" 
+                                        style={{ padding: '0.5rem 1.25rem' }}
+                                        onClick={savePricingStrategies}
+                                        disabled={strategiesSaving || strategiesLoading}
+                                    >
+                                        {strategiesSaving ? 'Saving...' : 'Save All Strategies'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {strategiesLoading && !pricingStrategies ? (
+                                <div style={{ textAlign: 'center', padding: '2rem' }}>
+                                    <div className="admin-spinner" style={{ margin: '0 auto' }} />
+                                    <p className="admin-loading-text">Loading strategies...</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
+                                    {/* Device Based Pricing */}
+                                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '1.25rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <div>
+                                                <h4 style={{ color: '#f1f5f9', margin: 0 }}>Device-Based Pricing</h4>
+                                                <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>Offer different markup/discounts based on the user's device.</p>
+                                            </div>
+                                            <button 
+                                                className="action-btn"
+                                                onClick={() => handleUpdateStrategy('deviceBased', { enabled: !pricingStrategies?.deviceBased?.enabled })}
+                                                style={{ background: pricingStrategies?.deviceBased?.enabled ? '#22c55e' : '#334155', color: '#fff' }}
+                                            >
+                                                {pricingStrategies?.deviceBased?.enabled ? 'Enabled' : 'Disabled'}
+                                            </button>
+                                        </div>
+                                        {pricingStrategies?.deviceBased?.enabled && (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                                                <div>
+                                                    <label style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Mobile Markup (%)</label>
+                                                    <input type="number" className="admin-filter-input" value={pricingStrategies.deviceBased?.mobileMarkup || 0} onChange={e => handleUpdateStrategy('deviceBased', { mobileMarkup: parseFloat(e.target.value) || 0 })} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Desktop Markup (%)</label>
+                                                    <input type="number" className="admin-filter-input" value={pricingStrategies.deviceBased?.desktopMarkup || 0} onChange={e => handleUpdateStrategy('deviceBased', { desktopMarkup: parseFloat(e.target.value) || 0 })} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Time Based Pricing */}
+                                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '1.25rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <div>
+                                                <h4 style={{ color: '#f1f5f9', margin: 0 }}>Time-Based Pricing (Urgency)</h4>
+                                                <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>Increase prices for last-minute bookings or apply early-bird discounts.</p>
+                                            </div>
+                                            <button 
+                                                className="action-btn"
+                                                onClick={() => handleUpdateStrategy('timeBased', { enabled: !pricingStrategies?.timeBased?.enabled })}
+                                                style={{ background: pricingStrategies?.timeBased?.enabled ? '#22c55e' : '#334155', color: '#fff' }}
+                                            >
+                                                {pricingStrategies?.timeBased?.enabled ? 'Enabled' : 'Disabled'}
+                                            </button>
+                                        </div>
+                                        {pricingStrategies?.timeBased?.enabled && (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                                                <div>
+                                                    <label style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Last Minute Markup (%)</label>
+                                                    <input type="number" className="admin-filter-input" value={pricingStrategies.timeBased?.lastMinuteMarkup || 0} onChange={e => handleUpdateStrategy('timeBased', { lastMinuteMarkup: parseFloat(e.target.value) || 0 })} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Last Minute Threshold (Days)</label>
+                                                    <input type="number" className="admin-filter-input" value={pricingStrategies.timeBased?.lastMinuteDaysThreshold || 0} onChange={e => handleUpdateStrategy('timeBased', { lastMinuteDaysThreshold: parseInt(e.target.value) || 0 })} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Weekend / Peak Pricing */}
+                                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '1.25rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <div>
+                                                <h4 style={{ color: '#f1f5f9', margin: 0 }}>Weekend / Peak Pricing</h4>
+                                                <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>Automatically apply a markup if the check-in is on a weekend.</p>
+                                            </div>
+                                            <button 
+                                                className="action-btn"
+                                                onClick={() => handleUpdateStrategy('weekendPeak', { enabled: !pricingStrategies?.weekendPeak?.enabled })}
+                                                style={{ background: pricingStrategies?.weekendPeak?.enabled ? '#22c55e' : '#334155', color: '#fff' }}
+                                            >
+                                                {pricingStrategies?.weekendPeak?.enabled ? 'Enabled' : 'Disabled'}
+                                            </button>
+                                        </div>
+                                        {pricingStrategies?.weekendPeak?.enabled && (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                                                <div>
+                                                    <label style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Weekend Markup (%)</label>
+                                                    <input type="number" className="admin-filter-input" value={pricingStrategies.weekendPeak?.weekendMarkup || 0} onChange={e => handleUpdateStrategy('weekendPeak', { weekendMarkup: parseFloat(e.target.value) || 0 })} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Loyalty Pricing */}
+                                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '1.25rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <div>
+                                                <h4 style={{ color: '#f1f5f9', margin: 0 }}>Loyalty Pricing</h4>
+                                                <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>Provide discounts for returning customers.</p>
+                                            </div>
+                                            <button 
+                                                className="action-btn"
+                                                onClick={() => handleUpdateStrategy('loyalty', { enabled: !pricingStrategies?.loyalty?.enabled })}
+                                                style={{ background: pricingStrategies?.loyalty?.enabled ? '#22c55e' : '#334155', color: '#fff' }}
+                                            >
+                                                {pricingStrategies?.loyalty?.enabled ? 'Enabled' : 'Disabled'}
+                                            </button>
+                                        </div>
+                                        {pricingStrategies?.loyalty?.enabled && (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                                                <div>
+                                                    <label style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Loyalty Discount (%)</label>
+                                                    <input type="number" className="admin-filter-input" value={pricingStrategies.loyalty?.discountAmount || 0} onChange={e => handleUpdateStrategy('loyalty', { discountAmount: parseFloat(e.target.value) || 0 })} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Min Past Bookings</label>
+                                                    <input type="number" className="admin-filter-input" value={pricingStrategies.loyalty?.minBookingsThreshold || 0} onChange={e => handleUpdateStrategy('loyalty', { minBookingsThreshold: parseInt(e.target.value) || 0 })} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Demand Based Pricing */}
+                                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '1.25rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <div>
+                                                <h4 style={{ color: '#f1f5f9', margin: 0 }}>Demand-Based Pricing</h4>
+                                                <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>Apply a markup if a hotel is experiencing high recent bookings.</p>
+                                            </div>
+                                            <button 
+                                                className="action-btn"
+                                                onClick={() => handleUpdateStrategy('demandBased', { enabled: !pricingStrategies?.demandBased?.enabled })}
+                                                style={{ background: pricingStrategies?.demandBased?.enabled ? '#22c55e' : '#334155', color: '#fff' }}
+                                            >
+                                                {pricingStrategies?.demandBased?.enabled ? 'Enabled' : 'Disabled'}
+                                            </button>
+                                        </div>
+                                        {pricingStrategies?.demandBased?.enabled && (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                                                <div>
+                                                    <label style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>High Demand Markup (%)</label>
+                                                    <input type="number" className="admin-filter-input" value={pricingStrategies.demandBased?.highDemandMarkup || 0} onChange={e => handleUpdateStrategy('demandBased', { highDemandMarkup: parseFloat(e.target.value) || 0 })} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Demand Threshold (Recent Bookings)</label>
+                                                    <input type="number" className="admin-filter-input" value={pricingStrategies.demandBased?.demandThreshold || 0} onChange={e => handleUpdateStrategy('demandBased', { demandThreshold: parseInt(e.target.value) || 0 })} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Other strategies can be added easily based on this pattern */}
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     {/* ====== COMMISSION SECTION ====== */}

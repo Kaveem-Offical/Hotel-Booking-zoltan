@@ -2,6 +2,7 @@ const axios = require('axios');
 const config = require('../config/config');
 const firebaseService = require('../services/firebaseDataService');
 const authService = require('../services/authService');
+const pricingEngine = require('../services/pricingEngine');
 const { database } = require('../config/firebaseAdmin');
 
 // Create axios instance with basic auth for static data endpoints
@@ -360,9 +361,25 @@ exports.searchHotel = async (req, res) => {
     // Apply markup if active
     const markupPct = await getActiveMarkupPercentage();
     if (markupPct > 0 && response.data.HotelResult) {
-      console.log(`Applying markup: ${markupPct}%`);
+      console.log(`Applying base markup: ${markupPct}%`);
       response.data.HotelResult = applyMarkupToResults(response.data.HotelResult, markupPct);
       response.data.AppliedMarkup = markupPct;
+    }
+
+    // Apply Dynamic Pricing Engine Strategies
+    if (response.data.HotelResult) {
+       console.log('Applying advanced dynamic pricing strategies');
+       const pricingContext = {
+          checkIn,
+          checkOut,
+          clientIp: req.ip || '127.0.0.1',
+          deviceType: req.headers['x-device-type'] || 'desktop',
+          channel: req.headers['x-channel'] || 'website',
+          userCountry: req.headers['x-user-country'] || guestNationality,
+          userVisits: req.headers['x-user-visits'] || 1,
+          userBookingsCount: parseInt(req.headers['x-user-bookings'] || 0)
+       };
+       response.data.HotelResult = await pricingEngine.applyPricingStrategies(response.data.HotelResult, pricingContext);
     }
 
     res.json(response.data);

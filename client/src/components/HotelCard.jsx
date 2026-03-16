@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, MapPin, Star, ThumbsUp, Wifi, Car, Coffee, Utensils, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [justLiked, setJustLiked] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   // Helper to handle missing data
   const getVal = (val, fallback = "NA") => (val !== undefined && val !== null && val !== "") ? val : fallback;
@@ -32,7 +34,9 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
 
   // Map API data to UI props
   const name = getVal(hotel.HotelName || hotel.name);
-  const image = getVal(hotel.HotelPicture || hotel.image, "https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png");
+  const fallbackUrl = "https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png";
+  const image = getVal(hotel.HotelPicture || hotel.image, fallbackUrl);
+  const showLottieFallback = image === fallbackUrl || imageError;
   const stars = parseStars(hotel.StarRating || hotel.stars);
   const location = getVal(hotel.HotelAddress || hotel.location);
   const description = getVal(hotel.HotelDescription || hotel.description, "");
@@ -74,19 +78,29 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   return (
     <div
       className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-2xl dark:hover:shadow-slate-700/50 transition-all duration-300 ease-out flex flex-col md:flex-row overflow-hidden cursor-pointer group mb-4 animate-fade-in-up hover:-translate-y-1 theme-transition"
-      style={{ animationDelay: `${animationDelay}ms`, animationFillMode: 'backwards' }}
+      style={{ animationDelay: `${animationDelay}ms`, animationFillMode: 'both' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelect && onSelect(hotel)}
     >
       {/* Image Section */}
       <div className="relative w-full md:w-[280px] h-[200px] md:h-auto flex-shrink-0 bg-gray-200 dark:bg-slate-700 overflow-hidden">
-        <img
-          src={image}
-          alt={name}
-          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-          onError={(e) => { e.target.src = "https://cdn6.agoda.net/images/MVC/default/background_image/illustrations/bg-agoda-homepage.png"; }}
-        />
+        {showLottieFallback ? (
+          <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-slate-800">
+            <DotLottieReact
+              src="https://lottie.host/888a11b0-a45c-4059-b8b5-0f73090ccf40/HPPlB3hGG2.lottie"
+              loop
+              autoplay
+            />
+          </div>
+        ) : (
+          <img
+            src={image}
+            alt={name}
+            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+            onError={() => setImageError(true)}
+          />
+        )}
         {/* Overlay gradient on hover */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <button

@@ -21,6 +21,10 @@ router.post('/markup', adminController.setMarkupSettings);
 // Commission stats
 router.get('/commission', adminController.getCommissionStats);
 
+// Pricing strategies
+router.get('/pricing-strategies', adminController.getPricingStrategies);
+router.post('/pricing-strategies', adminController.updatePricingStrategies);
+
 // Coupon management
 router.post('/coupons', adminController.createCoupon);
 router.get('/coupons', adminController.getAllCoupons);
