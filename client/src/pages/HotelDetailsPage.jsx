@@ -629,7 +629,12 @@ const HotelDetailsPage = () => {
                         <div className="flex items-center gap-4">
                             <div>
                                 <span className="text-xs text-gray-500 block">Starting from</span>
-                                <span className="text-xl font-bold text-red-600">₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].TotalFare) : 'N/A'}</span>
+                                <div className="flex flex-col">
+                                    <span className="text-xl font-bold text-red-600 leading-none mt-1">
+                                        ₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].TotalFare - (rooms[0].TotalTax || 0)) : 'N/A'}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 mt-0.5">+ Taxes & fees</span>
+                                </div>
                             </div>
                             <button onClick={() => scrollToSection('rooms')} className="bg-blue-600 text-white px-6 py-2 rounded font-bold hover:bg-blue-700">
                                 Select Room
@@ -1051,7 +1056,12 @@ const HotelDetailsPage = () => {
                 <div className="flex justify-between items-center">
                     <div>
                         <div className="text-xs text-gray-500">Starting from</div>
-                        <div className="text-xl font-bold text-red-600">₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].TotalFare) : 'N/A'}</div>
+                        <div className="flex flex-col">
+                            <div className="text-xl font-bold text-red-600 leading-none mt-1">
+                                ₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].TotalFare - (rooms[0].TotalTax || 0)) : 'N/A'}
+                            </div>
+                            <div className="text-[10px] text-gray-500 mt-0.5">+ Taxes & fees</div>
+                        </div>
                     </div>
                     <button
                         onClick={() => scrollToSection('rooms')}

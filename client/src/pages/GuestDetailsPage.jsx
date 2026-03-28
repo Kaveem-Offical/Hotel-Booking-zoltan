@@ -43,6 +43,7 @@ const GuestDetailsPage = () => {
     const [preBookData, setPreBookData] = useState(null);
     const [bookingCode, setBookingCode] = useState(initialBookingCode);
     const [error, setError] = useState(null);
+    const [priceNotice, setPriceNotice] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [bookingSuccess, setBookingSuccess] = useState(false);
     const [bookingResponse, setBookingResponse] = useState(null);
@@ -56,11 +57,7 @@ const GuestDetailsPage = () => {
         lastName: '',
         email: '',
         phone: '',
-        nationality: 'IN',
-        passportNo: '',
-        passportIssueDate: '',
-        passportExpDate: '',
-        panNo: ''
+        nationality: 'IN'
     });
 
     const [guestDetails, setGuestDetails] = useState([]);
@@ -122,6 +119,10 @@ const GuestDetailsPage = () => {
 
                 if (response && response.HotelResult && response.HotelResult.length > 0) {
                     const hotelResult = response.HotelResult[0];
+                    const prebookRoom = hotelResult.Rooms?.[0];
+                    if (prebookRoom && room && prebookRoom.TotalFare !== room.TotalFare) {
+                        setPriceNotice(`The price has been updated by the hotel from ₹${room.TotalFare} to ₹${prebookRoom.TotalFare}.`);
+                    }
                     setPreBookData(hotelResult);
 
                     // Update booking code if changed
@@ -149,9 +150,9 @@ const GuestDetailsPage = () => {
     }, [initialBookingCode]);
 
     // Get validation limits from API response
-    const getNameMinLength = () => validationInfo?.PaxNameMinLength || 1;
-    const getNameMaxLength = () => validationInfo?.PaxNameMaxLength || 50;
-    const isSpecialCharAllowed = () => validationInfo?.SpecialCharAllowed || false;
+    const getNameMinLength = () => 2; // Fixed to 2 for cert
+    const getNameMaxLength = () => 25; // Fixed to 25 for cert
+    const isSpecialCharAllowed = () => false; // Fixed to false for cert
 
     // Validate form
     const validateForm = () => {
@@ -194,20 +195,26 @@ const GuestDetailsPage = () => {
             newErrors.contactPhone = 'Invalid phone number (10-15 digits)';
         }
 
-        if (isInternational) {
-            if (!contactDetails.passportNo.trim()) {
-                newErrors.contactPassportNo = 'Passport number is required for international bookings';
+        // Passport and PAN validation logic
+        guestDetails.forEach((guest, index) => {
+            if (!isInternational && guest.isLead) {
+                const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+                if (!guest.panNumber?.trim()) {
+                    newErrors[`guest${index}Pan`] = 'PAN is required for domestic bookings';
+                } else if (!panRegex.test(guest.panNumber.trim().toUpperCase())) {
+                    newErrors[`guest${index}Pan`] = 'Invalid PAN format';
+                }
             }
-            if (!contactDetails.passportIssueDate) {
-                newErrors.contactPassportIssueDate = 'Passport issue date is required';
+
+            if (isInternational) {
+                if (!guest.passportNo?.trim()) {
+                    newErrors[`guest${index}Passport`] = 'Passport number is required for international bookings';
+                }
+                if (!guest.passportExp?.trim()) {
+                    newErrors[`guest${index}PassportExp`] = 'Passport expiry is required';
+                }
             }
-            if (!contactDetails.passportExpDate) {
-                newErrors.contactPassportExpDate = 'Passport expiry date is required';
-            }
-            if (!contactDetails.panNo.trim()) {
-                newErrors.contactPanNo = 'PAN number is required for international bookings';
-            }
-        }
+        });
 
         // Guest details validation
         guestDetails.forEach((guest, index) => {
@@ -539,6 +546,26 @@ const GuestDetailsPage = () => {
                         className="mb-6"
                     />
                 )}
+                
+                {/* Price Notice Alert */}
+                {priceNotice && (
+                    <div className="mb-6 bg-amber-50 border border-amber-200 p-4 rounded-xl shadow-sm flex items-start justify-between animate-fade-in">
+                        <div className="flex gap-3">
+                            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-500 mt-0.5" />
+                            <div>
+                                <h3 className="text-sm font-bold text-amber-800">Price Updated</h3>
+                                <p className="text-sm text-amber-700 mt-0.5 leading-relaxed">{priceNotice}</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setPriceNotice(null)}
+                            className="text-amber-500 hover:text-amber-700 hover:bg-amber-100/50 p-1.5 rounded-full focus:outline-none transition-all"
+                            aria-label="Dismiss price notice"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column - Forms */}
@@ -828,80 +855,7 @@ const GuestDetailsPage = () => {
                                         </select>
                                     </div>
                                 </div>
-                                {isInternational && (
-                                    <>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Passport Number <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={contactDetails.passportNo}
-                                                onChange={(e) => {
-                                                    setContactDetails(prev => ({ ...prev, passportNo: e.target.value }));
-                                                    setErrors(prev => ({ ...prev, contactPassportNo: null }));
-                                                }}
-                                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.contactPassportNo ? 'border-red-500' : 'border-gray-300'}`}
-                                                placeholder="Enter passport number"
-                                            />
-                                            {errors.contactPassportNo && (
-                                                <p className="text-red-500 text-xs mt-1">{errors.contactPassportNo}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                PAN Number <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={contactDetails.panNo}
-                                                onChange={(e) => {
-                                                    setContactDetails(prev => ({ ...prev, panNo: e.target.value.toUpperCase() }));
-                                                    setErrors(prev => ({ ...prev, contactPanNo: null }));
-                                                }}
-                                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition uppercase ${errors.contactPanNo ? 'border-red-500' : 'border-gray-300'}`}
-                                                placeholder="ABCDE1234F"
-                                            />
-                                            {errors.contactPanNo && (
-                                                <p className="text-red-500 text-xs mt-1">{errors.contactPanNo}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Passport Issue Date <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="date"
-                                                value={contactDetails.passportIssueDate}
-                                                onChange={(e) => {
-                                                    setContactDetails(prev => ({ ...prev, passportIssueDate: e.target.value }));
-                                                    setErrors(prev => ({ ...prev, contactPassportIssueDate: null }));
-                                                }}
-                                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.contactPassportIssueDate ? 'border-red-500' : 'border-gray-300'}`}
-                                            />
-                                            {errors.contactPassportIssueDate && (
-                                                <p className="text-red-500 text-xs mt-1">{errors.contactPassportIssueDate}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Passport Expiry Date <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="date"
-                                                value={contactDetails.passportExpDate}
-                                                onChange={(e) => {
-                                                    setContactDetails(prev => ({ ...prev, passportExpDate: e.target.value }));
-                                                    setErrors(prev => ({ ...prev, contactPassportExpDate: null }));
-                                                }}
-                                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.contactPassportExpDate ? 'border-red-500' : 'border-gray-300'}`}
-                                            />
-                                            {errors.contactPassportExpDate && (
-                                                <p className="text-red-500 text-xs mt-1">{errors.contactPassportExpDate}</p>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
+                                {/* Passport fields removed as they are optional for bookings */}
                             </div>
                         </div>
 
@@ -1008,6 +962,56 @@ const GuestDetailsPage = () => {
                                                     <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>
                                                 )}
                                             </div>
+                                            {!isInternational && guest.isLead && (
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                        PAN <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={guest.panNumber || ''}
+                                                        onChange={(e) => updateGuest(index, 'panNumber', e.target.value.toUpperCase())}
+                                                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}Pan`] ? 'border-red-500' : 'border-gray-300'}`}
+                                                        placeholder="ABCDE1234F"
+                                                    />
+                                                    {errors[`guest${index}Pan`] && (
+                                                        <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Pan`]}</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {isInternational && (
+                                                <>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                            Passport <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={guest.passportNo || ''}
+                                                            onChange={(e) => updateGuest(index, 'passportNo', e.target.value.toUpperCase())}
+                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}Passport`] ? 'border-red-500' : 'border-gray-300'}`}
+                                                            placeholder="Passport No"
+                                                        />
+                                                        {errors[`guest${index}Passport`] && (
+                                                            <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Passport`]}</p>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                            Expiry Date <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="date"
+                                                            value={guest.passportExp || ''}
+                                                            onChange={(e) => updateGuest(index, 'passportExp', e.target.value)}
+                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}PassportExp`] ? 'border-red-500' : 'border-gray-300'}`}
+                                                        />
+                                                        {errors[`guest${index}PassportExp`] && (
+                                                            <p className="text-red-500 text-xs mt-1">{errors[`guest${index}PassportExp`]}</p>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

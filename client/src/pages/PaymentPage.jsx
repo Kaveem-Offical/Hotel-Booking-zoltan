@@ -129,21 +129,44 @@ const PaymentPage = () => {
 
         try {
             // Build hotel rooms details for TBO API
-            const hotelPassengers = guestDetails.map((guest) => ({
-                Title: guest.title,
-                FirstName: guest.firstName.trim(),
-                MiddleName: guest.middleName?.trim() || '',
-                LastName: guest.lastName.trim(),
-                Phoneno: guest.isLead ? contactDetails.phone : '',
-                Email: guest.isLead ? contactDetails.email : '',
-                PaxType: guest.type === 'adult' ? 1 : 2,
-                LeadPassenger: guest.isLead,
-                Age: parseInt(guest.age) || (guest.type === 'child' ? 5 : 25), // Defaults if missing somehow
-                PassportNo: isInternational ? contactDetails.passportNo : '',
-                PassportIssueDate: isInternational && contactDetails.passportIssueDate ? new Date(contactDetails.passportIssueDate).toISOString() : '0001-01-01T00:00:00',
-                PassportExpDate: isInternational && contactDetails.passportExpDate ? new Date(contactDetails.passportExpDate).toISOString() : '0001-01-01T00:00:00',
-                PAN: isInternational ? contactDetails.panNo : ''
-            }));
+            const hotelPassengers = guestDetails.map((guest) => {
+                let title = guest.title;
+                if (title === 'Master') title = 'Mr';
+                
+                const pax = {
+                    Title: title,
+                    FirstName: guest.firstName.trim().substring(0, 25),
+                    MiddleName: guest.middleName?.trim() || '',
+                    LastName: guest.lastName.trim().substring(0, 25),
+                    Phoneno: guest.isLead ? contactDetails.phone : '',
+                    Email: guest.isLead ? contactDetails.email : '',
+                    PaxType: guest.type === 'adult' ? 1 : 2,
+                    LeadPassenger: guest.isLead,
+                    Age: parseInt(guest.age) || (guest.type === 'child' ? 5 : 25)
+                };
+
+                if (isInternational) {
+                    pax.PassportNo = guest.passportNo || '';
+                    if (guest.passportExp) {
+                        pax.PassportExpDate = guest.passportExp;
+                        pax.PassportIssueDate = '2020-01-01T00:00:00'; // Mock issue date as it's not captured but might be required
+                    } else {
+                        pax.PassportExpDate = '0001-01-01T00:00:00';
+                        pax.PassportIssueDate = '0001-01-01T00:00:00';
+                    }
+                } else if (guest.isLead && guest.panNumber) {
+                    pax.PAN = guest.panNumber;
+                }
+
+                // Remove strictly empty fields completely
+                Object.keys(pax).forEach(key => {
+                    if (pax[key] === '' || pax[key] === null || pax[key] === undefined) {
+                        delete pax[key];
+                    }
+                });
+
+                return pax;
+            });
 
             // Create payment order
             const orderData = {

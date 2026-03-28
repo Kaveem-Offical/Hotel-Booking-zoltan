@@ -295,23 +295,46 @@ exports.searchHotel = async (req, res) => {
       });
     }
 
+    // Certification Pax Validation
+    if (noOfRooms > 6 || paxRooms.length > 6) {
+      return res.status(400).json({ error: 'Certification Rule: Max 6 rooms allowed' });
+    }
+    for (const room of paxRooms) {
+      if (room.Adults > 8) {
+        return res.status(400).json({ error: 'Certification Rule: Max 8 adults per room' });
+      }
+      if (room.Children > 4) {
+        return res.status(400).json({ error: 'Certification Rule: Max 4 children per room' });
+      }
+      if (room.ChildrenAges && room.ChildrenAges.length > 0) {
+        for (const age of room.ChildrenAges) {
+          if (age < 0 || age > 18) {
+             return res.status(400).json({ error: 'Certification Rule: Children ages must be between 0 and 18' });
+          }
+        }
+      }
+    }
+
     console.log(`\n=== Hotel Search Request (LIVE - No Cache) ===`);
     console.log(`Hotel Codes: ${hotelCodes}`);
     console.log(`Check-in: ${checkIn}, Check-out: ${checkOut}`);
     console.log(`Rooms: ${noOfRooms}, Guests: ${JSON.stringify(paxRooms)}`);
+
+    const hotelCodesArray = typeof hotelCodes === 'string' ? hotelCodes.split(',') : (Array.isArray(hotelCodes) ? hotelCodes : []);
+    const requestResponseTime = 15; // Set to 15 for TBO Certification
 
     // Prepare search request - Match TBO documentation exactly
     const searchRequest = {
       CheckIn: checkIn,
       CheckOut: checkOut,
       HotelCodes: hotelCodes,
-      GuestNationality: guestNationality,
+      GuestNationality: 'IN', // Forced for certification
       PaxRooms: paxRooms.map(room => ({
         Adults: room.Adults,
         Children: room.Children || 0,
         ChildrenAges: room.ChildrenAges || []
       })),
-      ResponseTime: 23,
+      ResponseTime: requestResponseTime,
       IsDetailedResponse: isDetailedResponse,
       Filters: {
         Refundable: false,
@@ -527,7 +550,7 @@ exports.bookHotel = async (req, res) => {
     const bookRequest = {
       EndUserIp: EndUserIp || req.ip || '127.0.0.1',
       BookingCode,
-      GuestNationality,
+      GuestNationality: 'IN', // Forced for certification
       IsVoucherBooking,
       NetAmount,
       HotelRoomsDetails,
@@ -546,7 +569,8 @@ exports.bookHotel = async (req, res) => {
 
     const response = await axiosInstance.post(
       config.tboApi.bookUrl,
-      bookRequest
+      bookRequest,
+      { timeout: 30000 } // 30 seconds timeout
     );
 
     console.log('Book Response Status:', response.data.Status);
@@ -563,6 +587,24 @@ exports.bookHotel = async (req, res) => {
   } catch (error) {
     console.error('\n=== Book Error ===');
     console.error('Error Message:', error.message);
+
+    if (error.code === 'ECONNABORTED' || (error.message && error.message.includes('timeout'))) {
+      console.log('Book API timeout detected! Triggering GetBookingDetail fallback...');
+      try {
+        const axiosInstance = createSearchAxiosInstance();
+        const getBookingDetailUrl = config.tboApi.bookUrl.replace('/book/', '/GetBookingDetail');
+        const detailResponse = await axiosInstance.post(
+          getBookingDetailUrl,
+          { EndUserIp: req.body.EndUserIp || req.ip || '127.0.0.1', BookingCode: req.body.BookingCode }
+        );
+        if (detailResponse.data && detailResponse.data.BookingStatus) {
+           console.log(`Fallback getBookingDetail status: ${detailResponse.data.BookingStatus}`);
+           return res.json(detailResponse.data);
+        }
+      } catch (fallbackError) {
+         console.error('Fallback GetBookingDetail failed:', fallbackError.message);
+      }
+    }
 
     if (error.response) {
       console.error('Status Code:', error.response.status);
