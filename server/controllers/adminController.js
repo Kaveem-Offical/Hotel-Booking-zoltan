@@ -487,6 +487,43 @@ exports.getUserDetails = async (req, res) => {
 };
 
 /**
+ * Update user role
+ */
+exports.updateUserRole = async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { role } = req.body;
+        
+        if (!['admin', 'support', 'user'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role specified. Must be admin, support, or user.' });
+        }
+        
+        console.log(`\n=== UpdateUserRole: ${uid} -> ${role} ===`);
+        
+        const userRef = database.ref(`users/${uid}`);
+        const snap = await userRef.once('value');
+        if (!snap.exists()) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        await userRef.update({
+            role,
+            // For backward compatibility with existing front-end routes that assume support are also "admins" inside the dashboard.
+            isAdmin: role === 'admin' || role === 'support',
+            updatedAt: new Date().toISOString()
+        });
+        
+        res.json({ success: true, role, message: 'User role updated successfully' });
+    } catch (error) {
+        console.error('UpdateUserRole Error:', error.message);
+        res.status(500).json({
+            error: 'Failed to update user role',
+            message: error.message
+        });
+    }
+};
+
+/**
  * Get markup settings from Firebase
  */
 exports.getMarkupSettings = async (req, res) => {

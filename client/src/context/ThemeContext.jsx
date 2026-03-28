@@ -11,15 +11,15 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-    // Check for saved theme preference or system preference
+    // Check for saved theme preference, default to light mode
     const [isDarkMode, setIsDarkMode] = useState(() => {
         if (typeof window !== 'undefined') {
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme) {
                 return savedTheme === 'dark';
             }
-            // Check system preference
-            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+            // Default to light mode
+            return false;
         }
         return false;
     });

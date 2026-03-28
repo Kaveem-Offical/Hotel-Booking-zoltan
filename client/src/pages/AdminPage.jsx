@@ -12,7 +12,7 @@ import {
     LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RePieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { getAgencyBalance, getDashboardStats, getAllAdminBookings, cancelBooking, getCancellationStatus, getUserDetails, getMarkupSettings, setMarkupSettings as saveMarkupAPI, getCommissionStats, createCoupon as createCouponAPI, getAllCoupons, updateCoupon as updateCouponAPI, deleteCoupon as deleteCouponAPI, getPricingStrategies, updatePricingStrategies } from '../services/api';
+import { getAgencyBalance, getDashboardStats, getAllAdminBookings, cancelBooking, getCancellationStatus, getUserDetails, updateUserRole, getMarkupSettings, setMarkupSettings as saveMarkupAPI, getCommissionStats, createCoupon as createCouponAPI, getAllCoupons, updateCoupon as updateCouponAPI, deleteCoupon as deleteCouponAPI, getPricingStrategies, updatePricingStrategies } from '../services/api';
 import AdminChatSection from '../components/AdminChatSection';
 import '../styles/AdminDashboard.css';
 import logo from '../assets/logo.png';
@@ -69,7 +69,7 @@ const AdminPage = () => {
     const [couponSaving, setCouponSaving] = useState(false);
     const [couponMsg, setCouponMsg] = useState('');
 
-    const { currentUser, userData, isAdmin, getAllUsers, logout } = useAuth();
+    const { currentUser, userData, isAdmin, role, getAllUsers, logout } = useAuth();
     const navigate = useNavigate();
 
     // Fetch all dashboard data
@@ -124,6 +124,10 @@ const AdminPage = () => {
             return;
         }
 
+        if (role === 'support' && !['dashboard', 'bookings', 'users', 'chat'].includes(activeSection)) {
+            setActiveSection('dashboard');
+        }
+
         fetchDashboardData();
 
         const unsubscribe = getAllUsers((usersData) => {
@@ -131,7 +135,7 @@ const AdminPage = () => {
         });
 
         return () => { if (unsubscribe) unsubscribe(); };
-    }, [currentUser, isAdmin, getAllUsers, navigate, fetchDashboardData]);
+    }, [currentUser, isAdmin, role, getAllUsers, navigate, fetchDashboardData, activeSection]);
 
     // Fetch dynamic pricing strategies
     useEffect(() => {
@@ -322,7 +326,7 @@ const AdminPage = () => {
         return null;
     };
 
-    const sidebarLinks = [
+    const allSidebarLinks = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'bookings', label: 'Bookings', icon: ShoppingBag },
         { id: 'users', label: 'Users', icon: Users },
@@ -333,6 +337,12 @@ const AdminPage = () => {
         { id: 'coupons', label: 'Coupons', icon: Tag },
         { id: 'chat', label: 'Chat Support', icon: MessageCircle },
     ];
+
+    const sidebarLinks = allSidebarLinks.filter(link => {
+        if (role === 'admin') return true;
+        if (role === 'support') return ['dashboard', 'bookings', 'users', 'chat'].includes(link.id);
+        return false;
+    });
 
     return (
         <div className="admin-dashboard">
@@ -463,8 +473,10 @@ const AdminPage = () => {
                                 </div>
                             </div>
 
-                            {/* KPI Row 2 - Revenue & Balance */}
-                            <div className="kpi-grid">
+                            {role === 'admin' && (
+                                <>
+                                {/* KPI Row 2 - Revenue & Balance */}
+                                <div className="kpi-grid">
                                 <div className="kpi-card cyan">
                                     <div className="kpi-card-header">
                                         <div>
@@ -642,6 +654,8 @@ const AdminPage = () => {
                                     </button>
                                 </div>
                             </div>
+                            </>
+                            )}
 
                             {/* Charts Row */}
                             <div className="widgets-grid">
@@ -666,9 +680,9 @@ const AdminPage = () => {
                                     </div>
                                 </div>
 
-                                {/* Revenue Trend - Area Chart */}
-                                <div className="widget-card">
-                                    <div className="widget-card-header">
+                                {role === 'admin' && (
+                                    <div className="widget-card">
+                                        <div className="widget-card-header">
                                         <div className="widget-card-title"><TrendingUp /> Revenue Trend</div>
                                         <span className="widget-card-badge">Last 30 days</span>
                                     </div>
@@ -690,6 +704,7 @@ const AdminPage = () => {
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
+                                )}
                             </div>
 
                             {/* Second Widget Row */}
@@ -861,9 +876,9 @@ const AdminPage = () => {
                                 </div>
                             </div>
 
-                            {/* Monthly Revenue Bar Chart */}
-                            <div className="widget-card" style={{ marginTop: '1.25rem' }}>
-                                <div className="widget-card-header">
+                            {role === 'admin' && (
+                                <div className="widget-card" style={{ marginTop: '1.25rem' }}>
+                                    <div className="widget-card-header">
                                     <div className="widget-card-title"><DollarSign /> Monthly Revenue</div>
                                     <span className="widget-card-badge">Last 6 months</span>
                                 </div>
@@ -885,6 +900,7 @@ const AdminPage = () => {
                                     </ResponsiveContainer>
                                 </div>
                             </div>
+                            )}
                         </>
                     )}
 
@@ -1039,10 +1055,42 @@ const AdminPage = () => {
                                                         <span>📱 {userDetail.user?.phoneNumber || 'N/A'}</span>
                                                         <span>🔐 {userDetail.user?.provider === 'google' ? 'Google' : 'Email'}</span>
                                                         <span>📅 Joined: {formatDate(userDetail.user?.createdAt)}</span>
-                                                        {userDetail.user?.isAdmin && <span className="admin-role-badge admin" style={{ fontSize: '0.7rem' }}>Admin</span>}
+                                                        {userDetail.user?.role === 'admin' && <span className="admin-role-badge admin" style={{ fontSize: '0.7rem' }}>Admin</span>}
+                                                        {userDetail.user?.role === 'support' && <span className="admin-role-badge admin" style={{ fontSize: '0.7rem', background: '#3b82f6', color: '#fff' }}>Support</span>}
+                                                        {(!userDetail.user?.role || userDetail.user?.role === 'user') && userDetail.user?.isAdmin && <span className="admin-role-badge admin" style={{ fontSize: '0.7rem' }}>Admin</span>}
                                                         {userDetail.user?.updatedAt && <span>✏️ Last updated: {formatDate(userDetail.user.updatedAt)}</span>}
                                                     </div>
                                                 </div>
+                                                
+                                                {role === 'admin' && (
+                                                    <div style={{ padding: '0.5rem' }}>
+                                                        <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>Change Role</label>
+                                                        <select
+                                                            className="admin-filter-select"
+                                                            style={{ padding: '4px 8px', fontSize: '0.8rem', height: 'auto', background: '#1e293b' }}
+                                                            value={userDetail.user?.role || (userDetail.user?.isAdmin ? 'admin' : 'user')}
+                                                            onChange={async (e) => {
+                                                                try {
+                                                                    const newRole = e.target.value;
+                                                                    await updateUserRole(userDetail.user.uid, newRole);
+                                                                    setUserDetail(prev => ({
+                                                                        ...prev,
+                                                                        user: { ...prev.user, role: newRole, isAdmin: newRole === 'admin' || newRole === 'support' }
+                                                                    }));
+                                                                    setUsers(prev => prev.map(u => u.uid === userDetail.user.uid ? { ...u, role: newRole, isAdmin: newRole === 'admin' || newRole === 'support' } : u));
+                                                                    alert('User role updated successfully!');
+                                                                } catch (err) {
+                                                                    alert('Failed to update user role');
+                                                                    console.error(err);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <option value="user">User</option>
+                                                            <option value="support">Support</option>
+                                                            <option value="admin">Admin</option>
+                                                        </select>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* User Stats */}
@@ -1229,7 +1277,12 @@ const AdminPage = () => {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        {user.isAdmin ? (
+                                                        {user.role === 'admin' ? (
+                                                            <span className="admin-role-badge admin">Admin</span>
+                                                        ) : user.role === 'support' ? (
+                                                            <span className="admin-role-badge admin" style={{ background: '#3b82f6', color: '#fff' }}>Support</span>
+                                                        ) : user.isAdmin && (!user.role || user.role === 'user') ? (
+                                                            // Legacy users might just have isAdmin true but no role
                                                             <span className="admin-role-badge admin">Admin</span>
                                                         ) : (
                                                             <span className="admin-role-badge user">User</span>

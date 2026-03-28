@@ -6,7 +6,7 @@ import {
   getCachedHotelDetails
 } from './staticDataService';
 
-const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+const SERVER_URL = process.env.REACT_APP_API_URL || 'https://hotel-booking-zoltan-1.onrender.com';
 const API_BASE_URL = `${SERVER_URL}/api/hotels`;
 
 const api = axios.create({
@@ -358,6 +358,21 @@ export const getUserDetails = async (uid) => {
     return response.data;
   } catch (error) {
     console.error('Error fetching user details:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Update user role (Admin)
+ * @param {string} uid - User UID
+ * @param {string} role - New role
+ */
+export const updateUserRole = async (uid, role) => {
+  try {
+    const response = await axios.put(`${SERVER_URL}/api/admin/users/${uid}/role`, { role });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating user role:', error.response?.data || error.message);
     throw error;
   }
 };

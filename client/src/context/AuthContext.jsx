@@ -38,6 +38,7 @@ export function AuthProvider({ children }) {
                 ...data,
                 createdAt: new Date().toISOString(),
                 isAdmin: isAdmin(data.email),
+                role: isAdmin(data.email) ? 'admin' : 'user',
             });
         } catch (err) {
             console.error('Error saving user data:', err);
@@ -326,6 +327,8 @@ export function AuthProvider({ children }) {
         return unsubscribe;
     }, []);
 
+    const userRole = userData?.role || (isAdmin(currentUser?.email) ? 'admin' : 'user');
+
     const value = {
         currentUser,
         userData,
@@ -345,7 +348,8 @@ export function AuthProvider({ children }) {
         isHotelLiked,
         addBooking,
         updateBookingStatus,
-        isAdmin: userData?.isAdmin || isAdmin(currentUser?.email),
+        isAdmin: userRole === 'admin' || userRole === 'support',
+        role: userRole,
     };
 
     return (

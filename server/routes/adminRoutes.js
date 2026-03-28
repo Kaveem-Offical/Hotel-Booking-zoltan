@@ -14,6 +14,9 @@ router.get('/bookings', adminController.getAllBookings);
 // Get full details for a specific user
 router.get('/users/:uid', adminController.getUserDetails);
 
+// Update user role
+router.put('/users/:uid/role', adminController.updateUserRole);
+
 // Markup settings
 router.get('/markup', adminController.getMarkupSettings);
 router.post('/markup', adminController.setMarkupSettings);
