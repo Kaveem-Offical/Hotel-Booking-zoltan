@@ -3,6 +3,8 @@ const crypto = require('crypto');
 const config = require('../config/config');
 const { database } = require('../config/firebaseAdmin');
 const axios = require('axios');
+const { sendEmail } = require('../services/emailService');
+const { bookingConfirmedTemplate } = require('../templates/bookingConfirmedTemplate');
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -292,6 +294,31 @@ exports.verifyPayment = async (req, res) => {
             searchParams: pendingBooking.searchParams,
             contactDetails: pendingBooking.contactDetails
         });
+
+        // 🔔 Send booking confirmation email (non-blocking)
+        if (pendingBooking.contactDetails?.email) {
+            const guestName = pendingBooking.hotelRoomsDetails?.[0]?.HotelPassenger?.[0];
+            const fullName = guestName
+                ? `${guestName.FirstName || ''} ${guestName.LastName || ''}`.trim()
+                : 'Guest';
+
+            const emailData = {
+                userName: fullName,
+                hotelName: pendingBooking.hotelInfo?.hotelName || pendingBooking.hotelInfo?.HotelName || 'Your Hotel',
+                checkIn: pendingBooking.searchParams?.checkIn || '',
+                checkOut: pendingBooking.searchParams?.checkOut || '',
+                bookingId: bookResult.BookingId || bookResult.BookingRefNo || razorpay_order_id,
+                roomType: pendingBooking.roomInfo?.roomName || pendingBooking.roomInfo?.RoomName || '',
+                totalAmount: pendingBooking.amount,
+                currency: pendingBooking.currency || 'INR',
+            };
+
+            sendEmail({
+                to: pendingBooking.contactDetails.email,
+                subject: `Booking Confirmed – ${emailData.hotelName} | Zovotel`,
+                html: bookingConfirmedTemplate(emailData),
+            }).catch(err => console.error('Non-blocking confirmation email error:', err.message));
+        }
 
     } catch (error) {
         console.error('\n=== Verify Payment Error ===');

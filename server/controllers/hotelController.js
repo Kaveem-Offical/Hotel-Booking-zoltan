@@ -4,6 +4,9 @@ const firebaseService = require('../services/firebaseDataService');
 const authService = require('../services/authService');
 const pricingEngine = require('../services/pricingEngine');
 const { database } = require('../config/firebaseAdmin');
+const { sendEmail } = require('../services/emailService');
+const { bookingConfirmedTemplate } = require('../templates/bookingConfirmedTemplate');
+const { bookingCancelledTemplate } = require('../templates/bookingCancelledTemplate');
 
 // Create axios instance with basic auth for static data endpoints
 const createStaticAxiosInstance = () => {
@@ -584,6 +587,33 @@ exports.bookHotel = async (req, res) => {
     }
 
     res.json(response.data);
+
+    // 🔔 Send booking confirmation email (non-blocking)
+    const bookResult = response.data.BookResult || response.data;
+    const isBookSuccess = bookResult.Status === 1 ||
+        bookResult.HotelBookingStatus === 'Confirmed';
+
+    if (isBookSuccess && HotelRoomsDetails?.[0]?.HotelPassenger?.[0]) {
+        const guest = HotelRoomsDetails[0].HotelPassenger[0];
+        const guestEmail = guest.Email;
+        if (guestEmail) {
+            const emailData = {
+                userName: `${guest.FirstName || ''} ${guest.LastName || ''}`.trim() || 'Guest',
+                hotelName: bookResult.HotelName || 'Your Hotel',
+                checkIn: bookResult.CheckIn || '',
+                checkOut: bookResult.CheckOut || '',
+                bookingId: bookResult.BookingId || bookResult.BookingRefNo || BookingCode,
+                totalAmount: NetAmount,
+                currency: 'INR',
+            };
+
+            sendEmail({
+                to: guestEmail,
+                subject: `Booking Confirmed – ${emailData.hotelName} | Zovotel`,
+                html: bookingConfirmedTemplate(emailData),
+            }).catch(err => console.error('Non-blocking confirmation email error:', err.message));
+        }
+    }
   } catch (error) {
     console.error('\n=== Book Error ===');
     console.error('Error Message:', error.message);
@@ -841,6 +871,43 @@ exports.sendChangeRequest = async (req, res) => {
       responseStatus: result.ResponseStatus,
       traceId: result.TraceId
     });
+
+    // 🔔 Send cancellation email (non-blocking)
+    // Attempt to fetch booking details from Firebase to get guest email
+    try {
+      const historyRef = database.ref('bookings/history');
+      const snapshot = await historyRef.orderByChild('tboResponse/bookingId')
+          .equalTo(Number(BookingId))
+          .limitToFirst(1)
+          .once('value');
+      const bookings = snapshot.val();
+
+      if (bookings) {
+        const booking = Object.values(bookings)[0];
+        const email = booking.contactDetails?.email;
+        if (email) {
+          const guestName = booking.hotelRoomsDetails?.[0]?.HotelPassenger?.[0];
+          const fullName = guestName
+              ? `${guestName.FirstName || ''} ${guestName.LastName || ''}`.trim()
+              : 'Guest';
+
+          const emailData = {
+            userName: fullName,
+            hotelName: booking.hotelInfo?.hotelName || booking.hotelInfo?.HotelName || 'Your Hotel',
+            bookingId: BookingId,
+            reason: Remarks || 'Cancelled by guest',
+          };
+
+          sendEmail({
+            to: email,
+            subject: `Booking Cancelled – ${emailData.hotelName} | Zovotel`,
+            html: bookingCancelledTemplate(emailData),
+          }).catch(err => console.error('Non-blocking cancellation email error:', err.message));
+        }
+      }
+    } catch (emailLookupErr) {
+      console.error('Non-blocking cancellation email lookup error:', emailLookupErr.message);
+    }
   } catch (error) {
     console.error('\n=== SendChangeRequest Error ===');
     console.error('Error Message:', error.message);
