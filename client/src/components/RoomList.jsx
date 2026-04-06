@@ -144,10 +144,10 @@ export function RoomList({ searchResults }) {
                 <div className="text-right bg-white rounded-lg p-4 shadow-sm">
                   <div className="text-3xl font-bold text-blue-600 flex items-center justify-end">
                     <IndianRupee className="w-7 h-7" />
-                    {(room.TotalFare - (room.TotalTax || 0))?.toLocaleString('en-IN')}
+                    {(room.RSP || room.TotalFare)?.toLocaleString('en-IN')}
                   </div>
                   <div className="text-sm text-gray-600 mt-1">
-                    + Taxes & fees
+                    Includes taxes & fees
                   </div>
                 </div>
               </div>

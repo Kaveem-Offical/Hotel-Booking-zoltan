@@ -211,6 +211,19 @@ export const bookHotel = async (bookingData) => {
 };
 
 /**
+ * Fetch booking details from TBO
+ */
+export const fetchTboBookingDetails = async (bookingData) => {
+  try {
+    const response = await api.post('/get-booking-details', bookingData);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching booking details:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
  * Create Razorpay payment order
  * @param {Object} orderData - Contains amount, bookingCode, guestNationality, hotelRoomsDetails, etc.
  */

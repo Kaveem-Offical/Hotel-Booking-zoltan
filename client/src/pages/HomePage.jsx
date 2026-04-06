@@ -148,7 +148,7 @@ function HomePage() {
         let maxPrice = 0;
 
         hotels.forEach(hotel => {
-            const price = hotel.Rooms?.[0]?.TotalFare || 0;
+            const price = hotel.Rooms?.[0]?.RSP || hotel.Rooms?.[0]?.TotalFare || 0;
             if (price > 0) {
                 minPrice = Math.min(minPrice, price);
                 maxPrice = Math.max(maxPrice, price);
@@ -209,13 +209,38 @@ function HomePage() {
             hotelCodes: codes.join(','),
             guestNationality: "IN",
             noOfRooms: searchData.guests?.rooms || 0,
-            paxRooms: [
-                {
-                    Adults: searchData.guests?.adults || 2,
-                    Children: searchData.guests?.children || 0,
-                    ChildrenAges: searchData.guests?.childrenAges || []
+            paxRooms: Array.from({ length: searchData.guests?.rooms || 1 }).map((_, index) => {
+                const totalAdults = searchData.guests?.adults || 2;
+                const totalChildren = searchData.guests?.children || 0;
+                const rooms = searchData.guests?.rooms || 1;
+                
+                const baseAdults = Math.floor(totalAdults / rooms);
+                const extraAdults = totalAdults % rooms;
+                const adults = baseAdults + (index < extraAdults ? 1 : 0);
+
+                const baseChildren = Math.floor(totalChildren / rooms);
+                const extraChildren = totalChildren % rooms;
+                const childrenCount = baseChildren + (index < extraChildren ? 1 : 0);
+                
+                // For child ages, just distribute them sequentially
+                let ages = searchData.guests?.childrenAges || [];
+                // Ensure array length matches total children
+                if (ages.length < totalChildren) {
+                    ages = [...ages, ...Array(totalChildren - ages.length).fill(5)];
                 }
-            ]
+                
+                const childAgesStart = index * baseChildren + Math.min(index, extraChildren);
+                const childAgesEnd = childAgesStart + childrenCount;
+                
+                // Final safety parse
+                const assignedAges = ages.slice(childAgesStart, childAgesEnd).map(age => parseInt(age) || 5);
+                
+                return {
+                    Adults: Math.max(1, adults), // TBO requires at least 1 adult per room
+                    Children: childrenCount,
+                    ChildrenAges: assignedAges
+                };
+            })
         };
 
         const data = await searchHotels(payload);
@@ -450,7 +475,7 @@ function HomePage() {
     const filteredHotels = useMemo(() => {
         return hotels.filter(hotel => {
             // Price Filter
-            const price = hotel.Rooms?.[0]?.TotalFare || 0;
+            const price = hotel.Rooms?.[0]?.RSP || hotel.Rooms?.[0]?.TotalFare || 0;
             if (price < filters.priceRange.min || price > filters.priceRange.max) return false;
 
             // Star Rating Filter
@@ -501,9 +526,9 @@ function HomePage() {
         const sorted = [...filteredHotels];
         switch (sortBy) {
             case 'priceLowHigh':
-                return sorted.sort((a, b) => (a.Rooms?.[0]?.TotalFare || 0) - (b.Rooms?.[0]?.TotalFare || 0));
-            case 'priceHighLow':
-                return sorted.sort((a, b) => (b.Rooms?.[0]?.TotalFare || 0) - (a.Rooms?.[0]?.TotalFare || 0));
+                return sorted.sort((a, b) => (a.Rooms?.[0]?.RSP || a.Rooms?.[0]?.TotalFare || 0) - (b.Rooms?.[0]?.RSP || b.Rooms?.[0]?.TotalFare || 0));
+            case 'price_desc':
+                return sorted.sort((a, b) => (b.Rooms?.[0]?.RSP || b.Rooms?.[0]?.TotalFare || 0) - (a.Rooms?.[0]?.RSP || a.Rooms?.[0]?.TotalFare || 0));
             case 'starRating':
                 return sorted.sort((a, b) => parseStarRating(b.StarRating) - parseStarRating(a.StarRating));
             case 'guestRating':

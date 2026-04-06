@@ -322,7 +322,7 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchP
         const newCount = operation === 'inc' ? Math.min(prev.children + 1, 4) : Math.max(prev.children - 1, 0);
         newGuests.children = newCount;
         if (newCount > prev.childrenAges.length) {
-          newGuests.childrenAges = [...prev.childrenAges, 0];
+          newGuests.childrenAges = [...prev.childrenAges, 5];
         } else if (newCount < prev.childrenAges.length) {
           newGuests.childrenAges = prev.childrenAges.slice(0, newCount);
         }
@@ -491,6 +491,33 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchP
                       </button>
                     </div>
                   </div>
+
+                  {/* Child Ages Conditional UI */}
+                  {guests.children > 0 && (
+                    <div className="flex flex-col gap-3 mb-4 mt-2 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-100 dark:border-slate-700">
+                      <span className="text-sm font-medium text-gray-700 dark:text-slate-300">Child Ages</span>
+                      <div className="grid grid-cols-2 gap-3">
+                        {guests.childrenAges.map((age, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 whitespace-nowrap">Child {i + 1}:</span>
+                            <select
+                              value={age}
+                              onChange={(e) => {
+                                const newAges = [...guests.childrenAges];
+                                newAges[i] = parseInt(e.target.value);
+                                setGuests(prev => ({ ...prev, childrenAges: newAges }));
+                              }}
+                              className="w-full p-2 border border-gray-200 dark:border-slate-600 rounded-md text-sm outline-none bg-white dark:bg-slate-700 dark:text-white"
+                            >
+                              {[...Array(17)].map((_, idx) => (
+                                <option key={idx + 1} value={idx + 1}>{idx + 1} years</option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -18,9 +18,10 @@ router.post('/hotel-card-info', hotelController.fetchAndCacheHotelCardInfo);
 // Autocomplete route
 router.get('/search-names', hotelController.searchHotelNames);
 
-// PreBook and Book routes
+// PreBook, Book and Details routes
 router.post('/prebook', hotelController.preBookHotel);
 router.post('/book', hotelController.bookHotel);
+router.post('/get-booking-details', hotelController.getBookingDetails);
 
 // Authenticate route (for testing/debugging token)
 router.post('/authenticate', hotelController.authenticate);

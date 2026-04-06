@@ -26,7 +26,7 @@ const ErrorAlert = ({
     const [isVisible, setIsVisible] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
     const [iconBounce, setIconBounce] = useState(true);
-
+    console.log(message, "message")
     useEffect(() => {
         // Trigger entrance animation
         const timer = setTimeout(() => setIsVisible(true), 50);

@@ -56,9 +56,9 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
 
   // Price handling
   // API structure: hotel.Rooms[0].TotalFare (includes tax)
-  const totalFare = roomData.TotalFare || roomData.DayRates?.[0]?.[0]?.BasePrice;
+  const totalFare = roomData.RSP || roomData.TotalFare || roomData.DayRates?.[0]?.[0]?.BasePrice;
   const totalTax = roomData.TotalTax || 0;
-  const basePrice = totalFare ? totalFare - totalTax : null;
+  const basePrice = totalFare ? totalFare : null;
   const originalPrice = basePrice ? Math.round(basePrice) : "NA";
 
   // If we have a price, we can try to show a discount if applicable, or just show the price.
@@ -68,7 +68,19 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   const discount = 0; // No discount data in provided API response example
 
   const freeCancellation = roomData.IsRefundable === true;
-  const mealPlan = getVal(roomData.MealType, "Meal Plan NA");
+  const getMealTypeLabel = (mealType) => {
+    const mealTypes = {
+      'Room_Only': 'Room Only',
+      'BreakFast': 'Breakfast Included',
+      'Breakfast_For_2': 'Breakfast for 2',
+      'Breakfast_For_1': 'Breakfast for 1',
+      'All_Inclusive_All_Meal': 'All Inclusive',
+      'HalfBoard': 'Half Board',
+      'FullBoard': 'Full Board'
+    };
+    return mealTypes[mealType] || mealType;
+  };
+  const mealPlan = getVal(getMealTypeLabel(roomData.MealType), "Meal Plan NA");
 
   const tax = roomData.TotalTax ? Math.round(roomData.TotalTax) : "NA";
 
@@ -252,7 +264,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
               {finalPrice !== "NA" ? `₹ ${finalPrice}` : "Price NA"}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              {finalPrice !== "NA" ? "+ Taxes & fees" : "Taxes & fees NA"}
+              {finalPrice !== "NA" ? "Includes taxes & fees" : "Taxes & fees NA"}
             </div>
 
             <button className="w-full mt-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-1 transform hover:-translate-y-0.5 active:translate-y-0 btn-shine overflow-hidden relative">

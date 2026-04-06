@@ -331,7 +331,7 @@ exports.searchHotel = async (req, res) => {
       CheckIn: checkIn,
       CheckOut: checkOut,
       HotelCodes: hotelCodes,
-      GuestNationality: 'IN', // Forced for certification
+      GuestNationality: guestNationality || 'IN', 
       PaxRooms: paxRooms.map(room => ({
         Adults: room.Adults,
         Children: room.Children || 0,
@@ -341,12 +341,12 @@ exports.searchHotel = async (req, res) => {
       IsDetailedResponse: isDetailedResponse,
       Filters: {
         Refundable: false,
-        NoOfRooms: noOfRooms,
+        NoOfRooms: 0,
         MealType: 'All'
       }
     };
 
-    console.log('Search Request Body:', JSON.stringify(searchRequest, null, 2));
+    console.log("SEARCH PAYLOAD", JSON.stringify(searchRequest, null, 2));
 
     // Use Basic Auth with API credentials - ALWAYS call TBO API for live pricing
     const axiosInstance = createSearchAxiosInstance();
@@ -498,6 +498,21 @@ exports.preBookHotel = async (req, res) => {
       });
     }
 
+    // Apply RSP Logic if present
+    if (response.data.HotelResult && response.data.HotelResult.length > 0) {
+      response.data.HotelResult.forEach(hotelResult => {
+        if (hotelResult.RoomOptions) {
+          hotelResult.RoomOptions.forEach(room => {
+            if (room.Price) {
+              let apiPrice = room.Price.PublishedPrice || room.Price.OfferedPriceRoundedOff;
+              let RSP = room.Price.RoomSRPOffered || 0;
+              room.Price.FinalPrice = Math.max(apiPrice, RSP);
+            }
+          });
+        }
+      });
+    }
+
     res.json(response.data);
   } catch (error) {
     console.error('\n=== PreBook Error ===');
@@ -526,9 +541,13 @@ exports.bookHotel = async (req, res) => {
   try {
     const {
       EndUserIp,
+      TokenId,
+      TraceId,
+      ResultIndex,
+      HotelCode,
       BookingCode,
       GuestNationality,
-      IsVoucherBooking = false,
+      IsVoucherBooking = true,
       NetAmount,
       HotelRoomsDetails,
       IsPackageFare = false,
@@ -537,46 +556,56 @@ exports.bookHotel = async (req, res) => {
     } = req.body;
 
     // Validation
-    if (!BookingCode || !GuestNationality || !NetAmount || !HotelRoomsDetails) {
+    if (!GuestNationality || !HotelRoomsDetails) {
       return res.status(400).json({
         error: 'Missing required fields',
-        required: ['BookingCode', 'GuestNationality', 'NetAmount', 'HotelRoomsDetails']
+        required: ['GuestNationality', 'HotelRoomsDetails']
       });
     }
 
     console.log(`\n=== Hotel Book Request ===`);
-    console.log(`BookingCode: ${BookingCode}`);
     console.log(`GuestNationality: ${GuestNationality}`);
-    console.log(`NetAmount: ${NetAmount}`);
     console.log(`Rooms: ${HotelRoomsDetails.length}`);
 
-    const bookRequest = {
+    const bookPayload = {
       EndUserIp: EndUserIp || req.ip || '127.0.0.1',
-      BookingCode,
-      GuestNationality: 'IN', // Forced for certification
+      TokenId,
+      TraceId,
+      ResultIndex,
+      HotelCode,
+      GuestNationality: GuestNationality || 'IN',
+      NoOfRooms: HotelRoomsDetails.length,
       IsVoucherBooking,
-      NetAmount,
-      HotelRoomsDetails,
-      IsPackageFare,
-      IsPackageDetailsMandatory
+      HotelRoomsDetails: HotelRoomsDetails.map(room => ({
+        ...room,
+        HotelPassenger: room.HotelPassenger.map(guest => ({
+          ...guest,
+          PassportNo: undefined,
+          PassportIssueDate: undefined,
+          PassportExpDate: undefined
+        }))
+      }))
     };
+
+    // Keep backwards compatibility for BookingCode
+    if (BookingCode) bookPayload.BookingCode = BookingCode;
 
     // Add arrival transport if provided
     if (ArrivalTransport) {
-      bookRequest.ArrivalTransport = ArrivalTransport;
+      bookPayload.ArrivalTransport = ArrivalTransport;
     }
 
-    console.log('Book Request Body:', JSON.stringify(bookRequest, null, 2));
+    console.log('BOOK PAYLOAD:', JSON.stringify(bookPayload, null, 2));
 
     const axiosInstance = createSearchAxiosInstance();
 
     const response = await axiosInstance.post(
       config.tboApi.bookUrl,
-      bookRequest,
+      bookPayload,
       { timeout: 30000 } // 30 seconds timeout
     );
 
-    console.log('Book Response Status:', response.data.Status);
+    console.log('BOOK RESPONSE:', JSON.stringify(response.data, null, 2));
 
     if (response.data.Status && response.data.Status.Code !== 200) {
       return res.status(400).json({
@@ -1024,6 +1053,40 @@ exports.authenticate = async (req, res) => {
     console.error('Authenticate Error:', error.message);
     res.status(500).json({
       error: 'Authentication failed',
+      message: error.message
+    });
+  }
+};
+
+// GetBookingDetails API
+exports.getBookingDetails = async (req, res) => {
+  try {
+    const { BookingId, EndUserIp, TokenId } = req.body;
+    
+    if (!BookingId) {
+      return res.status(400).json({ error: 'BookingId is required' });
+    }
+
+    const detailsPayload = {
+      EndUserIp: EndUserIp || req.ip || '127.0.0.1',
+      TokenId: TokenId,
+      BookingId: BookingId // bookingreferenceid OR clientreferenceid
+    };
+
+    console.log(`\n=== GetBookingDetails Request ===`);
+    console.log(`BookingId: ${BookingId}`);
+
+    const axiosInstance = createSearchAxiosInstance();
+    const response = await axiosInstance.post(
+      config.tboApi.bookUrl.replace('/book/', '/GetBookingDetail'),
+      detailsPayload
+    );
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('GetBookingDetails Error:', error.message);
+    res.status(500).json({
+      error: 'Failed to fetch booking details',
       message: error.message
     });
   }

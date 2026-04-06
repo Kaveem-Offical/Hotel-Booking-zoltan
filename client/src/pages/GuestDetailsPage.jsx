@@ -205,15 +205,6 @@ const GuestDetailsPage = () => {
                     newErrors[`guest${index}Pan`] = 'Invalid PAN format';
                 }
             }
-
-            if (isInternational) {
-                if (!guest.passportNo?.trim()) {
-                    newErrors[`guest${index}Passport`] = 'Passport number is required for international bookings';
-                }
-                if (!guest.passportExp?.trim()) {
-                    newErrors[`guest${index}PassportExp`] = 'Passport expiry is required';
-                }
-            }
         });
 
         // Guest details validation
@@ -334,10 +325,10 @@ const GuestDetailsPage = () => {
         const dayRates = roomData?.DayRates?.[0] || [];
 
         return {
-            basePrice: dayRates[0]?.BasePrice || priceBreakUp?.RoomRate || roomData?.TotalFare - (roomData?.TotalTax || 0) || 0,
+            basePrice: roomData?.RSP ? (roomData.RSP - (roomData?.TotalTax || 0)) : (dayRates[0]?.BasePrice || priceBreakUp?.RoomRate || roomData?.TotalFare - (roomData?.TotalTax || 0) || 0),
             totalTax: roomData?.TotalTax || priceBreakUp?.RoomTax || 0,
-            totalFare: roomData?.TotalFare || 0,
-            netAmount: roomData?.NetAmount || roomData?.TotalFare || 0,
+            totalFare: roomData?.RSP || roomData?.TotalFare || 0,
+            netAmount: roomData?.RSP || roomData?.NetAmount || roomData?.TotalFare || 0,
             netTax: roomData?.NetTax || 0,
             currency: preBookData?.Currency || 'INR',
             isRefundable: roomData?.IsRefundable ?? true,
@@ -978,39 +969,6 @@ const GuestDetailsPage = () => {
                                                         <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Pan`]}</p>
                                                     )}
                                                 </div>
-                                            )}
-                                            {isInternational && (
-                                                <>
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                            Passport <span className="text-red-500">*</span>
-                                                        </label>
-                                                        <input
-                                                            type="text"
-                                                            value={guest.passportNo || ''}
-                                                            onChange={(e) => updateGuest(index, 'passportNo', e.target.value.toUpperCase())}
-                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}Passport`] ? 'border-red-500' : 'border-gray-300'}`}
-                                                            placeholder="Passport No"
-                                                        />
-                                                        {errors[`guest${index}Passport`] && (
-                                                            <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Passport`]}</p>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                            Expiry Date <span className="text-red-500">*</span>
-                                                        </label>
-                                                        <input
-                                                            type="date"
-                                                            value={guest.passportExp || ''}
-                                                            onChange={(e) => updateGuest(index, 'passportExp', e.target.value)}
-                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}PassportExp`] ? 'border-red-500' : 'border-gray-300'}`}
-                                                        />
-                                                        {errors[`guest${index}PassportExp`] && (
-                                                            <p className="text-red-500 text-xs mt-1">{errors[`guest${index}PassportExp`]}</p>
-                                                        )}
-                                                    </div>
-                                                </>
                                             )}
                                         </div>
                                     </div>

@@ -145,16 +145,7 @@ const PaymentPage = () => {
                     Age: parseInt(guest.age) || (guest.type === 'child' ? 5 : 25)
                 };
 
-                if (isInternational) {
-                    pax.PassportNo = guest.passportNo || '';
-                    if (guest.passportExp) {
-                        pax.PassportExpDate = guest.passportExp;
-                        pax.PassportIssueDate = '2020-01-01T00:00:00'; // Mock issue date as it's not captured but might be required
-                    } else {
-                        pax.PassportExpDate = '0001-01-01T00:00:00';
-                        pax.PassportIssueDate = '0001-01-01T00:00:00';
-                    }
-                } else if (guest.isLead && guest.panNumber) {
+                if (!isInternational && guest.isLead && guest.panNumber) {
                     pax.PAN = guest.panNumber;
                 }
 
@@ -168,15 +159,53 @@ const PaymentPage = () => {
                 return pax;
             });
 
+            // Map pax onto correct rooms dynamically
+            const numRooms = searchParams?.rooms || 1;
+            const hotelRoomsDetails = [];
+            
+            const adultPassengers = hotelPassengers.filter(p => p.PaxType === 1);
+            const childPassengers = hotelPassengers.filter(p => p.PaxType === 2);
+            
+            let aIdx = 0;
+            let cIdx = 0;
+            
+            for (let i = 0; i < numRooms; i++) {
+                const totalAdults = searchParams?.adults || 2;
+                const totalChildren = searchParams?.children || 0;
+                
+                const baseAdults = Math.floor(totalAdults / numRooms);
+                const extraAdults = totalAdults % numRooms;
+                const adultsForThisRoom = baseAdults + (i < extraAdults ? 1 : 0);
+
+                const baseChildren = Math.floor(totalChildren / numRooms);
+                const extraChildren = totalChildren % numRooms;
+                const childrenForThisRoom = baseChildren + (i < extraChildren ? 1 : 0);
+                
+                const roomPax = [];
+                for(let j=0; j < adultsForThisRoom; j++) {
+                    if (adultPassengers[aIdx]) roomPax.push(adultPassengers[aIdx++]);
+                }
+                for(let j=0; j < childrenForThisRoom; j++) {
+                    if (childPassengers[cIdx]) roomPax.push(childPassengers[cIdx++]);
+                }
+                
+                hotelRoomsDetails.push({
+                    RoomIndex: (i + 1),
+                    RoomTypeCode: preBookData?.Rooms?.[i]?.RoomTypeCode,
+                    RoomTypeName: preBookData?.Rooms?.[i]?.RoomTypeName,
+                    RatePlanCode: preBookData?.Rooms?.[i]?.RatePlanCode,
+                    Price: preBookData?.Rooms?.[i]?.Price,
+                    HotelPassenger: roomPax
+                });
+            }
+
             // Create payment order
             const orderData = {
                 amount: getFinalAmount(),
                 currency: getCurrency(),
                 bookingCode,
                 guestNationality: contactDetails.nationality,
-                hotelRoomsDetails: [{
-                    HotelPassenger: hotelPassengers
-                }],
+                hotelRoomsDetails: hotelRoomsDetails,
                 isPackageFare: preBookData?.Rooms?.[0]?.PackageFare || false,
                 isPackageDetailsMandatory: preBookData?.Rooms?.[0]?.PackageDetailsMandatory || false,
                 // Metadata for booking history

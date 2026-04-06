@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
     MapPin, Star, Share2, Heart, ChevronRight,
     Wifi, Coffee, Car, Utensils, Check, User, Info,
-    X, Camera, ChevronLeft, ArrowLeft
+    X, Camera, ChevronLeft, ArrowLeft,
+    Tag
 } from 'lucide-react';
 import { fetchHotelDetails, searchHotels, fetchBasicHotelInfo } from '../services/api';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -48,7 +49,8 @@ const HotelDetailsPage = () => {
             checkOut: state.checkOut || formatLocalDate(tomorrow),
             rooms: guests.rooms || 0,
             adults: guests.adults || 2,
-            children: guests.children || 0
+            children: guests.children || 0,
+            childrenAges: guests.childrenAges || []
         };
     }, [location.state]);
 
@@ -125,17 +127,43 @@ const HotelDetailsPage = () => {
 
             // Step 3: Fetch room availability and pricing (always needed)
             try {
+                const totalAdults = searchParams.adults;
+                const totalChildren = searchParams.children;
+                const expectedRooms = Math.max(1, searchParams.rooms || 1);
+                
+                const paxRooms = Array.from({ length: expectedRooms }).map((_, index) => {
+                    const baseAdults = Math.floor(totalAdults / expectedRooms);
+                    const extraAdults = totalAdults % expectedRooms;
+                    const adultsCount = baseAdults + (index < extraAdults ? 1 : 0);
+
+                    const baseChildren = Math.floor(totalChildren / expectedRooms);
+                    const extraChildren = totalChildren % expectedRooms;
+                    const childrenCount = baseChildren + (index < extraChildren ? 1 : 0);
+                    
+                    let ages = searchParams.childrenAges || [];
+                    if (ages.length < totalChildren) {
+                        ages = [...ages, ...Array(totalChildren - ages.length).fill(5)];
+                    }
+                    
+                    const childAgesStart = index * baseChildren + Math.min(index, extraChildren);
+                    const childAgesEnd = childAgesStart + childrenCount;
+                    
+                    const assignedAges = ages.slice(childAgesStart, childAgesEnd).map(age => parseInt(age) || 5);
+
+                    return {
+                        Adults: Math.max(1, adultsCount),
+                        Children: childrenCount,
+                        ChildrenAges: assignedAges
+                    };
+                });
+
                 const payload = {
                     checkIn: searchParams.checkIn,
                     checkOut: searchParams.checkOut,
                     hotelCodes: hotelId,
                     guestNationality: "IN",
-                    noOfRooms: 0,
-                    paxRooms: [{
-                        Adults: searchParams.adults,
-                        Children: searchParams.children,
-                        ChildrenAges: []
-                    }]
+                    noOfRooms: expectedRooms,
+                    paxRooms: paxRooms
                 };
 
                 // console.log('Fetching room availability with payload:', payload);
@@ -631,9 +659,9 @@ const HotelDetailsPage = () => {
                                 <span className="text-xs text-gray-500 block">Starting from</span>
                                 <div className="flex flex-col">
                                     <span className="text-xl font-bold text-red-600 leading-none mt-1">
-                                        ₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].TotalFare - (rooms[0].TotalTax || 0)) : 'N/A'}
+                                        ₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].RSP || rooms[0].TotalFare) : 'N/A'}
                                     </span>
-                                    <span className="text-[10px] text-gray-500 mt-0.5">+ Taxes & fees</span>
+                                    <span className="text-[10px] text-gray-500 mt-0.5">Includes taxes & fees</span>
                                 </div>
                             </div>
                             <button onClick={() => scrollToSection('rooms')} className="bg-blue-600 text-white px-6 py-2 rounded font-bold hover:bg-blue-700">
@@ -877,27 +905,36 @@ const HotelDetailsPage = () => {
 
                                                             {/* INFO GRID */}
                                                             <div className="grid grid-cols-2 gap-2 mb-4 text-sm text-gray-600">
-                                                                <div className="flex items-center gap-2">
-                                                                    <User size={14} /> <span>Max 2 Adults</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-3 h-3 border border-gray-400"></div>
-                                                                    <span>25 m²</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <Coffee size={14} />
-                                                                    <span>
-                                                                        {room.pricing?.MealType ||
-                                                                            room.MealType ||
-                                                                            "Room Only"}
+                                                                {/* Meal Type */}
+                                                                <div className="flex items-center gap-2 col-span-2 sm:col-span-1">
+                                                                    <Coffee size={14} className="flex-shrink-0" />
+                                                                    <span className="truncate" title={room.pricing?.MealType || room.MealType || "Room Only"}>
+                                                                        {(() => {
+                                                                            const mt = room.pricing?.MealType || room.MealType || 'Room_Only';
+                                                                            const lookup = {
+                                                                                'Room_Only': 'Room Only',
+                                                                                'BreakFast': 'Breakfast Included',
+                                                                                'Breakfast_For_2': 'Breakfast for 2',
+                                                                                'Breakfast_For_1': 'Breakfast for 1',
+                                                                                'All_Inclusive_All_Meal': 'All Inclusive',
+                                                                                'HalfBoard': 'Half Board',
+                                                                                'FullBoard': 'Full Board'
+                                                                            };
+                                                                            return lookup[mt] || mt;
+                                                                        })()}
                                                                     </span>
                                                                 </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <Wifi size={14} /> <span>Free Wi-Fi</span>
-                                                                </div>
+
+                                                                {/* Amenities Extract */}
+                                                                {(room.pricing?.Amenities || []).slice(0, 3).map((amenity, idx) => (
+                                                                    <div key={idx} className="flex items-center gap-2 col-span-2 sm:col-span-1">
+                                                                        {(amenity.toLowerCase().includes('wifi') || amenity.toLowerCase().includes('internet')) ? <Wifi size={14} className="flex-shrink-0" /> : <Check size={14} className="flex-shrink-0" />}
+                                                                        <span className="truncate" title={amenity}>{amenity}</span>
+                                                                    </div>
+                                                                ))}
                                                             </div>
 
-                                                            {/* TAGS */}
+                                                            {/* TAGS & PROMOTIONS */}
                                                             <div className="flex flex-wrap gap-2 mb-3">
                                                                 {room.pricing?.IsRefundable && (
                                                                     <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded flex items-center gap-1">
@@ -909,6 +946,11 @@ const HotelDetailsPage = () => {
                                                                         <Info size={12} /> {room.pricing.Inclusion}
                                                                     </span>
                                                                 )}
+                                                                {room.pricing?.RoomPromotion && room.pricing.RoomPromotion.length > 0 && (
+                                                                    <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded flex items-center gap-1 font-medium">
+                                                                        <Tag size={12} /> {room.pricing.RoomPromotion.map(p => p.replace(/\|/g, '')).join(', ')}
+                                                                    </span>
+                                                                )}
                                                             </div>
 
                                                             {/* PRICE + CTA */}
@@ -916,10 +958,10 @@ const HotelDetailsPage = () => {
                                                                 {room.available && room.pricing && (
                                                                     <div className="mb-2 md:mb-0">
                                                                         <div className="text-2xl font-bold text-red-600">
-                                                                            ₹ {Math.round(room.pricing.TotalFare - (room.pricing.TotalTax || 0))}
+                                                                            ₹ {Math.round(room.pricing.RSP || room.pricing.TotalFare)}
                                                                         </div>
                                                                         <div className="text-xs text-gray-500">
-                                                                            + Taxes & fees
+                                                                            Includes taxes & fees
                                                                         </div>
                                                                     </div>
                                                                 )}
@@ -1058,9 +1100,9 @@ const HotelDetailsPage = () => {
                         <div className="text-xs text-gray-500">Starting from</div>
                         <div className="flex flex-col">
                             <div className="text-xl font-bold text-red-600 leading-none mt-1">
-                                ₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].TotalFare - (rooms[0].TotalTax || 0)) : 'N/A'}
+                                ₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].RSP || rooms[0].TotalFare) : 'N/A'}
                             </div>
-                            <div className="text-[10px] text-gray-500 mt-0.5">+ Taxes & fees</div>
+                            <div className="text-[10px] text-gray-500 mt-0.5">Includes taxes & fees</div>
                         </div>
                     </div>
                     <button
