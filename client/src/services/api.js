@@ -33,7 +33,7 @@ export const fetchCountries = async () => {
     const response = await api.get('/countries');
     return response.data;
   } catch (error) {
-    console.error('Error fetching countries:', error);
+    // Silently handle connection errors - will show empty state in UI
     throw error;
   }
 };
@@ -55,7 +55,7 @@ export const fetchCities = async (countryCode) => {
     const response = await api.post('/cities', { countryCode });
     return response.data;
   } catch (error) {
-    console.error('Error fetching cities:', error);
+    // Silently handle connection errors - will show empty state in UI
     throw error;
   }
 };
@@ -93,7 +93,7 @@ export const fetchHotels = async (cityCode) => {
     const response = await api.post('/hotels', { cityCode });
     return response.data;
   } catch (error) {
-    console.error('Error fetching hotels:', error);
+    // Silently handle connection errors - will show empty state in UI
     throw error;
   }
 };
@@ -249,6 +249,36 @@ export const verifyPayment = async (paymentData) => {
     return response.data;
   } catch (error) {
     console.error('Error verifying payment:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Retry booking with updated price (for price/cancellation policy changes)
+ * @param {Object} retryData - Contains orderId, paymentId, signature, updatedAmount, etc.
+ */
+export const retryBooking = async (retryData) => {
+  try {
+    console.log('Retrying booking with updated data:', retryData);
+    const response = await axios.post(`${SERVER_URL}/api/payment/retry-booking`, retryData);
+    return response.data;
+  } catch (error) {
+    console.error('Error retrying booking:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Generate voucher for hold bookings
+ * @param {Object} data - Contains orderId or bookingId
+ */
+export const generateVoucher = async (data) => {
+  try {
+    console.log('Generating voucher:', data);
+    const response = await axios.post(`${SERVER_URL}/api/payment/generate-voucher`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error generating voucher:', error.response?.data || error.message);
     throw error;
   }
 };

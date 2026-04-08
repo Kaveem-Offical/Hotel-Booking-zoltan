@@ -23,7 +23,7 @@ export const getCachedCountries = async () => {
         }
         return null;
     } catch (error) {
-        console.error('Error getting cached countries:', error);
+        // Silently handle permission errors - will fallback to API
         return null;
     }
 };
@@ -43,7 +43,7 @@ export const getCachedCities = async (countryCode) => {
         }
         return null;
     } catch (error) {
-        console.error('Error getting cached cities:', error);
+        // Silently handle permission errors - will fallback to API
         return null;
     }
 };
@@ -63,7 +63,7 @@ export const getCachedHotels = async (cityCode) => {
         }
         return null;
     } catch (error) {
-        console.error('Error getting cached hotels:', error);
+        // Silently handle permission errors - will fallback to API
         return null;
     }
 };
@@ -83,7 +83,7 @@ export const getCachedHotelDetails = async (hotelCode) => {
         }
         return null;
     } catch (error) {
-        console.error('Error getting cached hotel details:', error);
+        // Silently handle permission errors - will fallback to API
         return null;
     }
 };
@@ -136,7 +136,7 @@ export const getCacheMetadata = async () => {
         }
         return null;
     } catch (error) {
-        console.error('Error getting cache metadata:', error);
+        // Silently handle permission errors
         return null;
     }
 };

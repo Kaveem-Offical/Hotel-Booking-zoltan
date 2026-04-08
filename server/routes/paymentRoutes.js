@@ -8,6 +8,12 @@ router.post('/create-order', paymentController.createOrder);
 // Verify payment and complete hotel booking
 router.post('/verify', paymentController.verifyPayment);
 
+// Retry booking with updated price (for price/cancellation policy changes)
+router.post('/retry-booking', paymentController.retryBookingWithUpdatedPrice);
+
+// Generate voucher for hold bookings
+router.post('/generate-voucher', paymentController.generateVoucher);
+
 // Get booking history (with optional email/phone filter)
 router.get('/bookings', paymentController.getBookingHistory);
 

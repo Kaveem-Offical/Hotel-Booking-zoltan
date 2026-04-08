@@ -50,6 +50,7 @@ const GuestDetailsPage = () => {
     const [validationInfo, setValidationInfo] = useState(null);
     const [showAllAmenities, setShowAllAmenities] = useState(false);
     const [showRateConditions, setShowRateConditions] = useState(false);
+    const [isVoucherBooking, setIsVoucherBooking] = useState(true); // Default to voucher booking
 
     // Form state
     const [contactDetails, setContactDetails] = useState({
@@ -138,8 +139,16 @@ const GuestDetailsPage = () => {
                     setError('Invalid prebook response. Please try again.');
                 }
             } catch (err) {
-                console.error('PreBook error:', err);
-                setError(err.response?.data?.message || 'Failed to validate room availability. Please try again.');
+                // Check for specific room unavailable error
+                const errorMessage = err.response?.data?.message || '';
+                const isRoomUnavailable = errorMessage.toLowerCase().includes('no available rooms') || 
+                                          errorMessage.toLowerCase().includes('not available');
+                
+                if (isRoomUnavailable) {
+                    setError('This room is no longer available. The booking session may have expired or the room has been booked by another user. Please go back and select a different room.');
+                } else {
+                    setError(errorMessage || 'Failed to validate room availability. Please try again.');
+                }
             } finally {
                 setPreBookLoading(false);
                 setLoading(false);
@@ -269,7 +278,8 @@ const GuestDetailsPage = () => {
                     guestDetails,
                     contactDetails,
                     isInternational,
-                    netAmount: preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare
+                    netAmount: preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare,
+                    isVoucherBooking
                 }
             });
         } catch (err) {
@@ -528,14 +538,22 @@ const GuestDetailsPage = () => {
             <div className="container mx-auto px-4 py-6">
                 {/* Error Alert */}
                 {error && (
-                    <ErrorAlert
-                        message={error}
-                        type="error"
-                        title="Booking Error"
-                        dismissible={true}
-                        onDismiss={() => setError(null)}
-                        className="mb-6"
-                    />
+                    <div className="mb-6">
+                        <ErrorAlert
+                            message={error}
+                            type="error"
+                            title="Booking Error"
+                            dismissible={true}
+                            onDismiss={() => setError(null)}
+                            className="mb-4"
+                        />
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+                        >
+                            Go Back to Search Results
+                        </button>
+                    </div>
                 )}
                 
                 {/* Price Notice Alert */}
@@ -974,6 +992,60 @@ const GuestDetailsPage = () => {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+
+                        {/* Hold Booking Option */}
+                        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                                <CreditCard size={20} className="mr-2 text-blue-600" />
+                                Hold Booking
+                            </h2>
+                            <div className="flex items-center gap-4 mb-4">
+                                <span className="text-gray-700 font-medium">Hold this booking?</span>
+                                <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsVoucherBooking(true)}
+                                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                                            isVoucherBooking
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-600 hover:text-gray-800'
+                                        }`}
+                                    >
+                                        No
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsVoucherBooking(false)}
+                                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                                            !isVoucherBooking
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-600 hover:text-gray-800'
+                                        }`}
+                                    >
+                                        Yes
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {/* Warning for Hold Booking */}
+                            {!isVoucherBooking && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-3">
+                                    <div className="flex items-start gap-2">
+                                        <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                                        <div className="text-sm text-amber-800">
+                                            <p className="font-semibold mb-1">Important:</p>
+                                            <p>
+                                                If you hold this booking and do not cancel before the cancellation deadline
+                                                {roomDetails.lastCancellationDeadline && (
+                                                    <span className="font-semibold"> ({roomDetails.lastCancellationDeadline})</span>
+                                                )}, 
+                                                the booking will be automatically confirmed.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Special Requests */}

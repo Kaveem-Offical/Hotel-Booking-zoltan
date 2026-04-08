@@ -39,6 +39,7 @@ exports.createOrder = async (req, res) => {
             hotelRoomsDetails,
             isPackageFare = false,
             isPackageDetailsMandatory = false,
+            isVoucherBooking = true, // Default to voucher booking
             // Additional metadata for booking history
             hotelInfo,
             roomInfo,
@@ -88,6 +89,7 @@ exports.createOrder = async (req, res) => {
             hotelRoomsDetails,
             isPackageFare,
             isPackageDetailsMandatory,
+            isVoucherBooking, // Store booking type
             // Metadata for booking history
             hotelInfo: hotelInfo || null,
             roomInfo: roomInfo || null,
@@ -182,7 +184,7 @@ exports.verifyPayment = async (req, res) => {
             EndUserIp: req.ip || '127.0.0.1',
             BookingCode: pendingBooking.bookingCode,
             GuestNationality: pendingBooking.guestNationality,
-            IsVoucherBooking: false, // Hold booking for testing - don't deduct money
+            IsVoucherBooking: pendingBooking.isVoucherBooking !== undefined ? pendingBooking.isVoucherBooking : true,
             NetAmount: pendingBooking.amount,
             HotelRoomsDetails: pendingBooking.hotelRoomsDetails,
             IsPackageFare: pendingBooking.isPackageFare,
@@ -425,6 +427,355 @@ exports.getBookingDetails = async (req, res) => {
         console.error('Get Booking Details Error:', error.message);
         res.status(500).json({
             error: 'Failed to fetch booking details',
+            message: error.message
+        });
+    }
+};
+
+/**
+ * Retry booking with updated price/cancellation policy
+ * Called when TBO returns price or cancellation policy changes
+ */
+exports.retryBookingWithUpdatedPrice = async (req, res) => {
+    try {
+        const {
+            orderId,
+            razorpay_payment_id,
+            razorpay_signature,
+            updatedAmount,
+            acceptPriceChange,
+            acceptCancellationChange
+        } = req.body;
+
+        if (!orderId || !razorpay_payment_id || !razorpay_signature) {
+            return res.status(400).json({
+                error: 'Missing required fields',
+                required: ['orderId', 'razorpay_payment_id', 'razorpay_signature']
+            });
+        }
+
+        console.log('\n=== Retrying Booking with Updated Price ===');
+        console.log(`Order ID: ${orderId}`);
+        console.log(`Updated Amount: ${updatedAmount}`);
+
+        // Retrieve the pending booking
+        const pendingBookingRef = database.ref(`bookings/pending/${orderId}`);
+        const pendingSnapshot = await pendingBookingRef.once('value');
+        const pendingBooking = pendingSnapshot.val();
+
+        if (!pendingBooking) {
+            // Check if already completed
+            const historyRef = database.ref(`bookings/history/${orderId}`);
+            const historySnapshot = await historyRef.once('value');
+            if (historySnapshot.val()) {
+                return res.json({
+                    success: true,
+                    message: 'Booking already completed',
+                    alreadyCompleted: true
+                });
+            }
+            return res.status(404).json({
+                error: 'Booking not found',
+                message: 'Pending booking data not found for this order'
+            });
+        }
+
+        // Update amount if provided
+        if (updatedAmount) {
+            pendingBooking.amount = updatedAmount;
+        }
+
+        // Build TBO Book request with updated values
+        const bookRequest = {
+            EndUserIp: req.ip || '127.0.0.1',
+            BookingCode: pendingBooking.bookingCode,
+            GuestNationality: pendingBooking.guestNationality,
+            IsVoucherBooking: pendingBooking.isVoucherBooking !== undefined ? pendingBooking.isVoucherBooking : true,
+            NetAmount: pendingBooking.amount,
+            HotelRoomsDetails: pendingBooking.hotelRoomsDetails,
+            IsPackageFare: pendingBooking.isPackageFare,
+            IsPackageDetailsMandatory: pendingBooking.isPackageDetailsMandatory
+        };
+
+        console.log('Retry Book Request:', JSON.stringify(bookRequest, null, 2));
+
+        // Call TBO Book API
+        const axiosInstance = createSearchAxiosInstance();
+        const tboResponse = await axiosInstance.post(config.tboApi.bookUrl, bookRequest);
+
+        console.log('TBO Retry Book Response:', JSON.stringify(tboResponse.data, null, 2));
+
+        const bookResult = tboResponse.data.BookResult || tboResponse.data;
+
+        // Determine booking status
+        const bookingStatus = bookResult.HotelBookingStatus ||
+            (bookResult.Status === 1 ? 'Confirmed' :
+                bookResult.Status === 0 ? 'BookFailed' :
+                    bookResult.Status === 3 ? 'VerifyPrice' : 'Unknown');
+
+        const isSuccess = bookResult.Status === 1 ||
+            bookingStatus === 'Confirmed' ||
+            bookingStatus === 'Pending';
+
+        // Store completed booking in Firebase history
+        const bookingHistoryRef = database.ref(`bookings/history/${orderId}`);
+        await bookingHistoryRef.set({
+            ...pendingBooking,
+            paymentId: razorpay_payment_id,
+            paymentSignature: razorpay_signature,
+            tboResponse: {
+                status: bookResult.Status !== undefined ? bookResult.Status : null,
+                hotelBookingStatus: bookingStatus || 'Unknown',
+                bookingId: bookResult.BookingId !== undefined ? bookResult.BookingId : null,
+                bookingRefNo: bookResult.BookingRefNo !== undefined ? bookResult.BookingRefNo : null,
+                confirmationNo: bookResult.ConfirmationNo !== undefined ? bookResult.ConfirmationNo : null,
+                voucherStatus: bookResult.VoucherStatus !== undefined ? bookResult.VoucherStatus : false,
+                isPriceChanged: bookResult.IsPriceChanged !== undefined ? bookResult.IsPriceChanged : false,
+                isCancellationPolicyChanged: bookResult.IsCancellationPolicyChanged !== undefined ? bookResult.IsCancellationPolicyChanged : false,
+                responseStatus: bookResult.ResponseStatus !== undefined ? bookResult.ResponseStatus : null,
+                error: bookResult.Error ? {
+                    errorCode: bookResult.Error.ErrorCode || null,
+                    errorMessage: bookResult.Error.ErrorMessage || null
+                } : null,
+                tboReferenceNo: bookResult.TBOReferenceNo || null,
+                traceId: bookResult.TraceId || null
+            },
+            status: isSuccess ? 'confirmed' : 'failed',
+            completedAt: new Date().toISOString(),
+            retryAttempt: true,
+            acceptPriceChange: acceptPriceChange || false,
+            acceptCancellationChange: acceptCancellationChange || false
+        });
+
+        // Remove from pending bookings
+        await pendingBookingRef.remove();
+        console.log('Booking moved to history after retry');
+
+        if (!isSuccess) {
+            const errorMessage = bookResult.Error?.ErrorMessage || 'Booking failed';
+            return res.status(400).json({
+                success: false,
+                error: 'Hotel booking failed',
+                message: errorMessage,
+                paymentCompleted: true,
+                orderId,
+                paymentId: razorpay_payment_id,
+                bookingStatus,
+                tboResponse: bookResult
+            });
+        }
+
+        // Check for another price/policy change (rare but possible)
+        if (bookResult.IsPriceChanged || bookResult.IsCancellationPolicyChanged) {
+            return res.json({
+                success: true,
+                warning: 'Price or cancellation policy has changed again',
+                isPriceChanged: bookResult.IsPriceChanged,
+                isCancellationPolicyChanged: bookResult.IsCancellationPolicyChanged,
+                orderId,
+                paymentId: razorpay_payment_id,
+                bookingStatus,
+                bookingId: bookResult.BookingId,
+                bookingRefNo: bookResult.BookingRefNo,
+                confirmationNo: bookResult.ConfirmationNo,
+                voucherStatus: bookResult.VoucherStatus,
+                tboResponse: bookResult,
+                requiresAnotherRetry: true
+            });
+        }
+
+        // Successful booking
+        res.json({
+            success: true,
+            message: 'Booking confirmed successfully (retry)',
+            orderId,
+            paymentId: razorpay_payment_id,
+            bookingStatus,
+            bookingId: bookResult.BookingId,
+            bookingRefNo: bookResult.BookingRefNo,
+            confirmationNo: bookResult.ConfirmationNo,
+            voucherStatus: bookResult.VoucherStatus,
+            hotelInfo: pendingBooking.hotelInfo,
+            roomInfo: pendingBooking.roomInfo,
+            searchParams: pendingBooking.searchParams,
+            contactDetails: pendingBooking.contactDetails,
+            retryAttempt: true
+        });
+
+        // Send booking confirmation email (non-blocking)
+        if (pendingBooking.contactDetails?.email) {
+            const guestName = pendingBooking.hotelRoomsDetails?.[0]?.HotelPassenger?.[0];
+            const fullName = guestName
+                ? `${guestName.FirstName || ''} ${guestName.LastName || ''}`.trim()
+                : 'Guest';
+
+            const emailData = {
+                userName: fullName,
+                hotelName: pendingBooking.hotelInfo?.hotelName || pendingBooking.hotelInfo?.HotelName || 'Your Hotel',
+                checkIn: pendingBooking.searchParams?.checkIn || '',
+                checkOut: pendingBooking.searchParams?.checkOut || '',
+                bookingId: bookResult.BookingId || bookResult.BookingRefNo || orderId,
+                roomType: pendingBooking.roomInfo?.roomName || pendingBooking.roomInfo?.RoomName || '',
+                totalAmount: pendingBooking.amount,
+                currency: pendingBooking.currency || 'INR',
+            };
+
+            sendEmail({
+                to: pendingBooking.contactDetails.email,
+                subject: `Booking Confirmed – ${emailData.hotelName} | Zovotel`,
+                html: bookingConfirmedTemplate(emailData),
+            }).catch(err => console.error('Non-blocking confirmation email error:', err.message));
+        }
+
+    } catch (error) {
+        console.error('\n=== Retry Booking Error ===');
+        console.error('Error Message:', error.message);
+
+        if (error.response) {
+            console.error('TBO API Error:', JSON.stringify(error.response.data, null, 2));
+            return res.status(error.response.status).json({
+                error: 'Hotel booking retry failed',
+                message: error.response.data?.Status?.Description || error.message,
+                details: error.response.data
+            });
+        }
+
+        res.status(500).json({
+            error: 'Booking retry failed',
+            message: error.message
+        });
+    }
+};
+
+/**
+ * Generate voucher for hold bookings
+ * Must be called before last cancellation date to avoid cancellation
+ */
+exports.generateVoucher = async (req, res) => {
+    try {
+        const { orderId, bookingId } = req.body;
+
+        if (!orderId && !bookingId) {
+            return res.status(400).json({
+                error: 'Missing required fields',
+                required: ['orderId or bookingId']
+            });
+        }
+
+        console.log('\n=== Generate Voucher Request ===');
+        console.log(`Order ID: ${orderId}, Booking ID: ${bookingId}`);
+
+        // Get booking from history
+        let bookingData = null;
+        let orderIdToUse = orderId;
+
+        if (orderId) {
+            const historyRef = database.ref(`bookings/history/${orderId}`);
+            const snapshot = await historyRef.once('value');
+            bookingData = snapshot.val();
+        }
+
+        if (!bookingData && bookingId) {
+            // Search by bookingId
+            const historyRef = database.ref('bookings/history');
+            const snapshot = await historyRef.orderByChild('tboResponse/bookingId')
+                .equalTo(Number(bookingId))
+                .limitToFirst(1)
+                .once('value');
+            const bookings = snapshot.val();
+            if (bookings) {
+                const key = Object.keys(bookings)[0];
+                bookingData = bookings[key];
+                orderIdToUse = key;
+            }
+        }
+
+        if (!bookingData) {
+            return res.status(404).json({
+                error: 'Booking not found',
+                message: 'No booking found with provided orderId or bookingId'
+            });
+        }
+
+        // Check if already vouchered
+        if (bookingData.tboResponse?.voucherStatus || bookingData.tboResponse?.hotelBookingStatus === 'Vouchered') {
+            return res.json({
+                success: true,
+                message: 'Booking is already vouchered',
+                alreadyVouchered: true
+            });
+        }
+
+        // Build GenerateVoucher request (similar to Book but with specific flag)
+        const voucherRequest = {
+            EndUserIp: req.ip || '127.0.0.1',
+            BookingCode: bookingData.bookingCode,
+            GuestNationality: bookingData.guestNationality,
+            IsVoucherBooking: true, // Now we want to voucher
+            NetAmount: bookingData.amount,
+            HotelRoomsDetails: bookingData.hotelRoomsDetails,
+            IsPackageFare: bookingData.isPackageFare,
+            IsPackageDetailsMandatory: bookingData.isPackageDetailsMandatory
+        };
+
+        console.log('GenerateVoucher Request:', JSON.stringify(voucherRequest, null, 2));
+
+        // Call TBO Book API (which will generate voucher for hold booking)
+        const axiosInstance = createSearchAxiosInstance();
+        const tboResponse = await axiosInstance.post(config.tboApi.bookUrl, voucherRequest);
+
+        console.log('TBO GenerateVoucher Response:', JSON.stringify(tboResponse.data, null, 2));
+
+        const bookResult = tboResponse.data.BookResult || tboResponse.data;
+
+        // Determine result
+        const isSuccess = bookResult.Status === 1 ||
+            bookResult.HotelBookingStatus === 'Confirmed' ||
+            bookResult.HotelBookingStatus === 'Vouchered' ||
+            bookResult.VoucherStatus === true;
+
+        if (isSuccess) {
+            // Update booking in Firebase
+            const bookingHistoryRef = database.ref(`bookings/history/${orderIdToUse}`);
+            await bookingHistoryRef.update({
+                'tboResponse.voucherStatus': true,
+                'tboResponse.hotelBookingStatus': bookResult.HotelBookingStatus || 'Vouchered',
+                'tboResponse.confirmationNo': bookResult.ConfirmationNo || bookingData.tboResponse?.confirmationNo,
+                voucherGeneratedAt: new Date().toISOString()
+            });
+
+            res.json({
+                success: true,
+                message: 'Voucher generated successfully',
+                bookingId: bookResult.BookingId || bookingData.tboResponse?.bookingId,
+                confirmationNo: bookResult.ConfirmationNo || bookingData.tboResponse?.confirmationNo,
+                hotelBookingStatus: bookResult.HotelBookingStatus || 'Vouchered'
+            });
+        } else {
+            const errorMessage = bookResult.Error?.ErrorMessage || 'Failed to generate voucher';
+            res.status(400).json({
+                success: false,
+                error: 'Voucher generation failed',
+                message: errorMessage,
+                tboResponse: bookResult
+            });
+        }
+
+    } catch (error) {
+        console.error('\n=== Generate Voucher Error ===');
+        console.error('Error Message:', error.message);
+
+        if (error.response) {
+            console.error('TBO API Error:', JSON.stringify(error.response.data, null, 2));
+            return res.status(error.response.status).json({
+                error: 'Voucher generation failed',
+                message: error.response.data?.Status?.Description || error.message,
+                details: error.response.data
+            });
+        }
+
+        res.status(500).json({
+            error: 'Failed to generate voucher',
             message: error.message
         });
     }

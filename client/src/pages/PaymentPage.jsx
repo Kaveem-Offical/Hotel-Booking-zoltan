@@ -4,7 +4,7 @@ import {
     MapPin, Star, Calendar, Users, CreditCard, Shield, Check,
     AlertCircle, ArrowLeft, Clock, X, Loader, Lock, ChevronRight, Tag
 } from 'lucide-react';
-import { createPaymentOrder, verifyPayment, validateCoupon } from '../services/api';
+import { createPaymentOrder, verifyPayment, validateCoupon, retryBooking, fetchTboBookingDetails } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ErrorAlert from '../components/ErrorAlert';
 
@@ -23,7 +23,8 @@ const PaymentPage = () => {
         guestDetails,
         contactDetails,
         isInternational,
-        netAmount
+        netAmount,
+        isVoucherBooking = true
     } = location.state || {};
 
     // State
@@ -32,6 +33,14 @@ const PaymentPage = () => {
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [bookingResult, setBookingResult] = useState(null);
     const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+
+    // Price/Cancellation change dialog state
+    const [priceChangeDialog, setPriceChangeDialog] = useState(null);
+    const [retryingBooking, setRetryingBooking] = useState(false);
+
+    // Pending status auto-retry state
+    const [pendingCheckCount, setPendingCheckCount] = useState(0);
+    const [checkingPendingStatus, setCheckingPendingStatus] = useState(false);
 
     // Coupon state
     const [couponCode, setCouponCode] = useState('');
@@ -208,6 +217,7 @@ const PaymentPage = () => {
                 hotelRoomsDetails: hotelRoomsDetails,
                 isPackageFare: preBookData?.Rooms?.[0]?.PackageFare || false,
                 isPackageDetailsMandatory: preBookData?.Rooms?.[0]?.PackageDetailsMandatory || false,
+                isVoucherBooking, // Pass the booking type
                 // Metadata for booking history
                 hotelInfo: {
                     hotelCode: hotel?.HotelCode,
@@ -298,48 +308,43 @@ const PaymentPage = () => {
     // Handle successful payment
     const handlePaymentSuccess = async (razorpayResponse) => {
         try {
-            // console.log('Verifying payment...');
             const verifyResponse = await verifyPayment({
                 razorpay_order_id: razorpayResponse.razorpay_order_id,
                 razorpay_payment_id: razorpayResponse.razorpay_payment_id,
                 razorpay_signature: razorpayResponse.razorpay_signature
             });
 
-            // console.log('Verification response:', verifyResponse);
+            // Check for price or cancellation policy changes
+            if (verifyResponse.warning && (verifyResponse.isPriceChanged || verifyResponse.isCancellationPolicyChanged)) {
+                console.log('Price/Cancellation policy change detected:', verifyResponse);
+                setPriceChangeDialog({
+                    type: verifyResponse.isPriceChanged ? 'price' : 'cancellation',
+                    verifyResponse,
+                    razorpayResponse,
+                    newAmount: verifyResponse.tboResponse?.NetAmount || verifyResponse.tboResponse?.TotalFare,
+                    oldAmount: getAmount()
+                });
+                setLoading(false);
+                return;
+            }
+
+            // Check for another retry required (rare case)
+            if (verifyResponse.requiresAnotherRetry) {
+                setError('Price changed again. Please review and retry.');
+                setPriceChangeDialog({
+                    type: 'price',
+                    verifyResponse,
+                    razorpayResponse,
+                    newAmount: verifyResponse.tboResponse?.NetAmount,
+                    oldAmount: getAmount(),
+                    requiresAnotherRetry: true
+                });
+                setLoading(false);
+                return;
+            }
 
             if (verifyResponse.success) {
-                // Save booking to user's profile so it appears in My Trips
-                try {
-                    console.log('=== Saving booking to user profile ===');
-                    console.log('verifyResponse:', JSON.stringify(verifyResponse, null, 2));
-                    const savedBooking = await addBooking({
-                        hotelName: hotel?.HotelName || 'Hotel',
-                        hotelAddress: hotel?.Address || hotel?.CityName || '',
-                        hotelCode: hotel?.HotelCode || '',
-                        hotelImage: hotel?.Images?.[0] || '',
-                        checkIn: searchParams?.checkIn || '',
-                        checkOut: searchParams?.checkOut || '',
-                        totalAmount: getAmount(),
-                        currency: getCurrency(),
-                        guests: guestDetails?.length || 1,
-                        rooms: searchParams?.rooms || 1,
-                        roomName: getRoomName(),
-                        orderId: verifyResponse.orderId,
-                        paymentId: verifyResponse.paymentId,
-                        tboBookingId: verifyResponse.bookingId || '',
-                        bookingRefNo: verifyResponse.bookingRefNo || '',
-                        confirmationNo: verifyResponse.confirmationNo || '',
-                        bookingStatus: verifyResponse.bookingStatus || 'Confirmed',
-                        lastCancellationDeadline: preBookData?.Rooms?.[0]?.LastCancellationDeadline || '',
-                    });
-                    console.log('=== Booking saved successfully ===', savedBooking);
-                } catch (bookingErr) {
-                    console.error('Failed to save booking to profile:', bookingErr.message, bookingErr);
-                    // Don't block the success flow — payment already succeeded
-                }
-
-                setPaymentSuccess(true);
-                setBookingResult(verifyResponse);
+                await processSuccessfulBooking(verifyResponse, razorpayResponse);
             } else {
                 setError(verifyResponse.message || 'Booking failed after payment. Please contact support.');
             }
@@ -348,6 +353,127 @@ const PaymentPage = () => {
             setError(err.response?.data?.message || 'Payment verification failed. Please contact support.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Process successful booking (extracted for reuse)
+    const processSuccessfulBooking = async (verifyResponse, razorpayResponse) => {
+        try {
+            console.log('=== Saving booking to user profile ===');
+            const savedBooking = await addBooking({
+                hotelName: hotel?.HotelName || 'Hotel',
+                hotelAddress: hotel?.Address || hotel?.CityName || '',
+                hotelCode: hotel?.HotelCode || '',
+                hotelImage: hotel?.Images?.[0] || '',
+                checkIn: searchParams?.checkIn || '',
+                checkOut: searchParams?.checkOut || '',
+                totalAmount: getAmount(),
+                currency: getCurrency(),
+                guests: guestDetails?.length || 1,
+                rooms: searchParams?.rooms || 1,
+                roomName: getRoomName(),
+                orderId: verifyResponse.orderId || razorpayResponse.razorpay_order_id,
+                paymentId: verifyResponse.paymentId || razorpayResponse.razorpay_payment_id,
+                tboBookingId: verifyResponse.bookingId || '',
+                bookingRefNo: verifyResponse.bookingRefNo || '',
+                confirmationNo: verifyResponse.confirmationNo || '',
+                bookingStatus: verifyResponse.bookingStatus || 'Confirmed',
+                lastCancellationDeadline: preBookData?.Rooms?.[0]?.LastCancellationDeadline || '',
+            });
+            console.log('=== Booking saved successfully ===', savedBooking);
+        } catch (bookingErr) {
+            console.error('Failed to save booking to profile:', bookingErr.message, bookingErr);
+        }
+
+        setPaymentSuccess(true);
+        setBookingResult(verifyResponse);
+
+        // If booking is pending, start auto-retry after 120 seconds
+        if (verifyResponse.bookingStatus === 'Pending') {
+            startPendingStatusCheck(verifyResponse, razorpayResponse);
+        }
+    };
+
+    // Handle retry booking with updated price/cancellation policy
+    const handleRetryBooking = async (acceptChanges, updatedAmount) => {
+        if (!priceChangeDialog) return;
+
+        setRetryingBooking(true);
+        try {
+            const { razorpayResponse } = priceChangeDialog;
+
+            const retryData = {
+                orderId: razorpayResponse.razorpay_order_id,
+                razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+                razorpay_signature: razorpayResponse.razorpay_signature,
+                updatedAmount: updatedAmount,
+                acceptPriceChange: priceChangeDialog.type === 'price' && acceptChanges,
+                acceptCancellationChange: priceChangeDialog.type === 'cancellation' && acceptChanges
+            };
+
+            const retryResponse = await retryBooking(retryData);
+
+            if (retryResponse.success) {
+                setPriceChangeDialog(null);
+                await processSuccessfulBooking(retryResponse, razorpayResponse);
+            } else {
+                setError(retryResponse.message || 'Booking retry failed. Please contact support.');
+            }
+        } catch (err) {
+            console.error('Retry booking error:', err);
+            setError(err.response?.data?.message || 'Failed to retry booking. Please contact support.');
+        } finally {
+            setRetryingBooking(false);
+        }
+    };
+
+    // Auto-check pending status after 120 seconds (TBO requirement)
+    const startPendingStatusCheck = (verifyResponse, razorpayResponse) => {
+        console.log('Starting pending status check, will check in 120 seconds...');
+
+        setTimeout(async () => {
+            if (paymentSuccess && bookingResult?.bookingStatus === 'Pending') {
+                await checkPendingStatus(verifyResponse, razorpayResponse);
+            }
+        }, 120000); // 120 seconds
+    };
+
+    // Check pending booking status via GetBookingDetail
+    const checkPendingStatus = async (verifyResponse, razorpayResponse) => {
+        if (!verifyResponse.bookingId) return;
+
+        setCheckingPendingStatus(true);
+        try {
+            const bookingData = {
+                BookingId: verifyResponse.bookingId,
+                EndUserIp: '127.0.0.1'
+            };
+
+            const statusResponse = await fetchTboBookingDetails(bookingData);
+            console.log('Pending status check response:', statusResponse);
+
+            const bookingStatus = statusResponse?.BookResult?.HotelBookingStatus ||
+                                statusResponse?.BookingStatus ||
+                                statusResponse?.BookResult?.Status;
+
+            if (bookingStatus === 'Confirmed' || bookingStatus === 'Vouchered') {
+                // Update booking status
+                const updatedResult = {
+                    ...verifyResponse,
+                    bookingStatus: 'Confirmed',
+                    confirmationNo: statusResponse?.BookResult?.ConfirmationNo || verifyResponse.confirmationNo
+                };
+                setBookingResult(updatedResult);
+                setPendingCheckCount(prev => prev + 1);
+            } else if (bookingStatus === 'Pending' && pendingCheckCount < 3) {
+                // Retry up to 3 times
+                setPendingCheckCount(prev => prev + 1);
+                startPendingStatusCheck(verifyResponse, razorpayResponse);
+            }
+        } catch (err) {
+            console.error('Pending status check error:', err);
+        } finally {
+            setCheckingPendingStatus(false);
         }
     };
 
@@ -437,10 +563,21 @@ const PaymentPage = () => {
                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
                             <div className="flex items-start gap-2">
                                 <Clock size={18} className="text-amber-600 mt-0.5" />
-                                <div>
+                                <div className="flex-1">
                                     <p className="text-sm font-medium text-amber-800">Confirmation Pending</p>
                                     <p className="text-xs text-amber-600">
-                                        Your booking is being confirmed by the hotel. You'll receive a confirmation email shortly.
+                                        Your booking is being confirmed by the hotel.
+                                        {checkingPendingStatus && (
+                                            <span className="flex items-center gap-1 mt-1">
+                                                <Loader size={12} className="animate-spin" />
+                                                Checking status...
+                                            </span>
+                                        )}
+                                        {!checkingPendingStatus && pendingCheckCount > 0 && (
+                                            <span className="block mt-1">
+                                                Status check #{pendingCheckCount} completed. Will retry automatically.
+                                            </span>
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -754,15 +891,90 @@ const PaymentPage = () => {
                                 </div>
                             </div>
 
-                            {/* Hold Booking Notice */}
+                            {/* Booking Type Notice */}
                             <div className="mt-4 text-center">
-                                <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2">
-                                    ⚠️ Test Mode: Booking will be held, not vouchered
+                                <p className={`text-xs rounded-lg p-2 ${
+                                    isVoucherBooking 
+                                        ? 'text-green-700 bg-green-50' 
+                                        : 'text-amber-600 bg-amber-50'
+                                }`}>
+                                    {isVoucherBooking 
+                                        ? '✓ Voucher Booking: Immediate confirmation will be generated' 
+                                        : '⚠️ Hold Booking: Room will be held without voucher'}
                                 </p>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                {/* Price/Cancellation Change Dialog */}
+                {priceChangeDialog && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                                    <AlertCircle size={24} className="text-amber-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-800">
+                                        {priceChangeDialog.type === 'price' ? 'Price Changed' : 'Policy Changed'}
+                                    </h3>
+                                    <p className="text-sm text-gray-500">
+                                        The hotel has updated their terms
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                                {priceChangeDialog.type === 'price' && (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Original Price:</span>
+                                            <span className="line-through">₹{priceChangeDialog.oldAmount?.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600 font-medium">New Price:</span>
+                                            <span className="font-bold text-blue-600">₹{priceChangeDialog.newAmount?.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {priceChangeDialog.type === 'cancellation' && (
+                                    <p className="text-sm text-gray-600">
+                                        The cancellation policy has been updated. Please review the new terms before confirming.
+                                    </p>
+                                )}
+                            </div>
+
+                            <p className="text-sm text-gray-600 mb-4">
+                                Do you want to accept the changes and proceed with the booking?
+                            </p>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setPriceChangeDialog(null)}
+                                    disabled={retryingBooking}
+                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleRetryBooking(true, priceChangeDialog.newAmount)}
+                                    disabled={retryingBooking}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {retryingBooking ? (
+                                        <>
+                                            <Loader size={16} className="animate-spin" />
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        'Accept & Continue'
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
