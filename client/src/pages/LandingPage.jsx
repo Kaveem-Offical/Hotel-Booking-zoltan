@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Users, MapPin, Star, Shield, Clock, Headphones, ChevronDown, ArrowRight, Quote, Plane, Heart, Award, LogOut, User, Building, X, Sparkles } from 'lucide-react';
+import { Search, Users, MapPin, Star, Shield, Clock, Headphones, ChevronDown, ArrowRight, Quote, Plane, Heart, Award, LogOut, User, Building, X, Sparkles, Minus, Plus } from 'lucide-react';
 import GlobeAnimation from '../components/GlobeAnimation';
 import DateRangePicker from '../components/DateRangePicker';
 import { useAuth } from '../context/AuthContext';
@@ -21,7 +21,6 @@ const useTypewriter = (words, typingSpeed = 100, deletingSpeed = 60, pauseDurati
     useEffect(() => {
         const currentWord = words[wordIndex];
         let timeout;
-
         if (!isDeleting && text === currentWord) {
             timeout = setTimeout(() => setIsDeleting(true), pauseDuration);
         } else if (isDeleting && text === '') {
@@ -29,14 +28,12 @@ const useTypewriter = (words, typingSpeed = 100, deletingSpeed = 60, pauseDurati
             setWordIndex((prev) => (prev + 1) % words.length);
         } else {
             timeout = setTimeout(() => {
-                setText(
-                    isDeleting
-                        ? currentWord.substring(0, text.length - 1)
-                        : currentWord.substring(0, text.length + 1)
+                setText(isDeleting
+                    ? currentWord.substring(0, text.length - 1)
+                    : currentWord.substring(0, text.length + 1)
                 );
             }, isDeleting ? deletingSpeed : typingSpeed);
         }
-
         return () => clearTimeout(timeout);
     }, [text, isDeleting, wordIndex, words, typingSpeed, deletingSpeed, pauseDuration]);
 
@@ -47,19 +44,13 @@ const useTypewriter = (words, typingSpeed = 100, deletingSpeed = 60, pauseDurati
 const useScrollReveal = () => {
     useEffect(() => {
         const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('revealed');
-                    }
-                });
-            },
+            (entries) => entries.forEach((entry) => {
+                if (entry.isIntersecting) entry.target.classList.add('revealed');
+            }),
             { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
         );
-
         const elements = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale');
         elements.forEach((el) => observer.observe(el));
-
         return () => observer.disconnect();
     }, []);
 };
@@ -69,32 +60,25 @@ const useCountUp = (end, duration = 2000, startOnView = true) => {
     const [count, setCount] = useState(0);
     const ref = useRef(null);
     const started = useRef(false);
-
     useEffect(() => {
         if (!startOnView) return;
-
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting && !started.current) {
-                    started.current = true;
-                    let startTime = null;
-                    const animate = (timestamp) => {
-                        if (!startTime) startTime = timestamp;
-                        const progress = Math.min((timestamp - startTime) / duration, 1);
-                        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-                        setCount(Math.floor(eased * end));
-                        if (progress < 1) requestAnimationFrame(animate);
-                    };
-                    requestAnimationFrame(animate);
-                }
-            },
-            { threshold: 0.5 }
-        );
-
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting && !started.current) {
+                started.current = true;
+                let startTime = null;
+                const animate = (timestamp) => {
+                    if (!startTime) startTime = timestamp;
+                    const progress = Math.min((timestamp - startTime) / duration, 1);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    setCount(Math.floor(eased * end));
+                    if (progress < 1) requestAnimationFrame(animate);
+                };
+                requestAnimationFrame(animate);
+            }
+        }, { threshold: 0.5 });
         if (ref.current) observer.observe(ref.current);
         return () => observer.disconnect();
     }, [end, duration, startOnView]);
-
     return [count, ref];
 };
 
@@ -108,22 +92,10 @@ const StarField = () => {
         delay: `${Math.random() * 5}s`,
         duration: `${2 + Math.random() * 4}s`,
     }));
-
     return (
         <div className="stars-container">
             {stars.map((s) => (
-                <div
-                    key={s.id}
-                    className="star"
-                    style={{
-                        left: s.left,
-                        top: s.top,
-                        width: s.size,
-                        height: s.size,
-                        animationDelay: s.delay,
-                        animationDuration: s.duration,
-                    }}
-                />
+                <div key={s.id} className="star" style={{ left: s.left, top: s.top, width: s.size, height: s.size, animationDelay: s.delay, animationDuration: s.duration }} />
             ))}
         </div>
     );
@@ -135,7 +107,7 @@ const formatDisplayDate = (dateStr) => {
     const [y, m, d] = dateStr.split('-').map(Number);
     const date = new Date(y, m - 1, d);
     const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+    return `${date.getDate()} ${MONTH_NAMES[date.getMonth()]}`;
 };
 
 // ─── Main Component ──────────────────────────────────────────
@@ -156,9 +128,8 @@ const LandingPage = () => {
         const d = new Date(); d.setDate(d.getDate() + 2);
         return d.toISOString().split('T')[0];
     });
-    const [guests, setGuests] = useState(2);
-
-    // Search overlay state
+    const [guests, setGuests] = useState({ rooms: 1, adults: 2, children: 0, childrenAges: [] });
+    const [showGuestDropdown, setShowGuestDropdown] = useState(false);
     const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
     const [isCalendarOverlayOpen, setIsCalendarOverlayOpen] = useState(false);
     const [suggestions, setSuggestions] = useState([]);
@@ -167,89 +138,72 @@ const LandingPage = () => {
     const countriesRef = useRef([]);
     const citiesCacheRef = useRef({});
 
-    // Top countries to search
     const TOP_COUNTRIES = ['IN', 'AE', 'US', 'GB', 'SG', 'TH', 'MY', 'FR', 'DE', 'AU', 'SA', 'LK', 'JP'];
     const QUICK_CITIES = ['Mumbai', 'Dubai', 'London', 'Singapore', 'Bangkok', 'Goa', 'Paris', 'Jaipur'];
 
     useScrollReveal();
 
-    // Navbar scroll handler
     useEffect(() => {
         const handleScroll = () => setIsNavScrolled(window.scrollY > 80);
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // Focus overlay input when opened
     useEffect(() => {
         if (isSearchOverlayOpen && overlayInputRef.current) {
-            setTimeout(() => overlayInputRef.current.focus(), 100);
+            setTimeout(() => overlayInputRef.current.focus(), 150);
         }
     }, [isSearchOverlayOpen]);
 
-    // Handle escape to close overlay
     useEffect(() => {
         const handleEscape = (e) => {
             if (e.key === 'Escape') {
                 setIsSearchOverlayOpen(false);
                 setIsCalendarOverlayOpen(false);
                 setShowDropdown(false);
+                setShowGuestDropdown(false);
             }
         };
         document.addEventListener('keydown', handleEscape);
         return () => document.removeEventListener('keydown', handleEscape);
     }, []);
 
-    // Lock body scroll when overlay is open
+    // Lock body scroll when ANY overlay is open
     useEffect(() => {
-        if (isSearchOverlayOpen || isCalendarOverlayOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
+        const isOpen = isSearchOverlayOpen || isCalendarOverlayOpen || showGuestDropdown;
+        document.body.style.overflow = isOpen ? 'hidden' : '';
         return () => { document.body.style.overflow = ''; };
-    }, [isSearchOverlayOpen, isCalendarOverlayOpen]);
+    }, [isSearchOverlayOpen, isCalendarOverlayOpen, showGuestDropdown]);
 
-    // Fetch countries and pre-cache cities
     useEffect(() => {
         const init = async () => {
             try {
                 const data = await fetchCountries();
-                if (data?.CountryList) {
-                    countriesRef.current = data.CountryList;
-                }
+                if (data?.CountryList) countriesRef.current = data.CountryList;
                 TOP_COUNTRIES.forEach(async (code) => {
                     try {
                         const cityData = await fetchCities(code);
-                        if (cityData?.CityList) {
-                            citiesCacheRef.current[code] = cityData.CityList;
-                        }
-                    } catch (e) { /* silent */ }
+                        if (cityData?.CityList) citiesCacheRef.current[code] = cityData.CityList;
+                    } catch (e) { }
                 });
-            } catch (e) {
-                console.error('Failed to init countries:', e);
-            }
+            } catch (e) { console.error('Failed to init countries:', e); }
         };
         init();
     }, []);
 
-    // Helper to get country name
     const getCountryName = useCallback((code) => {
         const country = countriesRef.current.find(c => c.Code === code);
         return country?.Name || code;
     }, []);
 
-    // Fetch city + hotel suggestions with debounce (multi-country)
     useEffect(() => {
         const getSuggestions = async () => {
             if (destination.length > 1) {
                 try {
                     const searchLower = destination.toLowerCase();
-
                     let citySuggestions = [];
                     const countriesToSearch = Object.keys(citiesCacheRef.current).length > 0
-                        ? Object.keys(citiesCacheRef.current)
-                        : TOP_COUNTRIES;
+                        ? Object.keys(citiesCacheRef.current) : TOP_COUNTRIES;
 
                     for (const code of countriesToSearch) {
                         if (citiesCacheRef.current[code]) {
@@ -269,11 +223,10 @@ const LandingPage = () => {
                                         .map(c => ({ ...c, type: 'City', countryCode: code, countryName: getCountryName(code) }));
                                     citySuggestions = [...citySuggestions, ...filtered];
                                 }
-                            } catch (e) { /* skip */ }
+                            } catch (e) { }
                         }
                     }
 
-                    // Deduplicate and sort
                     const seenCodes = new Set();
                     citySuggestions = citySuggestions.filter(c => {
                         if (seenCodes.has(c.Code)) return false;
@@ -281,8 +234,7 @@ const LandingPage = () => {
                         return true;
                     });
                     citySuggestions.sort((a, b) => {
-                        const aName = a.Name.toLowerCase();
-                        const bName = b.Name.toLowerCase();
+                        const aName = a.Name.toLowerCase(), bName = b.Name.toLowerCase();
                         if (aName === searchLower && bName !== searchLower) return -1;
                         if (bName === searchLower && aName !== searchLower) return 1;
                         if (aName.startsWith(searchLower) && !bName.startsWith(searchLower)) return -1;
@@ -297,41 +249,34 @@ const LandingPage = () => {
                         if (hotelData?.suggestions) {
                             hotelSuggestions = hotelData.suggestions.map(h => ({ ...h, type: 'Hotel' }));
                         }
-                    } catch (e) { /* skip */ }
+                    } catch (e) { }
 
                     setSuggestions([...citySuggestions, ...hotelSuggestions]);
                     setShowDropdown(true);
-                } catch (error) {
-                    console.error("Failed to fetch suggestions", error);
-                }
+                } catch (error) { console.error("Failed to fetch suggestions", error); }
             } else {
                 setSuggestions([]);
                 setShowDropdown(false);
             }
         };
-
         const timeoutId = setTimeout(getSuggestions, 300);
         return () => clearTimeout(timeoutId);
     }, [destination, getCountryName]);
 
-    // Typewriter
     const typewriterText = useTypewriter(
         ['Your Dream Stay', 'Best Hotel Deals', 'Luxury Resorts', 'Beach Getaways', 'City Adventures'],
         90, 50, 1800
     );
 
-    // Counters
     const [hotelCount, hotelRef] = useCountUp(200000, 2500);
     const [countryCount, countryRef] = useCountUp(50, 2000);
     const [guestCount, guestRef] = useCountUp(5, 2000);
     const [ratingCount, ratingRef] = useCountUp(49, 2000);
 
-    // Handle suggestion selection
     const handleSuggestionSelect = useCallback((item) => {
         setDestination(item.countryName ? `${item.Name}, ${item.countryName}` : item.Name);
         setShowDropdown(false);
         setIsSearchOverlayOpen(false);
-
         if (item.type === 'City') {
             setSelectedCityCode(item.Code);
             setSelectedCountryCode(item.countryCode || 'IN');
@@ -342,18 +287,30 @@ const LandingPage = () => {
             setSelectedCityCode(null);
             setSelectedCountryCode(null);
             setSelectedHotelInfo({
-                HotelCode: item.Code,
-                HotelName: item.Name,
+                HotelCode: item.Code, HotelName: item.Name,
                 HotelAddress: item.Address || item.CityName || '',
-                CityName: item.CityName || '',
-                StarRating: item.StarRating || '',
-                Latitude: item.Latitude || '',
-                Longitude: item.Longitude || ''
+                CityName: item.CityName || '', StarRating: item.StarRating || '',
+                Latitude: item.Latitude || '', Longitude: item.Longitude || ''
             });
         }
     }, []);
 
-    // Quick city select from popular tags (international)
+    const handleGuestChange = useCallback((type, operation) => {
+        setGuests(prev => {
+            const ng = { ...prev };
+            if (type === 'rooms') ng.rooms = operation === 'inc' ? Math.min(prev.rooms + 1, 4) : Math.max(prev.rooms - 1, 1);
+            else if (type === 'adults') ng.adults = operation === 'inc' ? Math.min(prev.adults + 1, 8) : Math.max(prev.adults - 1, 1);
+            else if (type === 'children') {
+                const newCount = operation === 'inc' ? Math.min(prev.children + 1, 4) : Math.max(prev.children - 1, 0);
+                ng.children = newCount;
+                ng.childrenAges = newCount > prev.childrenAges.length
+                    ? [...prev.childrenAges, 5]
+                    : prev.childrenAges.slice(0, newCount);
+            }
+            return ng;
+        });
+    }, []);
+
     const handleQuickCitySelect = useCallback(async (cityName) => {
         setDestination(cityName);
         try {
@@ -363,9 +320,7 @@ const LandingPage = () => {
                     : await fetchCities(code);
                 if (cityData?.CityList) {
                     citiesCacheRef.current[code] = cityData.CityList;
-                    const match = cityData.CityList.find(
-                        c => c.Name.toLowerCase() === cityName.toLowerCase()
-                    );
+                    const match = cityData.CityList.find(c => c.Name.toLowerCase() === cityName.toLowerCase());
                     if (match) {
                         setSelectedCityCode(match.Code);
                         setSelectedCountryCode(code);
@@ -376,33 +331,20 @@ const LandingPage = () => {
                     }
                 }
             }
-        } catch (err) {
-            console.error('Failed to look up city:', err);
-        }
+        } catch (err) { console.error('Failed to look up city:', err); }
     }, [getCountryName]);
 
-    // Search handler
     const handleExplore = useCallback(() => {
         navigate('/search', {
-            state: {
-                destination,
-                cityCode: selectedCityCode,
-                countryCode: selectedCountryCode,
-                hotelCode: selectedHotelCode,
-                hotelInfo: selectedHotelInfo,
-                checkIn,
-                checkOut,
-                guests
-            }
+            state: { destination, cityCode: selectedCityCode, countryCode: selectedCountryCode, hotelCode: selectedHotelCode, hotelInfo: selectedHotelInfo, checkIn, checkOut, guests }
         });
     }, [navigate, destination, selectedCityCode, selectedCountryCode, selectedHotelCode, selectedHotelInfo, checkIn, checkOut, guests]);
 
-    // Data
     const features = [
-        { icon: <Shield className="w-7 h-7 text-indigo-400" />, bg: 'bg-indigo-500/10', title: 'Best Price Guarantee', desc: 'Find a lower price? We\'ll match it and give you an extra 10% off.' },
-        { icon: <Headphones className="w-7 h-7 text-pink-400" />, bg: 'bg-pink-500/10', title: '24/7 Customer Support', desc: 'Our travel experts are available around the clock to assist you.' },
-        { icon: <Award className="w-7 h-7 text-cyan-400" />, bg: 'bg-cyan-500/10', title: 'Verified Properties', desc: 'Every hotel is personally verified for quality and authenticity.' },
-        { icon: <Heart className="w-7 h-7 text-rose-400" />, bg: 'bg-rose-500/10', title: 'Loyalty Rewards', desc: 'Earn points on every booking and unlock exclusive member-only deals.' },
+        { icon: <Shield className="w-6 h-6 text-indigo-400" />, bg: 'feature-icon-indigo', title: 'Best Price Guarantee', desc: 'Find a lower price? We\'ll match it and give you an extra 10% off.' },
+        { icon: <Headphones className="w-6 h-6 text-pink-400" />, bg: 'feature-icon-pink', title: '24/7 Customer Support', desc: 'Our travel experts are available around the clock to assist you.' },
+        { icon: <Award className="w-6 h-6 text-cyan-400" />, bg: 'feature-icon-cyan', title: 'Verified Properties', desc: 'Every hotel is personally verified for quality and authenticity.' },
+        { icon: <Heart className="w-6 h-6 text-rose-400" />, bg: 'feature-icon-rose', title: 'Loyalty Rewards', desc: 'Earn points on every booking and unlock exclusive member-only deals.' },
     ];
 
     const destinations = [
@@ -418,6 +360,9 @@ const LandingPage = () => {
         { name: 'Anita Desai', role: 'Solo Explorer', text: 'The variety of options and real-time pricing helped me find perfect stays across India. Highly recommended!', rating: 5 },
     ];
 
+    // Guest summary text
+    const guestSummary = `${guests.adults} Adult${guests.adults > 1 ? 's' : ''}${guests.children > 0 ? `, ${guests.children} Child${guests.children !== 1 ? 'ren' : ''}` : ''}`;
+
     return (
         <div className="landing-page bg-[#0f0c29] text-white min-h-screen">
 
@@ -426,40 +371,28 @@ const LandingPage = () => {
                 <Link to="/search" className="flex items-center gap-2">
                     <img src={logo} alt="Zovotel" className="h-10" />
                 </Link>
-                <div className="flex items-center gap-6">
-                    <Link to="/search" className="text-white/70 hover:text-white text-sm font-medium transition-colors hidden sm:block">
-                        Hotels
-                    </Link>
-                    <Link to="/help" onClick={() => window.scrollTo(0, 0)} className="text-white/70 hover:text-white text-sm font-medium transition-colors hidden sm:block">
-                        Help Center
-                    </Link>
+                <div className="flex items-center gap-4 sm:gap-6">
+                    <Link to="/search" className="nav-link hidden sm:block">Hotels</Link>
+                    <Link to="/help" onClick={() => window.scrollTo(0, 0)} className="nav-link hidden sm:block">Help</Link>
                     {currentUser ? (
                         <>
-                            <Link to="/profile" className="text-white/70 hover:text-white text-sm font-medium transition-colors flex items-center gap-1">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs">
+                            <Link to="/profile" className="nav-avatar-link">
+                                <div className="nav-avatar">
                                     {(userData?.username || currentUser?.email || '?').charAt(0).toUpperCase()}
                                 </div>
-                                <span className="hidden sm:inline">{userData?.username || currentUser?.email?.split('@')[0]}</span>
+                                <span className="hidden sm:inline text-sm font-medium text-white/80">
+                                    {userData?.username || currentUser?.email?.split('@')[0]}
+                                </span>
                             </Link>
-                            <button
-                                onClick={async () => { try { await logout(); } catch (e) { console.error(e); } }}
-                                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-semibold border border-white/20 transition-all hover:scale-105 flex items-center gap-1"
-                            >
+                            <button onClick={async () => { try { await logout(); } catch (e) { console.error(e); } }} className="nav-btn">
                                 <LogOut size={14} />
-                                Logout
+                                <span>Logout</span>
                             </button>
                         </>
                     ) : (
                         <>
-                            <Link to="/signin" className="text-white/70 hover:text-white text-sm font-medium transition-colors">
-                                Sign In
-                            </Link>
-                            <Link
-                                to="/signup"
-                                className="px-5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-semibold border border-white/20 transition-all hover:scale-105"
-                            >
-                                Sign Up
-                            </Link>
+                            <Link to="/signin" className="nav-link">Sign In</Link>
+                            <Link to="/signup" className="nav-btn">Sign Up</Link>
                         </>
                     )}
                 </div>
@@ -467,116 +400,101 @@ const LandingPage = () => {
 
             {/* ══════════════ HERO SECTION ══════════════ */}
             <section className="landing-hero">
-                {/* Globe Animation Background */}
                 <GlobeAnimation />
                 <div className="hero-overlay" />
 
-                <div className="relative z-10 w-full max-w-5xl px-4 pt-20 text-center">
+                <div className="relative z-10 w-full max-w-5xl px-4 pt-24 pb-32 text-center">
                     {/* Badge */}
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-white/80 mb-8 floating-badge" style={{ animationDelay: '0.3s' }}>
+                    <div className="hero-badge" style={{ animationDelay: '0.2s' }}>
                         <Plane className="w-4 h-4 text-indigo-400" />
                         <span>Over 2 million properties worldwide</span>
                     </div>
 
                     {/* Heading */}
-                    <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-6" style={{ animation: 'fadeInUp 0.8s ease-out both' }}>
-                        <span className="block text-white/90">Discover</span>
+                    <h1 className="hero-heading" style={{ animationDelay: '0.1s' }}>
+                        <span className="block text-white/90 mb-2">Discover</span>
                         <span className="typewriter-container">
-                            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                                {typewriterText}
-                            </span>
+                            <span className="hero-gradient-text">{typewriterText}</span>
                             <span className="typewriter-cursor" />
                         </span>
                     </h1>
 
-                    <p className="text-base sm:text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10" style={{ animation: 'fadeInUp 0.8s ease-out 0.4s both' }}>
+                    <p className="hero-subtext" style={{ animationDelay: '0.3s' }}>
                         Search from over 2,000,000 hotels, resorts, and hostels. Get the best prices guaranteed.
                     </p>
 
                     {/* ─── Search Bar ─── */}
-                    <div className="hero-search max-w-4xl mx-auto">
-                        <div className="flex flex-col md:flex-row items-stretch gap-2 p-2">
-                            {/* Destination — opens overlay */}
-                            <div
-                                className="flex items-center gap-3 px-4 py-3 bg-white/8 rounded-xl flex-1 border border-white/10 hover:border-white/20 transition-all group cursor-pointer"
-                                onClick={() => setIsSearchOverlayOpen(true)}
-                            >
-                                <MapPin className="w-5 h-5 text-indigo-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                                <div className="flex-1 text-left">
-                                    {destination ? (
-                                        <span className="text-white font-medium text-sm sm:text-base">{destination}</span>
-                                    ) : (
-                                        <span className="text-white/50 font-medium text-sm sm:text-base">Where are you going?</span>
-                                    )}
-                                </div>
-                                <Search className="w-4 h-4 text-white/30 group-hover:text-white/60 transition-colors" />
-                            </div>
+                    <div className="hero-search-card" style={{ animationDelay: '0.4s' }}>
+                        <div className="hero-search-inner">
 
-                            {/* Date Picker Button */}
-                            <div
-                                className="flex items-center gap-3 px-4 py-3 bg-white/8 rounded-xl border border-white/10 hover:border-white/20 transition-all group md:min-w-[280px] cursor-pointer"
-                                onClick={() => setIsCalendarOverlayOpen(true)}
-                            >
-                                <Clock className="w-5 h-5 text-indigo-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                                <div className="flex-1 text-left flex flex-col pt-1">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold leading-none mb-1">When</span>
-                                    {checkIn && checkOut ? (
-                                        <span className="text-white font-medium text-sm sm:text-base leading-none">
-                                            {formatDisplayDate(checkIn)} - {formatDisplayDate(checkOut)}
-                                        </span>
-                                    ) : (
-                                        <span className="text-white/50 font-medium text-sm sm:text-base leading-none">Select Dates</span>
-                                    )}
+                            {/* Destination */}
+                            <button className="search-field search-field-destination" onClick={() => setIsSearchOverlayOpen(true)}>
+                                <div className="search-field-icon">
+                                    <MapPin className="w-4 h-4 text-indigo-400" />
                                 </div>
-                            </div>
+                                <div className="search-field-content">
+                                    <span className="search-field-label">Where</span>
+                                    <span className={`search-field-value ${!destination ? 'placeholder' : ''}`}>
+                                        {destination || 'Search destinations'}
+                                    </span>
+                                </div>
+                            </button>
+
+                            <div className="search-divider" />
+
+                            {/* Dates */}
+                            <button className="search-field search-field-dates" onClick={() => setIsCalendarOverlayOpen(true)}>
+                                <div className="search-field-icon">
+                                    <Clock className="w-4 h-4 text-indigo-400" />
+                                </div>
+                                <div className="search-field-content">
+                                    <span className="search-field-label">When</span>
+                                    <span className="search-field-value">
+                                        {checkIn && checkOut
+                                            ? `${formatDisplayDate(checkIn)} → ${formatDisplayDate(checkOut)}`
+                                            : 'Select dates'}
+                                    </span>
+                                </div>
+                            </button>
+
+                            <div className="search-divider" />
 
                             {/* Guests */}
-                            <div className="flex items-center gap-3 px-4 py-3 bg-white/8 rounded-xl border border-white/10 hover:border-white/20 transition-all group md:w-36">
-                                <Users className="w-5 h-5 text-pink-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Guests</span>
-                                    <select
-                                        value={guests}
-                                        onChange={(e) => setGuests(Number(e.target.value))}
-                                        className="hero-search-input text-sm font-semibold cursor-pointer"
-                                        style={{ WebkitAppearance: 'none' }}
-                                    >
-                                        {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                                            <option key={n} value={n} style={{ color: '#1e293b' }}>{n} Guest{n > 1 ? 's' : ''}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Explore Button */}
                             <button
-                                onClick={handleExplore}
-                                className="explore-button flex items-center justify-center gap-2 md:px-8"
+                                className="search-field search-field-guests"
+                                onClick={() => setShowGuestDropdown(true)}
                             >
+                                <div className="search-field-icon">
+                                    <Users className="w-4 h-4 text-pink-400" />
+                                </div>
+                                <div className="search-field-content">
+                                    <span className="search-field-label">Guests</span>
+                                    <span className="search-field-value">{guestSummary}</span>
+                                </div>
+                                <ChevronDown className="w-4 h-4 text-white/30 ml-1 flex-shrink-0" />
+                            </button>
+
+                            {/* Search Button */}
+                            <button onClick={handleExplore} className="search-cta-btn">
                                 <Search className="w-5 h-5" />
-                                <span className="hidden md:inline">Explore</span>
+                                <span>Search</span>
                             </button>
                         </div>
                     </div>
 
                     {/* Quick Destination Tags */}
-                    <div className="flex flex-wrap justify-center gap-2 mt-6" style={{ animation: 'fadeInUp 0.8s ease-out 1.2s both', paddingBottom: '100px' }}>
-                        <span className="text-white/40 text-sm mr-2">Popular:</span>
+                    <div className="hero-quick-tags" style={{ animationDelay: '0.6s' }}>
+                        <span className="quick-tags-label">Popular:</span>
                         {QUICK_CITIES.map((city) => (
-                            <button
-                                key={city}
-                                onClick={() => handleQuickCitySelect(city)}
-                                className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 text-sm hover:bg-white/10 hover:text-white hover:border-white/20 transition-all hover:scale-105"
-                            >
+                            <button key={city} onClick={() => handleQuickCitySelect(city)} className="quick-tag-btn">
                                 {city}
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* Scroll Indicator */}
                 <div className="scroll-indicator">
-                    <ChevronDown className="w-6 h-6 text-white/50" />
+                    <ChevronDown className="w-5 h-5 text-white/40" />
                 </div>
             </section>
 
@@ -584,22 +502,17 @@ const LandingPage = () => {
             <section className="py-20 bg-[#0d0a24] border-y border-white/5">
                 <div className="max-w-6xl mx-auto px-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                        <div className="stat-item reveal" ref={hotelRef}>
-                            <div className="stat-number">{hotelCount.toLocaleString()}+</div>
-                            <p className="text-white/50 mt-2 text-sm font-medium">Hotels Worldwide</p>
-                        </div>
-                        <div className="stat-item reveal delay-100" ref={countryRef}>
-                            <div className="stat-number">{countryCount}+</div>
-                            <p className="text-white/50 mt-2 text-sm font-medium">Countries</p>
-                        </div>
-                        <div className="stat-item reveal delay-200" ref={guestRef}>
-                            <div className="stat-number">{guestCount}M+</div>
-                            <p className="text-white/50 mt-2 text-sm font-medium">Happy Guests</p>
-                        </div>
-                        <div className="stat-item reveal delay-300" ref={ratingRef}>
-                            <div className="stat-number">{(ratingCount / 10).toFixed(1)}</div>
-                            <p className="text-white/50 mt-2 text-sm font-medium">Average Rating</p>
-                        </div>
+                        {[
+                            { ref: hotelRef, value: `${hotelCount.toLocaleString()}+`, label: 'Hotels Worldwide' },
+                            { ref: countryRef, value: `${countryCount}+`, label: 'Countries' },
+                            { ref: guestRef, value: `${guestCount}M+`, label: 'Happy Guests' },
+                            { ref: ratingRef, value: (ratingCount / 10).toFixed(1), label: 'Average Rating' },
+                        ].map((stat, i) => (
+                            <div key={i} className={`stat-item reveal delay-${i * 100}`} ref={stat.ref}>
+                                <div className="stat-number">{stat.value}</div>
+                                <p className="text-white/50 mt-1 text-sm font-medium">{stat.label}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </section>
@@ -607,21 +520,16 @@ const LandingPage = () => {
             {/* ══════════════ FEATURES SECTION ══════════════ */}
             <section className="py-24 bg-[#0f0c29]">
                 <div className="max-w-6xl mx-auto px-4">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-bold mb-4 reveal">Why Choose <span className="bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent">Zovotel</span></h2>
+                    <div className="section-header">
+                        <h2 className="section-title reveal">Why Choose <span className="hero-gradient-text">Zovotel</span></h2>
                         <div className="section-separator reveal delay-100" />
-                        <p className="text-white/50 max-w-xl mx-auto reveal delay-200">
-                            We're committed to making your travel experience exceptional from booking to checkout.
-                        </p>
+                        <p className="section-desc reveal delay-200">We're committed to making your travel experience exceptional from booking to checkout.</p>
                     </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {features.map((feature, i) => (
                             <div key={i} className={`feature-card reveal delay-${(i + 1) * 100}`}>
-                                <div className={`feature-icon ${feature.bg}`}>
-                                    {feature.icon}
-                                </div>
-                                <h3 className="text-lg font-bold text-white mb-2">{feature.title}</h3>
+                                <div className={`feature-icon-wrap ${feature.bg}`}>{feature.icon}</div>
+                                <h3 className="text-base font-bold text-white mb-2">{feature.title}</h3>
                                 <p className="text-white/50 text-sm leading-relaxed">{feature.desc}</p>
                             </div>
                         ))}
@@ -632,31 +540,23 @@ const LandingPage = () => {
             {/* ══════════════ POPULAR DESTINATIONS ══════════════ */}
             <section className="py-24 bg-[#0d0a24]">
                 <div className="max-w-6xl mx-auto px-4">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-bold mb-4 reveal">
-                            Popular <span className="bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent">Destinations</span>
-                        </h2>
+                    <div className="section-header">
+                        <h2 className="section-title reveal">Popular <span className="hero-gradient-text">Destinations</span></h2>
                         <div className="section-separator reveal delay-100" />
-                        <p className="text-white/50 max-w-xl mx-auto reveal delay-200">
-                            Explore the most sought-after destinations across India.
-                        </p>
+                        <p className="section-desc reveal delay-200">Explore the most sought-after destinations across India.</p>
                     </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {destinations.map((dest, i) => (
-                            <div
-                                key={dest.city}
-                                className={`destination-card h-80 reveal-scale delay-${(i + 1) * 100}`}
-                                onClick={() => navigate('/search', { state: { destination: dest.city, checkIn, checkOut, guests } })}
-                            >
+                            <div key={dest.city} className={`destination-card h-80 reveal-scale delay-${(i + 1) * 100}`}
+                                onClick={() => navigate('/search', { state: { destination: dest.city, checkIn, checkOut, guests } })}>
                                 <img src={dest.img} alt={dest.city} loading="lazy" />
                                 <div className="destination-overlay">
                                     <div className="flex items-center gap-1 mb-1">
-                                        <MapPin className="w-4 h-4 text-indigo-400" />
+                                        <MapPin className="w-3.5 h-3.5 text-indigo-400" />
                                         <span className="text-xs text-indigo-300 font-semibold uppercase tracking-wider">{dest.tag}</span>
                                     </div>
-                                    <h3 className="text-2xl font-bold text-white">{dest.city}</h3>
-                                    <p className="text-white/60 text-sm mt-1">{dest.hotels} properties</p>
+                                    <h3 className="text-xl font-bold text-white">{dest.city}</h3>
+                                    <p className="text-white/60 text-sm mt-0.5">{dest.hotels} properties</p>
                                 </div>
                             </div>
                         ))}
@@ -667,18 +567,17 @@ const LandingPage = () => {
             {/* ══════════════ TESTIMONIALS ══════════════ */}
             <section className="py-24 bg-[#0f0c29]">
                 <div className="max-w-6xl mx-auto px-4">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-bold mb-4 reveal">What Our <span className="bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent">Guests Say</span></h2>
+                    <div className="section-header">
+                        <h2 className="section-title reveal">What Our <span className="hero-gradient-text">Guests Say</span></h2>
                         <div className="section-separator reveal delay-100" />
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {testimonials.map((t, i) => (
                             <div key={i} className={`testimonial-card reveal delay-${(i + 1) * 100}`}>
-                                <Quote className="w-8 h-8 text-indigo-500/30 mb-4" />
-                                <p className="text-white/70 text-sm leading-relaxed mb-6">"{t.text}"</p>
+                                <Quote className="w-7 h-7 text-indigo-500/30 mb-4" />
+                                <p className="text-white/65 text-sm leading-relaxed mb-6">"{t.text}"</p>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
+                                    <div className="testimonial-avatar">
                                         {t.name.split(' ').map(n => n[0]).join('')}
                                     </div>
                                     <div>
@@ -687,7 +586,7 @@ const LandingPage = () => {
                                     </div>
                                     <div className="ml-auto flex gap-0.5">
                                         {Array.from({ length: t.rating }, (_, j) => (
-                                            <Star key={j} className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                                            <Star key={j} className="w-3 h-3 text-yellow-400 fill-yellow-400" />
                                         ))}
                                     </div>
                                 </div>
@@ -699,17 +598,12 @@ const LandingPage = () => {
 
             {/* ══════════════ CTA SECTION ══════════════ */}
             <section className="cta-section py-24">
-                <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
-                    <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-6 reveal">
-                        Ready to Start Your Journey?
-                    </h2>
-                    <p className="text-white/80 text-lg max-w-xl mx-auto mb-10 reveal delay-100">
+                <div className="relative z-10 max-w-3xl mx-auto px-4 text-center">
+                    <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-5 reveal">Ready to Start Your Journey?</h2>
+                    <p className="text-white/70 text-lg max-w-xl mx-auto mb-10 reveal delay-100">
                         Join millions of happy travellers and find your perfect stay today.
                     </p>
-                    <button
-                        onClick={() => navigate('/search')}
-                        className="cta-button reveal delay-200"
-                    >
+                    <button onClick={() => navigate('/search')} className="cta-button reveal delay-200">
                         <Search className="w-5 h-5" />
                         <span>Explore Hotels</span>
                         <ArrowRight className="w-5 h-5" />
@@ -723,49 +617,29 @@ const LandingPage = () => {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
                         <div>
                             <img src={logo} alt="Zovotel" className="h-10 mb-4" />
-                            <p className="text-white/40 text-sm leading-relaxed">
-                                Your trusted companion for finding the perfect hotel stay, anywhere in the world.
-                            </p>
+                            <p className="text-white/40 text-sm leading-relaxed">Your trusted companion for finding the perfect hotel stay, anywhere in the world.</p>
                         </div>
                         <div>
-                            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Company</h4>
+                            <h4 className="footer-col-title">Company</h4>
                             <ul className="space-y-2">
-                                {[
-                                    { label: 'About Us', path: '/about' },
-                                    { label: 'Careers', path: '#' },
-                                    { label: 'Press', path: '#' },
-                                    { label: 'Blog', path: '#' }
-                                ].map((item) => (
-                                    <li key={item.label}>
-                                        <Link to={item.path} onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-sm cursor-pointer transition-colors">
-                                            {item.label}
-                                        </Link>
-                                    </li>
+                                {[{ label: 'About Us', path: '/about' }, { label: 'Careers', path: '#' }, { label: 'Press', path: '#' }, { label: 'Blog', path: '#' }].map(item => (
+                                    <li key={item.label}><Link to={item.path} onClick={() => window.scrollTo(0, 0)} className="footer-link">{item.label}</Link></li>
                                 ))}
                             </ul>
                         </div>
                         <div>
-                            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Support</h4>
+                            <h4 className="footer-col-title">Support</h4>
                             <ul className="space-y-2">
-                                {[
-                                    { label: 'Help Center', path: '/help' },
-                                    { label: 'Safety', path: '/safety' },
-                                    { label: 'Cancellation', path: '/cancellation' },
-                                    { label: 'Contact Us', path: '/contact' }
-                                ].map((item) => (
-                                    <li key={item.label}>
-                                        <Link to={item.path} onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-sm cursor-pointer transition-colors">
-                                            {item.label}
-                                        </Link>
-                                    </li>
+                                {[{ label: 'Help Center', path: '/help' }, { label: 'Safety', path: '/safety' }, { label: 'Cancellation', path: '/cancellation' }, { label: 'Contact Us', path: '/contact' }].map(item => (
+                                    <li key={item.label}><Link to={item.path} onClick={() => window.scrollTo(0, 0)} className="footer-link">{item.label}</Link></li>
                                 ))}
                             </ul>
                         </div>
                         <div>
-                            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Discover</h4>
+                            <h4 className="footer-col-title">Discover</h4>
                             <ul className="space-y-2">
-                                {['Mumbai Hotels', 'Goa Hotels', 'Delhi Hotels', 'Jaipur Hotels'].map((item) => (
-                                    <li key={item}><span className="text-white/40 hover:text-white text-sm cursor-pointer transition-colors">{item}</span></li>
+                                {['Mumbai Hotels', 'Goa Hotels', 'Delhi Hotels', 'Jaipur Hotels'].map(item => (
+                                    <li key={item}><span className="footer-link">{item}</span></li>
                                 ))}
                             </ul>
                         </div>
@@ -773,8 +647,8 @@ const LandingPage = () => {
                     <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
                         <p className="text-white/30 text-sm">© 2026 Zovotel. All rights reserved.</p>
                         <div className="flex gap-6">
-                            {['Privacy', 'Terms', 'Cookies'].map((item) => (
-                                <span key={item} className="text-white/30 hover:text-white/60 text-sm cursor-pointer transition-colors">{item}</span>
+                            {['Privacy', 'Terms', 'Cookies'].map(item => (
+                                <span key={item} className="footer-link text-sm">{item}</span>
                             ))}
                         </div>
                     </div>
@@ -783,174 +657,111 @@ const LandingPage = () => {
 
             {/* ══════════════ SEARCH OVERLAY ══════════════ */}
             {isSearchOverlayOpen && (
-                <div className="landing-search-overlay">
-                    {/* Backdrop */}
-                    <div
-                        className="landing-search-backdrop"
-                        onClick={() => {
-                            setIsSearchOverlayOpen(false);
-                            setShowDropdown(false);
-                        }}
-                    />
-
-                    {/* Overlay Content */}
-                    <div className="landing-search-modal">
-                        {/* Close Button */}
-                        <button
-                            onClick={() => {
-                                setIsSearchOverlayOpen(false);
-                                setShowDropdown(false);
-                            }}
-                            className="landing-search-close"
-                        >
-                            <X className="w-7 h-7" />
-                        </button>
-
-                        {/* Search Header */}
-                        <div className="landing-search-header">
-                            <h2>
-                                <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-400" style={{ animation: 'starTwinkle 2s ease-in-out infinite' }} />
-                                Where would you like to go?
-                                <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-pink-400" style={{ animation: 'starTwinkle 2s ease-in-out infinite 0.5s' }} />
-                            </h2>
-                            <p>Search from millions of hotels worldwide</p>
+                <div className="lp-overlay" role="dialog" aria-modal="true" aria-label="Search destinations">
+                    <div className="lp-overlay-backdrop" onClick={() => { setIsSearchOverlayOpen(false); setShowDropdown(false); }} />
+                    <div className="lp-overlay-panel lp-search-panel">
+                        <div className="lp-overlay-header">
+                            <div>
+                                <h2 className="lp-overlay-title">Where to?</h2>
+                                <p className="lp-overlay-subtitle">Search cities, hotels, or destinations</p>
+                            </div>
+                            <button onClick={() => { setIsSearchOverlayOpen(false); setShowDropdown(false); }} className="lp-close-btn" aria-label="Close">
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
 
-                        {/* Search Input */}
-                        <div className="landing-search-input-wrapper">
-                            <div className="landing-search-icon-box">
-                                <Search className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-                            </div>
+                        <div className="lp-search-input-wrap">
+                            <Search className="w-5 h-5 text-indigo-400 flex-shrink-0" />
                             <input
                                 ref={overlayInputRef}
                                 type="text"
                                 value={destination}
                                 onChange={(e) => {
                                     setDestination(e.target.value);
-                                    setSelectedCityCode(null);
-                                    setSelectedCountryCode(null);
-                                    setSelectedHotelCode(null);
-                                    setSelectedHotelInfo(null);
+                                    setSelectedCityCode(null); setSelectedCountryCode(null);
+                                    setSelectedHotelCode(null); setSelectedHotelInfo(null);
                                 }}
-                                placeholder="Search cities, hotels, or destinations..."
-                                className="landing-search-input"
+                                placeholder="Search cities, hotels, destinations..."
+                                className="lp-search-input"
                                 autoFocus
                             />
                             {destination && (
-                                <button
-                                    onClick={() => {
-                                        setDestination('');
-                                        setSelectedCityCode(null);
-                                        setSelectedCountryCode(null);
-                                        setSelectedHotelCode(null);
-                                        setSelectedHotelInfo(null);
-                                    }}
-                                    className="landing-search-clear"
-                                >
-                                    <X className="w-5 h-5" />
+                                <button onClick={() => { setDestination(''); setSelectedCityCode(null); setSelectedCountryCode(null); setSelectedHotelCode(null); setSelectedHotelInfo(null); }} className="lp-input-clear" aria-label="Clear">
+                                    <X className="w-4 h-4" />
                                 </button>
                             )}
                         </div>
 
-                        {/* Suggestions */}
+                        {/* Suggestions list */}
                         {showDropdown && suggestions.length > 0 && (
-                            <div className="landing-search-suggestions">
+                            <div className="lp-suggestions-list">
+                                <p className="lp-suggestions-label">Results</p>
                                 {suggestions.map((item, index) => (
-                                    <div
-                                        key={`${item.type}-${item.Code}`}
-                                        className="landing-suggestion-item"
-                                        style={{ animationDelay: `${index * 40}ms` }}
-                                        onClick={() => handleSuggestionSelect(item)}
-                                    >
-                                        <div className={`landing-suggestion-icon ${item.type === 'City' ? 'city' : 'hotel'}`}>
-                                            {item.type === 'City' ? (
-                                                <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
-                                            ) : (
-                                                <Building className="w-5 h-5 sm:w-6 sm:h-6" />
-                                            )}
+                                    <button key={`${item.type}-${item.Code}`} className="lp-suggestion-item"
+                                        style={{ animationDelay: `${index * 35}ms` }}
+                                        onClick={() => handleSuggestionSelect(item)}>
+                                        <div className={`lp-suggestion-icon ${item.type === 'City' ? 'city' : 'hotel'}`}>
+                                            {item.type === 'City' ? <MapPin className="w-4 h-4" /> : <Building className="w-4 h-4" />}
                                         </div>
-                                        <div className="landing-suggestion-text">
-                                            <span className="landing-suggestion-name">{item.Name}</span>
-                                            <span className="landing-suggestion-type">
+                                        <div className="lp-suggestion-text">
+                                            <span className="lp-suggestion-name">{item.Name}</span>
+                                            <span className="lp-suggestion-sub">
                                                 {item.type === 'City' ? (item.countryName || 'City') : (item.CityName || item.Address || 'Hotel')}
                                             </span>
                                         </div>
-                                        <ChevronDown className="w-5 h-5 text-white/20 -rotate-90 landing-suggestion-arrow" />
-                                    </div>
+                                        <span className="lp-suggestion-badge">{item.type}</span>
+                                    </button>
                                 ))}
                             </div>
                         )}
 
-                        {/* Empty / Typing State */}
+                        {/* Empty state */}
                         {(!showDropdown || suggestions.length === 0) && (
-                            <div className="landing-search-empty">
+                            <div className="lp-empty-state">
                                 {destination.length === 0 ? (
-                                    <div className="landing-search-hint">
-                                        <div className="landing-search-hint-text">
-                                            <Sparkles className="w-5 h-5 text-indigo-400" />
-                                            <span>Start typing to search</span>
-                                        </div>
-                                        <div className="landing-search-quick-cities">
-                                            {QUICK_CITIES.map((city) => (
-                                                <button
-                                                    key={city}
-                                                    onClick={() => setDestination(city)}
-                                                    className="landing-search-quick-btn"
-                                                >
+                                    <>
+                                        <p className="lp-suggestions-label">Popular destinations</p>
+                                        <div className="lp-quick-grid">
+                                            {QUICK_CITIES.map(city => (
+                                                <button key={city} onClick={() => { setDestination(city); handleQuickCitySelect(city); setIsSearchOverlayOpen(false); }} className="lp-quick-city-btn">
+                                                    <MapPin className="w-3.5 h-3.5 text-indigo-400" />
                                                     {city}
                                                 </button>
                                             ))}
                                         </div>
-                                    </div>
-                                ) : destination.length <= 1 ? (
-                                    <p className="text-white/40" style={{ animation: 'pulse 1.5s ease-in-out infinite' }}>Keep typing to see suggestions...</p>
+                                    </>
+                                ) : destination.length === 1 ? (
+                                    <p className="lp-hint-text">Keep typing to see suggestions…</p>
                                 ) : (
-                                    <div className="landing-search-loading">
-                                        <div className="landing-search-spinner" />
-                                        <p>Searching...</p>
+                                    <div className="lp-loading">
+                                        <div className="lp-spinner" />
+                                        <p>Searching…</p>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* ESC Hint */}
-                        <p className="landing-search-esc">
-                            Press <kbd>ESC</kbd> to close
-                        </p>
+                        <p className="lp-esc-hint">Press <kbd>ESC</kbd> to close</p>
                     </div>
                 </div>
             )}
 
             {/* ══════════════ CALENDAR OVERLAY ══════════════ */}
             {isCalendarOverlayOpen && (
-                <div className="landing-search-overlay">
-                    {/* Backdrop */}
-                    <div
-                        className="landing-search-backdrop"
-                        onClick={() => setIsCalendarOverlayOpen(false)}
-                    />
-
-                    {/* Overlay Content */}
-                    <div className="landing-search-modal" style={{ maxWidth: '600px' }}>
-                        {/* Close Button */}
-                        <button
-                            onClick={() => setIsCalendarOverlayOpen(false)}
-                            className="landing-search-close"
-                        >
-                            <X className="w-7 h-7" />
-                        </button>
-
-                        {/* Calendar Header */}
-                        <div className="landing-search-header">
-                            <h2>
-                                <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-400" />
-                                When are you travelling?
-                            </h2>
-                            <p>Select your check-in and check-out dates</p>
+                <div className="lp-overlay" role="dialog" aria-modal="true" aria-label="Select dates">
+                    <div className="lp-overlay-backdrop" onClick={() => setIsCalendarOverlayOpen(false)} />
+                    <div className="lp-overlay-panel lp-calendar-panel">
+                        <div className="lp-overlay-header">
+                            <div>
+                                <h2 className="lp-overlay-title">When are you going?</h2>
+                                <p className="lp-overlay-subtitle">Select check-in and check-out dates</p>
+                            </div>
+                            <button onClick={() => setIsCalendarOverlayOpen(false)} className="lp-close-btn" aria-label="Close">
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
 
-                        {/* Calendar Body */}
-                        <div className="bg-[#0f0c29]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 sm:p-6 shadow-2xl">
+                        <div className="lp-calendar-body">
                             <DateRangePicker
                                 checkInDate={checkIn}
                                 checkOutDate={checkOut}
@@ -959,21 +770,98 @@ const LandingPage = () => {
                                 variant="dark"
                                 inline={true}
                             />
-
-                            <div className="mt-6 flex justify-end">
-                                <button
-                                    onClick={() => setIsCalendarOverlayOpen(false)}
-                                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold transition-all shadow-lg hover:shadow-indigo-500/25"
-                                >
-                                    Confirm Dates
-                                </button>
-                            </div>
                         </div>
 
-                        {/* ESC Hint */}
-                        <p className="landing-search-esc mt-6">
-                            Press <kbd>ESC</kbd> to close
-                        </p>
+                        <div className="lp-calendar-footer">
+                            <div className="lp-date-summary">
+                                <div className="lp-date-chip">
+                                    <span className="lp-date-chip-label">Check-in</span>
+                                    <span className="lp-date-chip-value">{formatDisplayDate(checkIn)}</span>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-white/30" />
+                                <div className="lp-date-chip">
+                                    <span className="lp-date-chip-label">Check-out</span>
+                                    <span className="lp-date-chip-value">{formatDisplayDate(checkOut)}</span>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsCalendarOverlayOpen(false)} className="lp-confirm-btn">
+                                Confirm Dates
+                            </button>
+                        </div>
+
+                        <p className="lp-esc-hint">Press <kbd>ESC</kbd> to close</p>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════ GUEST MODAL ══════════════ */}
+            {showGuestDropdown && (
+                <div className="lp-overlay" role="dialog" aria-modal="true" aria-label="Select guests">
+                    <div className="lp-overlay-backdrop" onClick={() => setShowGuestDropdown(false)} />
+                    <div className="lp-overlay-panel lp-guest-panel">
+                        <div className="lp-overlay-header">
+                            <div>
+                                <h2 className="lp-overlay-title">Guests & Rooms</h2>
+                                <p className="lp-overlay-subtitle">Who's coming along?</p>
+                            </div>
+                            <button onClick={() => setShowGuestDropdown(false)} className="lp-close-btn" aria-label="Close">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="lp-guest-rows">
+                            {[
+                                { type: 'rooms', label: 'Rooms', sub: 'Max 4 rooms', value: guests.rooms, min: 1, max: 4 },
+                                { type: 'adults', label: 'Adults', sub: 'Ages 18 and above', value: guests.adults, min: 1, max: 8 },
+                                { type: 'children', label: 'Children', sub: 'Ages 0 – 17', value: guests.children, min: 0, max: 4 },
+                            ].map(row => (
+                                <div key={row.type} className="lp-guest-row">
+                                    <div className="lp-guest-row-info">
+                                        <span className="lp-guest-row-label">{row.label}</span>
+                                        <span className="lp-guest-row-sub">{row.sub}</span>
+                                    </div>
+                                    <div className="lp-guest-counter">
+                                        <button onClick={() => handleGuestChange(row.type, 'dec')} disabled={row.value <= row.min} className="lp-counter-btn" aria-label={`Decrease ${row.label}`}>
+                                            <Minus className="w-4 h-4" />
+                                        </button>
+                                        <span className="lp-counter-value">{row.value}</span>
+                                        <button onClick={() => handleGuestChange(row.type, 'inc')} disabled={row.value >= row.max} className="lp-counter-btn" aria-label={`Increase ${row.label}`}>
+                                            <Plus className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Child ages */}
+                        {guests.children > 0 && (
+                            <div className="lp-child-ages">
+                                <p className="lp-child-ages-title">Child ages at time of travel</p>
+                                <div className="lp-child-ages-grid">
+                                    {guests.childrenAges.map((age, i) => (
+                                        <div key={i} className="lp-child-age-item">
+                                            <label className="lp-child-age-label">Child {i + 1}</label>
+                                            <select value={age}
+                                                onChange={(e) => {
+                                                    const newAges = [...guests.childrenAges];
+                                                    newAges[i] = parseInt(e.target.value);
+                                                    setGuests(prev => ({ ...prev, childrenAges: newAges }));
+                                                }}
+                                                className="lp-child-age-select">
+                                                <option value={0}>Under 1</option>
+                                                {[...Array(17)].map((_, idx) => (
+                                                    <option key={idx + 1} value={idx + 1}>{idx + 1} yr{idx + 1 !== 1 ? 's' : ''}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <button onClick={() => setShowGuestDropdown(false)} className="lp-confirm-btn lp-guest-done-btn">
+                            Done — {guestSummary}, {guests.rooms} Room{guests.rooms > 1 ? 's' : ''}
+                        </button>
                     </div>
                 </div>
             )}
