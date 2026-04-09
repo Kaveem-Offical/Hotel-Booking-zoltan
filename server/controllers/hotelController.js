@@ -1,9 +1,9 @@
 const axios = require('axios');
 const config = require('../config/config');
-const firebaseService = require('../services/firebaseDataService');
+const mysqlDataService = require('../services/mysqlDataService');
 const authService = require('../services/authService');
 const pricingEngine = require('../services/pricingEngine');
-const { database } = require('../config/firebaseAdmin');
+const db = require('../config/db');
 const { sendEmail } = require('../services/emailService');
 const { bookingConfirmedTemplate } = require('../templates/bookingConfirmedTemplate');
 const { bookingCancelledTemplate } = require('../templates/bookingCancelledTemplate');
@@ -33,10 +33,15 @@ const createSearchAxiosInstance = () => {
  */
 async function getActiveMarkupPercentage() {
   try {
-    const snap = await database.ref('settings/markup').once('value');
-    const settings = snap.val();
-    if (settings && settings.isActive && settings.percentage > 0) {
-      return settings.percentage;
+    const [rows] = await db.execute(
+      `SELECT cache_data FROM static_cache WHERE cache_key = 'settings_markup'`
+    );
+    if (rows.length > 0 && rows[0].cache_data) {
+      const settings = typeof rows[0].cache_data === 'string'
+        ? JSON.parse(rows[0].cache_data) : rows[0].cache_data;
+      if (settings && settings.isActive && settings.percentage > 0) {
+        return settings.percentage;
+      }
     }
     return 0;
   } catch (err) {
@@ -112,10 +117,10 @@ exports.getCityList = async (req, res) => {
 
     console.log(`Fetching cities for country: ${countryCode}`);
 
-    // Check Firebase cache first
-    const cachedCities = await firebaseService.getCities(countryCode);
+    // Check cache first
+    const cachedCities = await mysqlDataService.getCities(countryCode);
     if (cachedCities) {
-      console.log(`Returning ${cachedCities.length} cities from Firebase cache`);
+      console.log(`Returning ${cachedCities.length} cities from cache`);
       return res.json({ CityList: cachedCities, source: 'cache' });
     }
 
@@ -127,9 +132,9 @@ exports.getCityList = async (req, res) => {
       { CountryCode: countryCode }
     );
 
-    // Save to Firebase cache
+    // Save to cache
     if (response.data.CityList && response.data.CityList.length > 0) {
-      await firebaseService.saveCities(countryCode, response.data.CityList);
+      await mysqlDataService.saveCities(countryCode, response.data.CityList);
     }
 
     console.log(`Cities fetched: ${response.data.CityList?.length || 0} cities`);
@@ -156,10 +161,10 @@ exports.getHotelCodeList = async (req, res) => {
 
     console.log(`Fetching hotels for city code: ${cityCode}`);
 
-    // Check Firebase cache first
-    const cachedHotels = await firebaseService.getHotels(cityCode);
+    // Check cache first
+    const cachedHotels = await mysqlDataService.getHotels(cityCode);
     if (cachedHotels) {
-      console.log(`Returning ${cachedHotels.length} hotels from Firebase cache`);
+      console.log(`Returning ${cachedHotels.length} hotels from cache`);
       return res.json({ Hotels: cachedHotels, source: 'cache' });
     }
 
@@ -171,9 +176,9 @@ exports.getHotelCodeList = async (req, res) => {
       { CityCode: cityCode }
     );
 
-    // Save to Firebase cache
+    // Save to cache
     if (response.data.Hotels && response.data.Hotels.length > 0) {
-      await firebaseService.saveHotels(cityCode, response.data.Hotels);
+      await mysqlDataService.saveHotels(cityCode, response.data.Hotels);
     }
 
     console.log(`Hotels fetched: ${response.data.Hotels?.length || 0} hotels`);
@@ -200,10 +205,10 @@ exports.getHotelDetails = async (req, res) => {
 
     console.log(`Fetching details for hotel code: ${hotelCode}`);
 
-    // Check Firebase cache first
-    const cachedDetails = await firebaseService.getHotelDetails(hotelCode);
+    // Check cache first
+    const cachedDetails = await mysqlDataService.getHotelDetails(hotelCode);
     if (cachedDetails) {
-      console.log(`Returning hotel details from Firebase cache`);
+      console.log(`Returning hotel details from cache`);
       return res.json({ HotelDetails: [cachedDetails], source: 'cache' });
     }
 
@@ -219,10 +224,10 @@ exports.getHotelDetails = async (req, res) => {
       }
     );
 
-    // Save to Firebase cache
+    // Save to cache
     if (response.data.HotelDetails && response.data.HotelDetails.length > 0) {
       for (const hotel of response.data.HotelDetails) {
-        await firebaseService.saveHotelDetails(hotel.HotelCode, hotel);
+        await mysqlDataService.saveHotelDetails(hotel.HotelCode, hotel);
       }
     }
 
@@ -251,7 +256,7 @@ exports.getBasicHotelInfo = async (req, res) => {
     console.log(`Looking up basic hotel info for: ${hotelCode}`);
 
     // Search for hotel in cached city hotel lists
-    const hotelInfo = await firebaseService.findHotelByCode(hotelCode);
+    const hotelInfo = await mysqlDataService.findHotelByCode(hotelCode);
 
     if (hotelInfo) {
       console.log(`Found basic hotel info for ${hotelCode}`);
@@ -369,7 +374,7 @@ exports.searchHotel = async (req, res) => {
       try {
         response.data.HotelResult.forEach(hotel => {
           if (hotel.HotelName && hotel.HotelCode) {
-            firebaseService.saveHotelNameMapping(
+            mysqlDataService.saveHotelNameMapping(
               hotel.HotelName,
               hotel.HotelCode,
               hotel.Address || ''
@@ -439,10 +444,10 @@ exports.getCountryList = async (req, res) => {
   try {
     console.log('Fetching country list');
 
-    // Check Firebase cache first
-    const cachedCountries = await firebaseService.getCountries();
+    // Check cache first
+    const cachedCountries = await mysqlDataService.getCountries();
     if (cachedCountries) {
-      console.log(`Returning ${cachedCountries.length} countries from Firebase cache`);
+      console.log(`Returning ${cachedCountries.length} countries from cache`);
       return res.json({ CountryList: cachedCountries, source: 'cache' });
     }
 
@@ -451,9 +456,9 @@ exports.getCountryList = async (req, res) => {
     const axiosInstance = createStaticAxiosInstance();
     const response = await axiosInstance.get(`${config.tboApi.baseUrl}/CountryList`);
 
-    // Save to Firebase cache
+    // Save to cache
     if (response.data.CountryList && response.data.CountryList.length > 0) {
-      await firebaseService.saveCountries(response.data.CountryList);
+      await mysqlDataService.saveCountries(response.data.CountryList);
     }
 
     console.log('Country list fetched');
@@ -697,10 +702,10 @@ exports.fetchAndCacheHotelCardInfo = async (req, res) => {
     console.log(`Requested info for ${hotelCodes.length} hotels`);
 
     // Step 1: Get already cached hotel card info
-    const cachedInfo = await firebaseService.getHotelCardInfoBatch(hotelCodes);
+    const cachedInfo = await mysqlDataService.getHotelCardInfoBatch(hotelCodes);
 
     // Step 2: Find which hotels are missing info
-    const missingCodes = await firebaseService.getMissingHotelCardInfoCodes(hotelCodes);
+    const missingCodes = await mysqlDataService.getMissingHotelCardInfoCodes(hotelCodes);
 
     if (missingCodes.length === 0) {
       console.log('All hotel card info found in cache');
@@ -776,8 +781,8 @@ exports.fetchAndCacheHotelCardInfo = async (req, res) => {
 
             newInfo[hotelCode] = hotelCardInfo;
 
-            // Save to Firebase cache asynchronously
-            firebaseService.saveHotelCardInfo(hotelCode, hotelCardInfo).catch(err => {
+            // Save to cache asynchronously
+            mysqlDataService.saveHotelCardInfo(hotelCode, hotelCardInfo).catch(err => {
               console.error(`Failed to cache info for ${hotelCode}:`, err.message);
             });
           }
@@ -822,7 +827,7 @@ exports.searchHotelNames = async (req, res) => {
       return res.json({ suggestions: [] });
     }
 
-    const suggestions = await firebaseService.searchHotelNames(query);
+    const suggestions = await mysqlDataService.searchHotelNames(query);
     res.json({ suggestions });
   } catch (error) {
     console.error('Search hotel names error:', error.message);
@@ -895,25 +900,23 @@ exports.sendChangeRequest = async (req, res) => {
 
     res.json({
       success: true,
-      changeRequestId: result.ChangeRequestId,
-      changeRequestStatus: result.ChangeRequestStatus,
-      responseStatus: result.ResponseStatus,
-      traceId: result.TraceId
+      changeRequestId: result.ChangeRequestId
     });
 
     // 🔔 Send cancellation email (non-blocking)
-    // Attempt to fetch booking details from Firebase to get guest email
+    // Attempt to fetch booking details from MySQL to get guest email
     try {
-      const historyRef = database.ref('bookings/history');
-      const snapshot = await historyRef.orderByChild('tboResponse/bookingId')
-          .equalTo(Number(BookingId))
-          .limitToFirst(1)
-          .once('value');
-      const bookings = snapshot.val();
+      console.log(`[SQL FETCH] Looking up order_id for cancellation - bookingId: ${BookingId}`);
+      const [rows] = await db.execute(
+        `SELECT order_id FROM bookings WHERE JSON_UNQUOTE(JSON_EXTRACT(tbo_response, '$.bookingId')) = ? LIMIT 1`,
+        [Number(BookingId)]
+      );
+      console.log(`[SQL FETCH] Found ${rows.length} order(s) for bookingId: ${BookingId}`);
 
-      if (bookings) {
-        const booking = Object.values(bookings)[0];
-        const email = booking.contactDetails?.email;
+      if (rows.length > 0) {
+        const orderIdToUse = rows[0].order_id;
+        const booking = await bookingService.getBookingData(orderIdToUse);
+        const email = booking?.contactDetails?.email;
         if (email) {
           const guestName = booking.hotelRoomsDetails?.[0]?.HotelPassenger?.[0];
           const fullName = guestName

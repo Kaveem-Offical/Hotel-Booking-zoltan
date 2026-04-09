@@ -1,5 +1,6 @@
 const config = require('../config/config');
-const { database } = require('../config/firebaseAdmin');
+const db = require('../config/db');
+const bookingService = require('./bookingController');
 const authService = require('../services/authService');
 const axios = require('axios');
 
@@ -77,86 +78,29 @@ exports.getAgencyBalance = async (req, res) => {
 };
 
 /**
- * Collect ALL bookings from every possible location in Firebase:
- *  1. bookings/history/{orderId}
- *  2. bookings/pending/{orderId}
- *  3. users/{uid}/bookings/{bookingId}
- * Deduplicates where possible using orderId / bookingCode
+ * Collect ALL bookings from MySQL
  */
 async function collectAllBookings() {
-    const historyRef = database.ref('bookings/history');
-    const pendingRef = database.ref('bookings/pending');
-    const usersRef = database.ref('users');
-
-    const [historySnap, pendingSnap, usersSnap] = await Promise.all([
-        historyRef.once('value'),
-        pendingRef.once('value'),
-        usersRef.once('value')
-    ]);
-
-    const historyBookings = historySnap.val() || {};
-    const pendingBookings = pendingSnap.val() || {};
-    const usersData = usersSnap.val() || {};
-
-    // Track seen IDs to avoid duplicates
-    const seen = new Set();
-    const allBookings = [];
-
-    // Add from bookings/history
-    Object.entries(historyBookings).forEach(([id, b]) => {
-        seen.add(id);
-        if (b.bookingCode) seen.add(b.bookingCode);
-        allBookings.push({ ...b, _id: id, _source: 'history' });
-    });
-
-    // Add from bookings/pending
-    Object.entries(pendingBookings).forEach(([id, b]) => {
-        if (!seen.has(id)) {
-            seen.add(id);
-            if (b.bookingCode) seen.add(b.bookingCode);
-            allBookings.push({ ...b, _id: id, _source: 'pending' });
-        }
-    });
-
-    // Add from users/{uid}/bookings
-    Object.entries(usersData).forEach(([uid, userData]) => {
-        if (userData.bookings) {
-            Object.entries(userData.bookings).forEach(([bookingId, b]) => {
-                // Try to deduplicate by order id or booking code
-                const orderId = b.orderId || b.razorpayOrderId;
-                const bCode = b.bookingCode;
-                if (orderId && seen.has(orderId)) return;
-                if (bCode && seen.has(bCode)) return;
-                if (seen.has(bookingId)) return;
-
-                seen.add(bookingId);
-                if (orderId) seen.add(orderId);
-                if (bCode) seen.add(bCode);
-
-                allBookings.push({
-                    ...b,
-                    _id: bookingId,
-                    _source: 'user',
-                    _userId: uid,
-                    _userEmail: userData.email,
-                    _userName: userData.username,
-                    // Normalize fields
-                    contactDetails: b.contactDetails || {
-                        email: userData.email,
-                        firstName: userData.username
-                    },
-                    status: b.status || 'booked',
-                    completedAt: b.completedAt || b.createdAt
-                });
-            });
-        }
-    });
-
-    return allBookings;
+    try {
+        const mysqlBookings = await bookingService.getAllBookingsData();
+        return mysqlBookings.map(b => ({
+            ...b,
+            _id: b.orderId,
+            _source: 'mysql',
+            amount: b.amount,
+            status: b.status,
+            completedAt: b.completedAt || b.createdAt,
+            tboResponse: b.tboResponse || {},
+            hotelInfo: b.hotelInfo || {}
+        }));
+    } catch (err) {
+        console.error("collectAllBookings Error:", err);
+        return [];
+    }
 }
 
 /**
- * Get Dashboard Stats - Aggregates booking data from ALL Firebase locations
+ * Get Dashboard Stats - Aggregates booking data from MySQL
  */
 exports.getDashboardStats = async (req, res) => {
     try {
@@ -320,7 +264,7 @@ exports.getDashboardStats = async (req, res) => {
 };
 
 /**
- * Get All Bookings for admin management — merges all sources
+ * Get All Bookings for admin management — from MySQL
  */
 exports.getAllBookings = async (req, res) => {
     try {
@@ -396,6 +340,30 @@ exports.getAllBookings = async (req, res) => {
 };
 
 /**
+ * Get all users (admin)
+ */
+exports.getAllUsers = async (req, res) => {
+    try {
+        const [rows] = await db.execute('SELECT * FROM users ORDER BY created_at DESC');
+        const users = rows.map(r => ({
+            uid: r.uid,
+            email: r.email,
+            username: r.username,
+            phoneNumber: r.phone_number,
+            provider: r.provider,
+            photoURL: r.photo_url,
+            role: r.role,
+            isAdmin: r.is_admin === 1,
+            createdAt: r.created_at
+        }));
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error('GetAllUsers Error:', error.message);
+        res.status(500).json({ error: 'Failed to fetch users', message: error.message });
+    }
+};
+
+/**
  * Get full user details including their bookings, liked hotels, etc.
  */
 exports.getUserDetails = async (req, res) => {
@@ -403,50 +371,64 @@ exports.getUserDetails = async (req, res) => {
         const { uid } = req.params;
         console.log(`\n=== GetUserDetails: ${uid} ===`);
 
-        // Get user data
-        const userRef = database.ref(`users/${uid}`);
-        const userSnap = await userRef.once('value');
-        const userData = userSnap.val();
-
-        if (!userData) {
+        // Get user data from MySQL
+        const [userRows] = await db.execute('SELECT * FROM users WHERE uid = ?', [uid]);
+        if (userRows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
+        const userData = userRows[0];
 
-        // Get user's bookings from users/{uid}/bookings
-        const userBookings = userData.bookings
-            ? Object.entries(userData.bookings).map(([id, b]) => ({ ...b, _id: id }))
-            : [];
-
-        // Also find this user's bookings in bookings/history (by email)
-        const historyRef = database.ref('bookings/history');
-        const historySnap = await historyRef.once('value');
-        const allHistory = historySnap.val() || {};
-
-        const historyBookings = Object.entries(allHistory)
-            .filter(([id, b]) =>
-                b.contactDetails?.email?.toLowerCase() === userData.email?.toLowerCase()
-            )
-            .map(([id, b]) => ({ ...b, _id: id, _source: 'history' }));
-
-        // Merge and deduplicate
-        const seenIds = new Set(userBookings.map(b => b._id));
-        const mergedBookings = [...userBookings];
-        historyBookings.forEach(b => {
-            if (!seenIds.has(b._id)) {
-                seenIds.add(b._id);
-                mergedBookings.push(b);
-            }
-        });
-
-        // Sort by date
-        mergedBookings.sort((a, b) =>
-            new Date(b.completedAt || b.createdAt) - new Date(a.completedAt || a.createdAt)
+        // Get user's bookings via user_bookings join
+        const [bookingRows] = await db.execute(
+            `SELECT b.* FROM bookings b
+             JOIN user_bookings ub ON b.order_id COLLATE utf8mb4_unicode_ci = ub.order_id
+             WHERE ub.user_id = ?
+             ORDER BY b.created_at DESC`,
+            [uid]
         );
 
-        // Get liked hotels
-        const likedHotels = userData.likedHotels
-            ? Object.entries(userData.likedHotels).map(([code, data]) => ({ hotelCode: code, ...data }))
-            : [];
+        const mergedBookings = bookingRows.map(b => {
+            const booking = {
+                _id: b.order_id,
+                _source: 'mysql',
+                orderId: b.order_id,
+                hotelName: b.hotel_name,
+                hotelCode: b.hotel_code,
+                amount: parseFloat(b.amount),
+                totalAmount: parseFloat(b.amount),
+                originalAmount: parseFloat(b.original_amount),
+                markupAmount: parseFloat(b.markup_amount),
+                markupPercentage: parseFloat(b.markup_percentage),
+                status: b.status,
+                createdAt: b.created_at,
+                completedAt: b.completed_at
+            };
+            if (b.contact_details) {
+                booking.contactDetails = typeof b.contact_details === 'string' ? JSON.parse(b.contact_details) : b.contact_details;
+            }
+            if (b.tbo_response) {
+                booking.tboResponse = typeof b.tbo_response === 'string' ? JSON.parse(b.tbo_response) : b.tbo_response;
+            }
+            if (b.hotel_name || b.hotel_code) {
+                booking.hotelInfo = { hotelName: b.hotel_name, hotelCode: b.hotel_code, cityName: b.city_name };
+            }
+            if (b.search_params) {
+                booking.searchParams = typeof b.search_params === 'string' ? JSON.parse(b.search_params) : b.search_params;
+            }
+            return booking;
+        });
+
+        // Get liked hotels from MySQL
+        const [likedRows] = await db.execute('SELECT * FROM liked_hotels WHERE user_id = ?', [uid]);
+        const likedHotels = likedRows.map(row => ({
+            hotelCode: row.hotel_code,
+            HotelName: row.hotel_name,
+            HotelPicture: row.hotel_picture,
+            HotelAddress: row.hotel_address,
+            StarRating: row.star_rating,
+            TotalFare: row.total_fare,
+            likedAt: row.liked_at
+        }));
 
         // Calculate user stats
         const confirmedBookings = mergedBookings.filter(b =>
@@ -455,16 +437,20 @@ exports.getUserDetails = async (req, res) => {
         const cancelledBookings = mergedBookings.filter(b => b.status === 'cancelled').length;
         const totalSpent = mergedBookings
             .filter(b => b.status === 'confirmed' || b.status === 'booked')
-            .reduce((sum, b) => sum + (parseFloat(b.amount) || parseFloat(b.totalAmount) || 0), 0);
-
-        // Clean response (remove bookings and likedHotels from the main user object to avoid duplication)
-        const { bookings: _, likedHotels: __, ...cleanUserData } = userData;
+            .reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
 
         res.json({
             success: true,
             user: {
                 uid,
-                ...cleanUserData,
+                email: userData.email,
+                username: userData.username,
+                phoneNumber: userData.phone_number,
+                provider: userData.provider,
+                photoURL: userData.photo_url,
+                role: userData.role,
+                isAdmin: userData.is_admin === 1,
+                createdAt: userData.created_at,
                 stats: {
                     totalBookings: mergedBookings.length,
                     confirmedBookings,
@@ -500,18 +486,15 @@ exports.updateUserRole = async (req, res) => {
         
         console.log(`\n=== UpdateUserRole: ${uid} -> ${role} ===`);
         
-        const userRef = database.ref(`users/${uid}`);
-        const snap = await userRef.once('value');
-        if (!snap.exists()) {
+        const [existing] = await db.execute('SELECT uid FROM users WHERE uid = ?', [uid]);
+        if (existing.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        await userRef.update({
-            role,
-            // For backward compatibility with existing front-end routes that assume support are also "admins" inside the dashboard.
-            isAdmin: role === 'admin' || role === 'support',
-            updatedAt: new Date().toISOString()
-        });
+        await db.execute(
+            `UPDATE users SET role = ?, is_admin = ?, updated_at = NOW() WHERE uid = ?`,
+            [role, (role === 'admin' || role === 'support') ? 1 : 0, uid]
+        );
         
         res.json({ success: true, role, message: 'User role updated successfully' });
     } catch (error) {
@@ -523,14 +506,32 @@ exports.updateUserRole = async (req, res) => {
     }
 };
 
+// ─── Helper: read/write settings from static_cache ─────────────
+async function getSettingsFromCache(key) {
+    const [rows] = await db.execute(
+        `SELECT cache_data FROM static_cache WHERE cache_key = ?`, [key]
+    );
+    if (rows.length > 0 && rows[0].cache_data) {
+        return typeof rows[0].cache_data === 'string'
+            ? JSON.parse(rows[0].cache_data) : rows[0].cache_data;
+    }
+    return null;
+}
+
+async function setSettingsToCache(key, data) {
+    await db.execute(
+        `INSERT INTO static_cache (cache_key, cache_data, updated_at) VALUES (?, ?, NOW())
+         ON DUPLICATE KEY UPDATE cache_data = VALUES(cache_data), updated_at = NOW()`,
+        [key, JSON.stringify(data)]
+    );
+}
+
 /**
- * Get markup settings from Firebase
+ * Get markup settings from MySQL
  */
 exports.getMarkupSettings = async (req, res) => {
     try {
-        const settingsRef = database.ref('settings/markup');
-        const snap = await settingsRef.once('value');
-        const settings = snap.val() || { percentage: 0, isActive: false };
+        const settings = await getSettingsFromCache('settings_markup') || { percentage: 0, isActive: false };
 
         res.json({
             success: true,
@@ -565,13 +566,13 @@ exports.setMarkupSettings = async (req, res) => {
 
         console.log(`\n=== Setting Markup: ${pct}% (Active: ${isActive}) ===`);
 
-        const settingsRef = database.ref('settings/markup');
-        await settingsRef.set({
+        const data = {
             percentage: pct,
             isActive: isActive !== undefined ? isActive : true,
             updatedAt: new Date().toISOString(),
             updatedBy: 'admin'
-        });
+        };
+        await setSettingsToCache('settings_markup', data);
 
         res.json({
             success: true,
@@ -588,9 +589,7 @@ exports.setMarkupSettings = async (req, res) => {
  */
 exports.getPricingStrategies = async (req, res) => {
     try {
-        const settingsRef = database.ref('settings/pricing_strategies');
-        const snap = await settingsRef.once('value');
-        const strategies = snap.val() || {};
+        const strategies = await getSettingsFromCache('settings_pricing_strategies') || {};
 
         res.json({
             success: true,
@@ -614,15 +613,13 @@ exports.updatePricingStrategies = async (req, res) => {
         }
 
         console.log('\n=== Updating Pricing Strategies ===');
-        const settingsRef = database.ref('settings/pricing_strategies');
-        
-        // Either update specific strategies or overwrite all if provided as a whole object.
-        await settingsRef.update(updates);
-        
-        // Also fetch to return the new state
-        const snap = await settingsRef.once('value');
 
-        // Optional: clear cache on pricing engine via some pubsub or direct call if in same process
+        // Merge with existing
+        const existing = await getSettingsFromCache('settings_pricing_strategies') || {};
+        const merged = { ...existing, ...updates };
+        await setSettingsToCache('settings_pricing_strategies', merged);
+
+        // Optional: clear cache on pricing engine
         const pricingEngine = require('../services/pricingEngine');
         if (pricingEngine && pricingEngine.clearCache) {
             pricingEngine.clearCache();
@@ -630,7 +627,7 @@ exports.updatePricingStrategies = async (req, res) => {
 
         res.json({
             success: true,
-            strategies: snap.val(),
+            strategies: merged,
             message: 'Pricing strategies updated successfully'
         });
     } catch (error) {
@@ -649,9 +646,7 @@ exports.getCommissionStats = async (req, res) => {
         const allBookings = await collectAllBookings();
 
         // Get current markup settings
-        const settingsRef = database.ref('settings/markup');
-        const settingsSnap = await settingsRef.once('value');
-        const markupSettings = settingsSnap.val() || { percentage: 0, isActive: false };
+        const markupSettings = await getSettingsFromCache('settings_markup') || { percentage: 0, isActive: false };
 
         // Calculate commission from bookings that have markupAmount stored
         let totalCommission = 0;
@@ -759,8 +754,8 @@ exports.createCoupon = async (req, res) => {
         const couponCode = code.toUpperCase().trim();
 
         // Check if coupon already exists
-        const existingSnap = await database.ref(`coupons/${couponCode}`).once('value');
-        if (existingSnap.exists()) {
+        const existing = await getSettingsFromCache(`coupon_${couponCode}`);
+        if (existing) {
             return res.status(409).json({ error: 'Coupon code already exists' });
         }
 
@@ -778,7 +773,7 @@ exports.createCoupon = async (req, res) => {
             createdAt: new Date().toISOString()
         };
 
-        await database.ref(`coupons/${couponCode}`).set(couponData);
+        await setSettingsToCache(`coupon_${couponCode}`, couponData);
         console.log(`Coupon created: ${couponCode}`);
 
         res.json({ success: true, coupon: couponData });
@@ -794,11 +789,12 @@ exports.createCoupon = async (req, res) => {
  */
 exports.getAllCoupons = async (req, res) => {
     try {
-        const snap = await database.ref('coupons').once('value');
-        const couponsData = snap.val() || {};
-        const coupons = Object.values(couponsData).sort((a, b) =>
-            new Date(b.createdAt) - new Date(a.createdAt)
+        const [rows] = await db.execute(
+            `SELECT cache_data FROM static_cache WHERE cache_key LIKE 'coupon_%'`
         );
+        const coupons = rows
+            .map(r => typeof r.cache_data === 'string' ? JSON.parse(r.cache_data) : r.cache_data)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         res.json({ success: true, coupons });
     } catch (error) {
@@ -814,18 +810,17 @@ exports.updateCoupon = async (req, res) => {
     try {
         const { code } = req.params;
         const updates = req.body;
+        const couponCode = code.toUpperCase();
 
-        const couponRef = database.ref(`coupons/${code.toUpperCase()}`);
-        const snap = await couponRef.once('value');
-
-        if (!snap.exists()) {
+        const existing = await getSettingsFromCache(`coupon_${couponCode}`);
+        if (!existing) {
             return res.status(404).json({ error: 'Coupon not found' });
         }
 
-        await couponRef.update(updates);
-        const updatedSnap = await couponRef.once('value');
+        const updated = { ...existing, ...updates };
+        await setSettingsToCache(`coupon_${couponCode}`, updated);
 
-        res.json({ success: true, coupon: updatedSnap.val() });
+        res.json({ success: true, coupon: updated });
     } catch (error) {
         console.error('UpdateCoupon Error:', error.message);
         res.status(500).json({ error: 'Failed to update coupon', message: error.message });
@@ -838,7 +833,8 @@ exports.updateCoupon = async (req, res) => {
 exports.deleteCoupon = async (req, res) => {
     try {
         const { code } = req.params;
-        await database.ref(`coupons/${code.toUpperCase()}`).remove();
+        const couponCode = code.toUpperCase();
+        await db.execute('DELETE FROM static_cache WHERE cache_key = ?', [`coupon_${couponCode}`]);
         res.json({ success: true });
     } catch (error) {
         console.error('DeleteCoupon Error:', error.message);
@@ -858,13 +854,11 @@ exports.validateCoupon = async (req, res) => {
         }
 
         const couponCode = code.toUpperCase().trim();
-        const snap = await database.ref(`coupons/${couponCode}`).once('value');
+        const coupon = await getSettingsFromCache(`coupon_${couponCode}`);
 
-        if (!snap.exists()) {
+        if (!coupon) {
             return res.status(404).json({ error: 'Invalid coupon code' });
         }
-
-        const coupon = snap.val();
 
         // Check active
         if (!coupon.isActive) {

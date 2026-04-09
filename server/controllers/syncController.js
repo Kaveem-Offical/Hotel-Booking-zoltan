@@ -5,7 +5,7 @@
 
 const axios = require('axios');
 const config = require('../config/config');
-const firebaseService = require('../services/firebaseDataService');
+const firebaseService = require('../services/mysqlDataService');
 
 // Create axios instance with basic auth for static data endpoints
 const createStaticAxiosInstance = () => {

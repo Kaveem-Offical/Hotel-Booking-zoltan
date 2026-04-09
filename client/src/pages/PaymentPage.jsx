@@ -11,7 +11,7 @@ import ErrorAlert from '../components/ErrorAlert';
 const PaymentPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { addBooking } = useAuth();
+    const { addBooking, currentUser } = useAuth();
 
     // Data passed from GuestDetailsPage
     const {
@@ -212,6 +212,7 @@ const PaymentPage = () => {
             const orderData = {
                 amount: getFinalAmount(),
                 currency: getCurrency(),
+                userId: currentUser?.uid || null,
                 bookingCode,
                 guestNationality: contactDetails.nationality,
                 hotelRoomsDetails: hotelRoomsDetails,
@@ -224,7 +225,8 @@ const PaymentPage = () => {
                     hotelName: hotel?.HotelName,
                     address: hotel?.Address,
                     cityName: hotel?.CityName,
-                    rating: hotel?.HotelRating
+                    rating: hotel?.HotelRating,
+                    picture: hotel?.Images?.[0] || null
                 },
                 roomInfo: {
                     name: getRoomName(),

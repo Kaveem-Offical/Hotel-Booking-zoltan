@@ -1,142 +1,41 @@
 /**
  * Static Data Service
- * Provides direct Firebase access for TBO static data on the client side
- * Uses the Firebase Realtime Database for fast cached data retrieval
+ * Previously used Firebase Realtime Database for client-side caching.
+ * Now all caching is handled server-side via MySQL.
+ * These functions are kept as stubs to avoid breaking imports in api.js.
  */
-
-import { ref, get, onValue } from 'firebase/database';
-import { database } from '../config/firebase';
-
-const STATIC_DATA_PATH = 'tbo_static_data';
 
 /**
- * Get countries from Firebase cache
- * @returns {Promise<Array|null>} Countries array or null if not cached
+ * Get countries — always returns null so the API fallback is used
  */
-export const getCachedCountries = async () => {
-    try {
-        const countriesRef = ref(database, `${STATIC_DATA_PATH}/countries/data`);
-        const snapshot = await get(countriesRef);
-        if (snapshot.exists()) {
-            // console.log('Countries loaded from Firebase cache');
-            return snapshot.val();
-        }
-        return null;
-    } catch (error) {
-        // Silently handle permission errors - will fallback to API
-        return null;
-    }
-};
+export const getCachedCountries = async () => null;
 
 /**
- * Get cities for a country from Firebase cache
- * @param {string} countryCode - Country code (e.g., 'IN', 'US')
- * @returns {Promise<Array|null>} Cities array or null if not cached
+ * Get cities — always returns null so the API fallback is used
  */
-export const getCachedCities = async (countryCode) => {
-    try {
-        const citiesRef = ref(database, `${STATIC_DATA_PATH}/cities/${countryCode}/data`);
-        const snapshot = await get(citiesRef);
-        if (snapshot.exists()) {
-            // console.log(`Cities for ${countryCode} loaded from Firebase cache`);
-            return snapshot.val();
-        }
-        return null;
-    } catch (error) {
-        // Silently handle permission errors - will fallback to API
-        return null;
-    }
-};
+export const getCachedCities = async (countryCode) => null;
 
 /**
- * Get hotels for a city from Firebase cache
- * @param {string} cityCode - City code
- * @returns {Promise<Array|null>} Hotels array or null if not cached
+ * Get hotels — always returns null so the API fallback is used
  */
-export const getCachedHotels = async (cityCode) => {
-    try {
-        const hotelsRef = ref(database, `${STATIC_DATA_PATH}/hotels/${cityCode}/data`);
-        const snapshot = await get(hotelsRef);
-        if (snapshot.exists()) {
-            // console.log(`Hotels for city ${cityCode} loaded from Firebase cache`);
-            return snapshot.val();
-        }
-        return null;
-    } catch (error) {
-        // Silently handle permission errors - will fallback to API
-        return null;
-    }
-};
+export const getCachedHotels = async (cityCode) => null;
 
 /**
- * Get hotel details from Firebase cache
- * @param {string} hotelCode - Hotel code
- * @returns {Promise<Object|null>} Hotel details or null if not cached
+ * Get hotel details — always returns null so the API fallback is used
  */
-export const getCachedHotelDetails = async (hotelCode) => {
-    try {
-        const detailsRef = ref(database, `${STATIC_DATA_PATH}/hotelDetails/${hotelCode}/data`);
-        const snapshot = await get(detailsRef);
-        if (snapshot.exists()) {
-            // console.log(`Hotel details for ${hotelCode} loaded from Firebase cache`);
-            return snapshot.val();
-        }
-        return null;
-    } catch (error) {
-        // Silently handle permission errors - will fallback to API
-        return null;
-    }
-};
+export const getCachedHotelDetails = async (hotelCode) => null;
 
 /**
- * Subscribe to countries updates (real-time listener)
- * @param {Function} callback - Callback function to receive updates
- * @returns {Function} Unsubscribe function
+ * Subscribe to countries updates — no-op, returns dummy unsubscribe
  */
-export const subscribeToCountries = (callback) => {
-    const countriesRef = ref(database, `${STATIC_DATA_PATH}/countries/data`);
-    return onValue(countriesRef, (snapshot) => {
-        if (snapshot.exists()) {
-            callback(snapshot.val());
-        }
-    });
-};
+export const subscribeToCountries = (callback) => () => {};
 
 /**
- * Subscribe to cities updates for a country (real-time listener)
- * @param {string} countryCode - Country code
- * @param {Function} callback - Callback function to receive updates
- * @returns {Function} Unsubscribe function
+ * Subscribe to cities updates — no-op, returns dummy unsubscribe
  */
-export const subscribeToCities = (countryCode, callback) => {
-    const citiesRef = ref(database, `${STATIC_DATA_PATH}/cities/${countryCode}/data`);
-    return onValue(citiesRef, (snapshot) => {
-        if (snapshot.exists()) {
-            callback(snapshot.val());
-        }
-    });
-};
+export const subscribeToCities = (countryCode, callback) => () => {};
 
 /**
- * Get cache metadata (last updated times, counts)
- * @returns {Promise<Object|null>} Cache metadata
+ * Get cache metadata — returns null (no client-side cache)
  */
-export const getCacheMetadata = async () => {
-    try {
-        const metadataRef = ref(database, STATIC_DATA_PATH);
-        const snapshot = await get(metadataRef);
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            return {
-                countriesLastUpdated: data?.countries?.lastUpdated || null,
-                citiesCount: data?.cities ? Object.keys(data.cities).length : 0,
-                hotelsCount: data?.hotels ? Object.keys(data.hotels).length : 0,
-                hotelDetailsCount: data?.hotelDetails ? Object.keys(data.hotelDetails).length : 0
-            };
-        }
-        return null;
-    } catch (error) {
-        // Silently handle permission errors
-        return null;
-    }
-};
+export const getCacheMetadata = async () => null;

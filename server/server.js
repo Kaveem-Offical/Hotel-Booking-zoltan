@@ -6,6 +6,8 @@ const syncRoutes = require('./routes/syncRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 
@@ -29,6 +31,8 @@ app.use('/api/sync', syncRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/booking', bookingRoutes);
+app.use('/api/users', userRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -11,6 +11,9 @@ router.get('/stats', adminController.getDashboardStats);
 // Get all bookings for admin management
 router.get('/bookings', adminController.getAllBookings);
 
+// Get all users (admin)
+router.get('/users', adminController.getAllUsers);
+
 // Get full details for a specific user
 router.get('/users/:uid', adminController.getUserDetails);
 

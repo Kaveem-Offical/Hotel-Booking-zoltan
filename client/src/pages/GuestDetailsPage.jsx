@@ -1040,7 +1040,7 @@ const GuestDetailsPage = () => {
                                                 {roomDetails.lastCancellationDeadline && (
                                                     <span className="font-semibold"> ({roomDetails.lastCancellationDeadline})</span>
                                                 )}, 
-                                                the booking will be automatically confirmed.
+                                                the booking will be automatically cancelled.
                                             </p>
                                         </div>
                                     </div>

@@ -1,7 +1,8 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const config = require('../config/config');
-const { database } = require('../config/firebaseAdmin');
+const db = require('../config/db');
+const bookingService = require('./bookingController');
 const axios = require('axios');
 const { sendEmail } = require('../services/emailService');
 const { bookingConfirmedTemplate } = require('../templates/bookingConfirmedTemplate');
@@ -78,9 +79,9 @@ exports.createOrder = async (req, res) => {
         const order = await razorpay.orders.create(orderOptions);
         console.log(`Razorpay Order Created: ${order.id}`);
 
-        // Store pending booking in Firebase
-        const pendingBookingRef = database.ref(`bookings/pending/${order.id}`);
-        await pendingBookingRef.set({
+        // Store pending booking in MySQL
+        const bookingData = {
+            userId: req.body.userId || null,
             orderId: order.id,
             bookingCode,
             amount,
@@ -101,7 +102,8 @@ exports.createOrder = async (req, res) => {
             markupPercentage: markupPercentage || 0,
             status: 'pending',
             createdAt: new Date().toISOString()
-        });
+        };
+        await bookingService.saveBookingData(bookingData);
 
         console.log(`Pending booking stored in Firebase: ${order.id}`);
 
@@ -164,10 +166,8 @@ exports.verifyPayment = async (req, res) => {
 
         console.log('Payment signature verified successfully');
 
-        // Retrieve pending booking from Firebase
-        const pendingBookingRef = database.ref(`bookings/pending/${razorpay_order_id}`);
-        const pendingSnapshot = await pendingBookingRef.once('value');
-        const pendingBooking = pendingSnapshot.val();
+        // Retrieve pending booking from MySQL
+        const pendingBooking = await bookingService.getBookingData(razorpay_order_id);
 
         if (!pendingBooking) {
             console.error('Pending booking not found');
@@ -177,7 +177,15 @@ exports.verifyPayment = async (req, res) => {
             });
         }
 
-        console.log('Retrieved pending booking from Firebase');
+        if (pendingBooking.status !== 'pending') {
+            console.error('Booking is not in pending state');
+            return res.status(400).json({
+                error: 'Invalid booking state',
+                message: 'This booking has already been processed'
+            });
+        }
+
+        console.log('Retrieved pending booking from MySQL');
 
         // Build TBO Book request
         const bookRequest = {
@@ -213,9 +221,8 @@ exports.verifyPayment = async (req, res) => {
             bookingStatus === 'Confirmed' ||
             bookingStatus === 'Pending';
 
-        // Store completed booking in Firebase history - ensure no undefined values
-        const bookingHistoryRef = database.ref(`bookings/history/${razorpay_order_id}`);
-        await bookingHistoryRef.set({
+        // Store completed booking in MySQL - ensure no undefined values
+        await bookingService.saveBookingData({
             ...pendingBooking,
             paymentId: razorpay_payment_id,
             paymentSignature: razorpay_signature,
@@ -240,9 +247,7 @@ exports.verifyPayment = async (req, res) => {
             completedAt: new Date().toISOString()
         });
 
-        // Remove from pending bookings
-        await pendingBookingRef.remove();
-        console.log('Booking moved to history');
+        console.log('Booking status updated in MySQL');
 
         // Handle different response scenarios
         if (!isSuccess) {
@@ -353,12 +358,10 @@ exports.getBookingHistory = async (req, res) => {
         console.log('\n=== Fetching Booking History ===');
         console.log(`Email: ${email}, Phone: ${phone}`);
 
-        const historyRef = database.ref('bookings/history');
-        const snapshot = await historyRef.once('value');
-        const allBookings = snapshot.val() || {};
+        const allBookings = await bookingService.getAllBookingsData();
 
         // Filter bookings by email or phone if provided
-        let bookings = Object.values(allBookings);
+        let bookings = allBookings;
 
         if (email) {
             bookings = bookings.filter(b =>
@@ -399,17 +402,8 @@ exports.getBookingDetails = async (req, res) => {
 
         console.log(`\n=== Fetching Booking Details: ${orderId} ===`);
 
-        // Check in history first
-        const historyRef = database.ref(`bookings/history/${orderId}`);
-        let snapshot = await historyRef.once('value');
-        let booking = snapshot.val();
-
-        // If not in history, check pending
-        if (!booking) {
-            const pendingRef = database.ref(`bookings/pending/${orderId}`);
-            snapshot = await pendingRef.once('value');
-            booking = snapshot.val();
-        }
+        // Fetch from MySQL
+        let booking = await bookingService.getBookingData(orderId);
 
         if (!booking) {
             return res.status(404).json({
@@ -458,25 +452,21 @@ exports.retryBookingWithUpdatedPrice = async (req, res) => {
         console.log(`Order ID: ${orderId}`);
         console.log(`Updated Amount: ${updatedAmount}`);
 
-        // Retrieve the pending booking
-        const pendingBookingRef = database.ref(`bookings/pending/${orderId}`);
-        const pendingSnapshot = await pendingBookingRef.once('value');
-        const pendingBooking = pendingSnapshot.val();
+        // Retrieve the booking
+        const pendingBooking = await bookingService.getBookingData(orderId);
+
+        if (pendingBooking && pendingBooking.status !== 'pending') {
+            return res.json({
+                success: true,
+                message: 'Booking already processed or completed',
+                alreadyCompleted: true
+            });
+        }
 
         if (!pendingBooking) {
-            // Check if already completed
-            const historyRef = database.ref(`bookings/history/${orderId}`);
-            const historySnapshot = await historyRef.once('value');
-            if (historySnapshot.val()) {
-                return res.json({
-                    success: true,
-                    message: 'Booking already completed',
-                    alreadyCompleted: true
-                });
-            }
             return res.status(404).json({
                 error: 'Booking not found',
-                message: 'Pending booking data not found for this order'
+                message: 'Booking data not found for this order'
             });
         }
 
@@ -517,9 +507,8 @@ exports.retryBookingWithUpdatedPrice = async (req, res) => {
             bookingStatus === 'Confirmed' ||
             bookingStatus === 'Pending';
 
-        // Store completed booking in Firebase history
-        const bookingHistoryRef = database.ref(`bookings/history/${orderId}`);
-        await bookingHistoryRef.set({
+        // Store updated booking in MySQL
+        await bookingService.saveBookingData({
             ...pendingBooking,
             paymentId: razorpay_payment_id,
             paymentSignature: razorpay_signature,
@@ -547,9 +536,7 @@ exports.retryBookingWithUpdatedPrice = async (req, res) => {
             acceptCancellationChange: acceptCancellationChange || false
         });
 
-        // Remove from pending bookings
-        await pendingBookingRef.remove();
-        console.log('Booking moved to history after retry');
+        console.log('Booking status updated in MySQL after retry');
 
         if (!isSuccess) {
             const errorMessage = bookResult.Error?.ErrorMessage || 'Booking failed';
@@ -665,28 +652,25 @@ exports.generateVoucher = async (req, res) => {
         console.log('\n=== Generate Voucher Request ===');
         console.log(`Order ID: ${orderId}, Booking ID: ${bookingId}`);
 
-        // Get booking from history
+        // Get booking from MySQL
         let bookingData = null;
         let orderIdToUse = orderId;
 
         if (orderId) {
-            const historyRef = database.ref(`bookings/history/${orderId}`);
-            const snapshot = await historyRef.once('value');
-            bookingData = snapshot.val();
+            bookingData = await bookingService.getBookingData(orderId);
         }
 
         if (!bookingData && bookingId) {
-            // Search by bookingId
-            const historyRef = database.ref('bookings/history');
-            const snapshot = await historyRef.orderByChild('tboResponse/bookingId')
-                .equalTo(Number(bookingId))
-                .limitToFirst(1)
-                .once('value');
-            const bookings = snapshot.val();
-            if (bookings) {
-                const key = Object.keys(bookings)[0];
-                bookingData = bookings[key];
-                orderIdToUse = key;
+            // Search by bookingId using db query
+            console.log(`[SQL FETCH] Searching for booking by bookingId: ${bookingId}`);
+            const [rows] = await db.execute(
+                `SELECT order_id FROM bookings WHERE JSON_UNQUOTE(JSON_EXTRACT(tbo_response, '$.bookingId')) = ? LIMIT 1`,
+                [Number(bookingId)]
+            );
+            console.log(`[SQL FETCH] Found ${rows.length} matching booking(s) by bookingId`);
+            if (rows.length > 0) {
+                orderIdToUse = rows[0].order_id;
+                bookingData = await bookingService.getBookingData(orderIdToUse);
             }
         }
 
@@ -735,14 +719,23 @@ exports.generateVoucher = async (req, res) => {
             bookResult.VoucherStatus === true;
 
         if (isSuccess) {
-            // Update booking in Firebase
-            const bookingHistoryRef = database.ref(`bookings/history/${orderIdToUse}`);
-            await bookingHistoryRef.update({
-                'tboResponse.voucherStatus': true,
-                'tboResponse.hotelBookingStatus': bookResult.HotelBookingStatus || 'Vouchered',
-                'tboResponse.confirmationNo': bookResult.ConfirmationNo || bookingData.tboResponse?.confirmationNo,
-                voucherGeneratedAt: new Date().toISOString()
-            });
+            // Update booking in MySQL
+            console.log(`[SQL UPDATE] Updating voucher status for orderId: ${orderIdToUse}`);
+            const [updateResult] = await db.execute(
+                `UPDATE bookings SET
+                    tbo_response = JSON_SET(COALESCE(tbo_response, '{}'),
+                        '$.voucherStatus', true,
+                        '$.hotelBookingStatus', ?,
+                        '$.confirmationNo', ?
+                    )
+                WHERE order_id = ?`,
+                [
+                    bookResult.HotelBookingStatus || 'Vouchered',
+                    bookResult.ConfirmationNo || bookingData.tboResponse?.confirmationNo || null,
+                    orderIdToUse
+                ]
+            );
+            console.log(`[SQL UPDATE] ✅ Voucher status updated - affectedRows: ${updateResult.affectedRows}`);
 
             res.json({
                 success: true,

@@ -134,7 +134,7 @@ const AdminPage = () => {
             setUsers(usersData);
         });
 
-        return () => { if (unsubscribe) unsubscribe(); };
+        return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
     }, [currentUser, isAdmin, role, getAllUsers, navigate, fetchDashboardData, activeSection]);
 
     // Fetch dynamic pricing strategies

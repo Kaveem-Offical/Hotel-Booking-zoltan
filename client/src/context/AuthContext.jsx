@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
@@ -9,10 +9,13 @@ import {
     EmailAuthProvider,
     reauthenticateWithCredential,
 } from 'firebase/auth';
-import { ref, set, get, onValue, update, remove } from 'firebase/database';
-import { auth, database, googleProvider } from '../config/firebase';
+import { auth, googleProvider } from '../config/firebase';
+import axios from 'axios';
 
 const AuthContext = createContext();
+
+const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+const API = `${SERVER_URL}/api/users`;
 
 // Admin emails - add your admin email addresses here
 const ADMIN_EMAILS = ['admin@zoltan.com'];
@@ -30,15 +33,16 @@ export function AuthProvider({ children }) {
         return ADMIN_EMAILS.includes(email?.toLowerCase());
     };
 
-    // Save user data to Firebase Realtime Database
+    // Save user data to MySQL via API
     const saveUserData = async (uid, data) => {
         try {
-            const userRef = ref(database, `users/${uid}`);
-            await set(userRef, {
-                ...data,
-                createdAt: new Date().toISOString(),
-                isAdmin: isAdmin(data.email),
-                role: isAdmin(data.email) ? 'admin' : 'user',
+            await axios.post(`${API}/profile`, {
+                uid,
+                email: data.email,
+                username: data.username,
+                phoneNumber: data.phoneNumber,
+                provider: data.provider,
+                photoURL: data.photoURL || '',
             });
         } catch (err) {
             console.error('Error saving user data:', err);
@@ -46,16 +50,17 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // Get user data from database
+    // Get user data from MySQL via API
     const getUserData = async (uid) => {
         try {
-            const userRef = ref(database, `users/${uid}`);
-            const snapshot = await get(userRef);
-            if (snapshot.exists()) {
-                return snapshot.val();
+            const response = await axios.get(`${API}/${uid}`);
+            if (response.data?.success) {
+                return response.data.user;
             }
             return null;
         } catch (err) {
+            // 404 is expected for new users
+            if (err.response?.status === 404) return null;
             console.error('Error getting user data:', err);
             return null;
         }
@@ -129,27 +134,28 @@ export function AuthProvider({ children }) {
             setError(null);
             await signOut(auth);
             setUserData(null);
+            setLikedHotels({});
+            setBookings([]);
         } catch (err) {
             setError(err.message);
             throw err;
         }
     };
 
-    // Get all users (for admin)
-    const getAllUsers = (callback) => {
-        const usersRef = ref(database, 'users');
-        return onValue(usersRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const usersArray = Object.entries(data).map(([uid, userData]) => ({
-                    uid,
-                    ...userData,
-                }));
-                callback(usersArray);
+    // Get all users (for admin) — no longer uses Firebase listener
+    const getAllUsers = async (callback) => {
+        try {
+            // Admin endpoint fetches all users from MySQL
+            const response = await axios.get(`${SERVER_URL}/api/admin/users`);
+            if (response.data?.users) {
+                callback(response.data.users);
             } else {
                 callback([]);
             }
-        });
+        } catch (err) {
+            console.error('Error fetching all users:', err);
+            callback([]);
+        }
     };
 
     // Update user profile (phone number, username)
@@ -157,10 +163,9 @@ export function AuthProvider({ children }) {
         if (!currentUser) throw new Error('No user logged in');
         try {
             setError(null);
-            const userRef = ref(database, `users/${currentUser.uid}`);
-            await update(userRef, {
+            await axios.post(`${API}/profile`, {
+                uid: currentUser.uid,
                 ...updates,
-                updatedAt: new Date().toISOString(),
             });
             // Refresh user data
             const data = await getUserData(currentUser.uid);
@@ -193,10 +198,14 @@ export function AuthProvider({ children }) {
     const likeHotel = async (hotelCode, hotelData) => {
         if (!currentUser) throw new Error('Please sign in to save hotels');
         try {
-            const likedRef = ref(database, `users/${currentUser.uid}/likedHotels/${hotelCode}`);
-            await set(likedRef, {
-                ...hotelData,
-                likedAt: new Date().toISOString(),
+            await axios.post(`${API}/${currentUser.uid}/liked-hotels`, {
+                hotelCode,
+                hotelName: hotelData.HotelName,
+                hotelAddress: hotelData.HotelAddress || hotelData.Address,
+                hotelPicture: hotelData.HotelPicture || hotelData.Images?.[0] || '',
+                rating: hotelData.Rating || null,
+                starRating: hotelData.StarRating || hotelData.HotelRating || null,
+                totalFare: hotelData.TotalFare || null,
             });
             setLikedHotels(prev => ({ ...prev, [hotelCode]: hotelData }));
             return true;
@@ -210,8 +219,7 @@ export function AuthProvider({ children }) {
     const unlikeHotel = async (hotelCode) => {
         if (!currentUser) throw new Error('Please sign in');
         try {
-            const likedRef = ref(database, `users/${currentUser.uid}/likedHotels/${hotelCode}`);
-            await remove(likedRef);
+            await axios.delete(`${API}/${currentUser.uid}/liked-hotels/${hotelCode}`);
             setLikedHotels(prev => {
                 const updated = { ...prev };
                 delete updated[hotelCode];
@@ -229,20 +237,18 @@ export function AuthProvider({ children }) {
         return !!likedHotels[hotelCode];
     };
 
-    // Add a booking
+    // Add a booking (now a no-op for local state — the booking is already persisted via paymentController)
     const addBooking = async (bookingData) => {
         if (!currentUser) throw new Error('Please sign in');
         try {
-            const bookingId = `booking_${Date.now()}`;
-            const bookingRef = ref(database, `users/${currentUser.uid}/bookings/${bookingId}`);
+            // The booking is already saved to MySQL via paymentController.saveBookingData
+            // and linked via user_bookings table. We just refresh local state.
             const booking = {
                 ...bookingData,
-                bookingId,
-                status: 'booked', // booked, cancelled, completed
+                status: 'booked',
                 createdAt: new Date().toISOString(),
             };
-            await set(bookingRef, booking);
-            setBookings(prev => [...prev, booking]);
+            setBookings(prev => [booking, ...prev]);
             return booking;
         } catch (err) {
             setError(err.message);
@@ -254,18 +260,9 @@ export function AuthProvider({ children }) {
     const updateBookingStatus = async (bookingId, status, cancellationDetails = null) => {
         if (!currentUser) throw new Error('Please sign in');
         try {
-            const bookingRef = ref(database, `users/${currentUser.uid}/bookings/${bookingId}`);
-            const updateData = {
-                status,
-                updatedAt: new Date().toISOString()
-            };
-            // Add cancellation details if provided
-            if (cancellationDetails) {
-                updateData.cancellationDetails = cancellationDetails;
-            }
-            await update(bookingRef, updateData);
+            // Update local state — actual status change happens via admin/cancel API
             setBookings(prev => prev.map(b =>
-                b.bookingId === bookingId
+                (b.bookingId === bookingId || b.orderId === bookingId)
                     ? { ...b, status, ...(cancellationDetails ? { cancellationDetails } : {}) }
                     : b
             ));
@@ -276,40 +273,31 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // Load liked hotels for current user
-    useEffect(() => {
-        if (!currentUser) {
-            setLikedHotels({});
-            return;
-        }
-        const likedRef = ref(database, `users/${currentUser.uid}/likedHotels`);
-        const unsubscribe = onValue(likedRef, (snapshot) => {
-            const data = snapshot.val();
-            setLikedHotels(data || {});
-        });
-        return () => unsubscribe();
-    }, [currentUser]);
-
-    // Load bookings for current user
-    useEffect(() => {
-        if (!currentUser) {
-            setBookings([]);
-            return;
-        }
-        const bookingsRef = ref(database, `users/${currentUser.uid}/bookings`);
-        const unsubscribe = onValue(bookingsRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const bookingsArray = Object.values(data).sort((a, b) =>
-                    new Date(b.createdAt) - new Date(a.createdAt)
-                );
-                setBookings(bookingsArray);
-            } else {
-                setBookings([]);
+    // Fetch liked hotels from API
+    const fetchLikedHotels = useCallback(async (uid) => {
+        try {
+            const response = await axios.get(`${API}/${uid}/liked-hotels`);
+            if (response.data?.success) {
+                setLikedHotels(response.data.likedHotels || {});
             }
-        });
-        return () => unsubscribe();
-    }, [currentUser]);
+        } catch (err) {
+            console.error('Error fetching liked hotels:', err);
+            setLikedHotels({});
+        }
+    }, []);
+
+    // Fetch bookings from API
+    const fetchBookings = useCallback(async (uid) => {
+        try {
+            const response = await axios.get(`${API}/${uid}/bookings`);
+            if (response.data?.success) {
+                setBookings(response.data.bookings || []);
+            }
+        } catch (err) {
+            console.error('Error fetching bookings:', err);
+            setBookings([]);
+        }
+    }, []);
 
     // Listen for auth state changes
     useEffect(() => {
@@ -318,14 +306,19 @@ export function AuthProvider({ children }) {
             if (user) {
                 const data = await getUserData(user.uid);
                 setUserData(data);
+                // Load liked hotels and bookings from MySQL
+                fetchLikedHotels(user.uid);
+                fetchBookings(user.uid);
             } else {
                 setUserData(null);
+                setLikedHotels({});
+                setBookings([]);
             }
             setLoading(false);
         });
 
         return unsubscribe;
-    }, []);
+    }, [fetchLikedHotels, fetchBookings]);
 
     const userRole = userData?.role || (isAdmin(currentUser?.email) ? 'admin' : 'user');
 
