@@ -61,6 +61,14 @@ const GuestDetailsPage = () => {
         nationality: 'IN'
     });
 
+    const [billingDetails, setBillingDetails] = useState({
+        address: '',
+        city: '',
+        state: '',
+        pincode: '',
+        country: 'IN'
+    });
+
     const [guestDetails, setGuestDetails] = useState([]);
     const [specialRequests, setSpecialRequests] = useState('');
     const [acceptTerms, setAcceptTerms] = useState(false);
@@ -204,6 +212,31 @@ const GuestDetailsPage = () => {
             newErrors.contactPhone = 'Invalid phone number (10-15 digits)';
         }
 
+        // Billing details validation
+        if (!billingDetails.address.trim()) {
+            newErrors.billingAddress = 'Address is required';
+        } else if (billingDetails.address.length < 5) {
+            newErrors.billingAddress = 'Address must be at least 5 characters';
+        }
+
+        if (!billingDetails.city.trim()) {
+            newErrors.billingCity = 'City is required';
+        }
+
+        if (!billingDetails.state.trim()) {
+            newErrors.billingState = 'State is required';
+        }
+
+        if (!billingDetails.pincode.trim()) {
+            newErrors.billingPincode = 'Pincode is required';
+        } else if (!/^[0-9]{5,6}$/.test(billingDetails.pincode.replace(/\s+/g, ''))) {
+            newErrors.billingPincode = 'Invalid pincode (5-6 digits)';
+        }
+
+        if (!billingDetails.country.trim()) {
+            newErrors.billingCountry = 'Country is required';
+        }
+
         // Passport and PAN validation logic
         guestDetails.forEach((guest, index) => {
             if (!isInternational && guest.isLead) {
@@ -277,6 +310,7 @@ const GuestDetailsPage = () => {
                     preBookData,
                     guestDetails,
                     contactDetails,
+                    billingDetails,
                     isInternational,
                     netAmount: preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare,
                     isVoucherBooking
@@ -865,6 +899,117 @@ const GuestDetailsPage = () => {
                                     </div>
                                 </div>
                                 {/* Passport fields removed as they are optional for bookings */}
+                            </div>
+                        </div>
+
+                        {/* Billing Details */}
+                        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                                <MapPin size={20} className="mr-2 text-blue-600" />
+                                Billing Details
+                            </h2>
+                            <p className="text-sm text-gray-600 mb-4">
+                                These details will be used for invoicing and payment processing.
+                            </p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Street Address <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea
+                                        value={billingDetails.address}
+                                        onChange={(e) => {
+                                            setBillingDetails(prev => ({ ...prev, address: e.target.value }));
+                                            setErrors(prev => ({ ...prev, billingAddress: null }));
+                                        }}
+                                        rows={2}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition resize-none ${errors.billingAddress ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="Enter your street address"
+                                    />
+                                    {errors.billingAddress && (
+                                        <p className="text-red-500 text-xs mt-1">{errors.billingAddress}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        City <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={billingDetails.city}
+                                        onChange={(e) => {
+                                            setBillingDetails(prev => ({ ...prev, city: e.target.value }));
+                                            setErrors(prev => ({ ...prev, billingCity: null }));
+                                        }}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.billingCity ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="Enter city"
+                                    />
+                                    {errors.billingCity && (
+                                        <p className="text-red-500 text-xs mt-1">{errors.billingCity}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        State / Province <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={billingDetails.state}
+                                        onChange={(e) => {
+                                            setBillingDetails(prev => ({ ...prev, state: e.target.value }));
+                                            setErrors(prev => ({ ...prev, billingState: null }));
+                                        }}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.billingState ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="Enter state"
+                                    />
+                                    {errors.billingState && (
+                                        <p className="text-red-500 text-xs mt-1">{errors.billingState}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Pincode / ZIP Code <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={billingDetails.pincode}
+                                        onChange={(e) => {
+                                            setBillingDetails(prev => ({ ...prev, pincode: e.target.value }));
+                                            setErrors(prev => ({ ...prev, billingPincode: null }));
+                                        }}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.billingPincode ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="Enter pincode"
+                                    />
+                                    {errors.billingPincode && (
+                                        <p className="text-red-500 text-xs mt-1">{errors.billingPincode}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Country <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <Globe size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                        <select
+                                            value={billingDetails.country}
+                                            onChange={(e) => {
+                                                setBillingDetails(prev => ({ ...prev, country: e.target.value }));
+                                                setErrors(prev => ({ ...prev, billingCountry: null }));
+                                            }}
+                                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition appearance-none bg-white"
+                                        >
+                                            {COUNTRY_CODES.map(country => (
+                                                <option key={country.code} value={country.code}>
+                                                    {country.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {errors.billingCountry && (
+                                        <p className="text-red-500 text-xs mt-1">{errors.billingCountry}</p>
+                                    )}
+                                </div>
                             </div>
                         </div>
 

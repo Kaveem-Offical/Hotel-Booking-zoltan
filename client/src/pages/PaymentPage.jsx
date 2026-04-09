@@ -22,6 +22,7 @@ const PaymentPage = () => {
         preBookData,
         guestDetails,
         contactDetails,
+        billingDetails,
         isInternational,
         netAmount,
         isVoucherBooking = true
@@ -241,6 +242,7 @@ const PaymentPage = () => {
                     rooms: searchParams?.rooms
                 },
                 contactDetails,
+                billingDetails,
                 // Markup tracking
                 originalAmount: room?.OriginalTotalFare || getAmount(),
                 markupAmount: room?.OriginalTotalFare ? (getAmount() - room.OriginalTotalFare) : 0,
@@ -381,6 +383,7 @@ const PaymentPage = () => {
                 confirmationNo: verifyResponse.confirmationNo || '',
                 bookingStatus: verifyResponse.bookingStatus || 'Confirmed',
                 lastCancellationDeadline: preBookData?.Rooms?.[0]?.LastCancellationDeadline || '',
+                billingDetails: billingDetails || null,
             });
             console.log('=== Booking saved successfully ===', savedBooking);
         } catch (bookingErr) {
@@ -737,6 +740,16 @@ const PaymentPage = () => {
                                     <span className="font-medium">Contact:</span> {contactDetails?.email} | {contactDetails?.phone}
                                 </div>
                             </div>
+
+                            {/* Billing Info */}
+                            {billingDetails && (
+                                <div className="mt-3 pt-3 border-t">
+                                    <div className="text-sm text-gray-600">
+                                        <span className="font-medium">Billing:</span>{' '}
+                                        {billingDetails.address}, {billingDetails.city}, {billingDetails.state} - {billingDetails.pincode}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

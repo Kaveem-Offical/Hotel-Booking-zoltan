@@ -1,69 +1,100 @@
-const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const { SendMailClient } = require('zeptomail');
+const { getTemplateByType } = require('./emailTemplates');
 
 /**
- * Amazon SES Email Service
- * Region: ap-south-1 (Mumbai)
- * 
+ * Zoho ZeptoMail Email Service
+ *
+ * Replaces Amazon SES with ZeptoMail for transactional emails.
+ *
  * Environment Variables Required:
- *   AWS_ACCESS_KEY    – IAM access key with SES send permissions
- *   AWS_SECRET_KEY    – IAM secret key
- *   SES_FROM_EMAIL    – Verified sender address (default: support@zovotel.com)
+ *   ZEPTOMAIL_TOKEN    – Send Mail Token from ZeptoMail Mail Agent
+ *   ZEPTOMAIL_FROM     – Verified sender address (default: support@zovotel.com)
+ *   ZEPTOMAIL_FROM_NAME – Sender display name (default: Zovotel)
  */
 
-const sesClient = new SESClient({
-  region: 'ap-south-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_KEY,
-  },
-});
+const ZEPTOMAIL_URL = 'api.zeptomail.com/';
+const ZEPTOMAIL_TOKEN = process.env.ZEPTOMAIL_TOKEN;
+const FROM_EMAIL = process.env.ZEPTOMAIL_FROM || process.env.SES_FROM_EMAIL || 'support@zovotel.com';
+const FROM_NAME = process.env.ZEPTOMAIL_FROM_NAME || 'Zovotel';
 
-const FROM_EMAIL = process.env.SES_FROM_EMAIL || 'support@zovotel.com';
+// Initialise the ZeptoMail client
+let client;
+if (ZEPTOMAIL_TOKEN) {
+  client = new SendMailClient({ url: ZEPTOMAIL_URL, token: ZEPTOMAIL_TOKEN });
+} else {
+  console.warn('⚠️  ZEPTOMAIL_TOKEN not set – emails will be logged but NOT sent.');
+}
 
 /**
- * Send an email via Amazon SES
+ * Send an email via Zoho ZeptoMail
  *
  * @param {Object}  options
- * @param {string}  options.to      – Recipient email address
+ * @param {string|string[]}  options.to      – Recipient email address(es)
  * @param {string}  options.subject – Email subject line
  * @param {string}  options.html    – HTML body content
- * @returns {Promise<Object>}       – SES response metadata on success
+ * @param {string}  [options.toName] – Recipient display name
+ * @returns {Promise<Object>}       – ZeptoMail response on success
  */
-const sendEmail = async ({ to, subject, html }) => {
-  const params = {
-    Source: FROM_EMAIL,
-    Destination: {
-      ToAddresses: Array.isArray(to) ? to : [to],
+const sendEmail = async ({ to, subject, html, toName }) => {
+  // Normalise recipients into array format
+  const recipients = (Array.isArray(to) ? to : [to]).map((addr) => ({
+    email_address: {
+      address: addr,
+      name: toName || addr.split('@')[0],
     },
-    Message: {
-      Subject: {
-        Charset: 'UTF-8',
-        Data: subject,
-      },
-      Body: {
-        Html: {
-          Charset: 'UTF-8',
-          Data: html,
-        },
-      },
+  }));
+
+  // Build the mail payload
+  const mailPayload = {
+    from: {
+      address: FROM_EMAIL,
+      name: FROM_NAME,
     },
+    to: recipients,
+    subject,
+    htmlbody: html,
   };
 
-  try {
-    const command = new SendEmailCommand(params);
-    const response = await sesClient.send(command);
+  // If no token configured, log the email and return gracefully
+  if (!client) {
+    console.log(`📧  [DRY-RUN] Email to ${to} | Subject: "${subject}" (ZEPTOMAIL_TOKEN not configured)`);
+    return { dryRun: true, to, subject };
+  }
 
-    console.log(`✅ Email sent successfully to ${to} | MessageId: ${response.MessageId}`);
+  try {
+    const response = await client.sendMail(mailPayload);
+    console.log(`✅ Email sent successfully to ${to} | Subject: "${subject}"`);
     return response;
   } catch (error) {
-    console.error(`❌ Email send failed to ${to} | Error: ${error.message}`);
-    console.error('SES Error Details:', {
-      code: error.name,
-      statusCode: error.$metadata?.httpStatusCode,
-      requestId: error.$metadata?.requestId,
+    console.error(`❌ Email send failed to ${to} | Error: ${error.message || JSON.stringify(error)}`);
+    console.error('ZeptoMail Error Details:', {
+      errorCode: error.error_code,
+      message: error.message,
+      details: error.details,
     });
     throw error;
   }
 };
 
-module.exports = { sendEmail };
+/**
+ * Send a typed email using the template engine.
+ * Looks up the template by type, injects data, and sends.
+ *
+ * @param {Object}  options
+ * @param {string}  options.type    – Template type key (e.g. 'booking_confirmation')
+ * @param {string|string[]} options.to – Recipient email
+ * @param {Object}  options.data    – Data payload for the template
+ * @param {string}  options.subject – Email subject line
+ * @returns {Promise<Object>}
+ */
+const sendTypedEmail = async ({ type, to, data, subject }) => {
+  const templateFn = getTemplateByType(type);
+  if (!templateFn) {
+    throw new Error(`Unknown email template type: "${type}"`);
+  }
+
+  const html = templateFn(data);
+  return sendEmail({ to, subject, html, toName: data.customerName });
+};
+
+module.exports = { sendEmail, sendTypedEmail };

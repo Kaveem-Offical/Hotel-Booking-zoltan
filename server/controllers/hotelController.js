@@ -5,8 +5,7 @@ const authService = require('../services/authService');
 const pricingEngine = require('../services/pricingEngine');
 const db = require('../config/db');
 const { sendEmail } = require('../services/emailService');
-const { bookingConfirmedTemplate } = require('../templates/bookingConfirmedTemplate');
-const { bookingCancelledTemplate } = require('../templates/bookingCancelledTemplate');
+const { getBookingConfirmationTemplate, getBookingCancellationTemplate } = require('../services/emailTemplates');
 
 // Create axios instance with basic auth for static data endpoints
 const createStaticAxiosInstance = () => {
@@ -632,19 +631,18 @@ exports.bookHotel = async (req, res) => {
         const guestEmail = guest.Email;
         if (guestEmail) {
             const emailData = {
-                userName: `${guest.FirstName || ''} ${guest.LastName || ''}`.trim() || 'Guest',
+                customerName: `${guest.FirstName || ''} ${guest.LastName || ''}`.trim() || 'Guest',
                 hotelName: bookResult.HotelName || 'Your Hotel',
                 checkIn: bookResult.CheckIn || '',
                 checkOut: bookResult.CheckOut || '',
                 bookingId: bookResult.BookingId || bookResult.BookingRefNo || BookingCode,
-                totalAmount: NetAmount,
-                currency: 'INR',
+                amount: NetAmount,
             };
 
             sendEmail({
                 to: guestEmail,
                 subject: `Booking Confirmed – ${emailData.hotelName} | Zovotel`,
-                html: bookingConfirmedTemplate(emailData),
+                html: getBookingConfirmationTemplate(emailData),
             }).catch(err => console.error('Non-blocking confirmation email error:', err.message));
         }
     }
@@ -924,16 +922,15 @@ exports.sendChangeRequest = async (req, res) => {
               : 'Guest';
 
           const emailData = {
-            userName: fullName,
+            customerName: fullName,
             hotelName: booking.hotelInfo?.hotelName || booking.hotelInfo?.HotelName || 'Your Hotel',
             bookingId: BookingId,
-            reason: Remarks || 'Cancelled by guest',
           };
 
           sendEmail({
             to: email,
             subject: `Booking Cancelled – ${emailData.hotelName} | Zovotel`,
-            html: bookingCancelledTemplate(emailData),
+            html: getBookingCancellationTemplate(emailData),
           }).catch(err => console.error('Non-blocking cancellation email error:', err.message));
         }
       }

@@ -5,7 +5,7 @@ const db = require('../config/db');
 const bookingService = require('./bookingController');
 const axios = require('axios');
 const { sendEmail } = require('../services/emailService');
-const { bookingConfirmedTemplate } = require('../templates/bookingConfirmedTemplate');
+const { getBookingConfirmationTemplate } = require('../services/emailTemplates');
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -310,20 +310,18 @@ exports.verifyPayment = async (req, res) => {
                 : 'Guest';
 
             const emailData = {
-                userName: fullName,
+                customerName: fullName,
                 hotelName: pendingBooking.hotelInfo?.hotelName || pendingBooking.hotelInfo?.HotelName || 'Your Hotel',
                 checkIn: pendingBooking.searchParams?.checkIn || '',
                 checkOut: pendingBooking.searchParams?.checkOut || '',
                 bookingId: bookResult.BookingId || bookResult.BookingRefNo || razorpay_order_id,
-                roomType: pendingBooking.roomInfo?.roomName || pendingBooking.roomInfo?.RoomName || '',
-                totalAmount: pendingBooking.amount,
-                currency: pendingBooking.currency || 'INR',
+                amount: pendingBooking.amount,
             };
 
             sendEmail({
                 to: pendingBooking.contactDetails.email,
                 subject: `Booking Confirmed – ${emailData.hotelName} | Zovotel`,
-                html: bookingConfirmedTemplate(emailData),
+                html: getBookingConfirmationTemplate(emailData),
             }).catch(err => console.error('Non-blocking confirmation email error:', err.message));
         }
 
@@ -597,20 +595,18 @@ exports.retryBookingWithUpdatedPrice = async (req, res) => {
                 : 'Guest';
 
             const emailData = {
-                userName: fullName,
+                customerName: fullName,
                 hotelName: pendingBooking.hotelInfo?.hotelName || pendingBooking.hotelInfo?.HotelName || 'Your Hotel',
                 checkIn: pendingBooking.searchParams?.checkIn || '',
                 checkOut: pendingBooking.searchParams?.checkOut || '',
                 bookingId: bookResult.BookingId || bookResult.BookingRefNo || orderId,
-                roomType: pendingBooking.roomInfo?.roomName || pendingBooking.roomInfo?.RoomName || '',
-                totalAmount: pendingBooking.amount,
-                currency: pendingBooking.currency || 'INR',
+                amount: pendingBooking.amount,
             };
 
             sendEmail({
                 to: pendingBooking.contactDetails.email,
                 subject: `Booking Confirmed – ${emailData.hotelName} | Zovotel`,
-                html: bookingConfirmedTemplate(emailData),
+                html: getBookingConfirmationTemplate(emailData),
             }).catch(err => console.error('Non-blocking confirmation email error:', err.message));
         }
 

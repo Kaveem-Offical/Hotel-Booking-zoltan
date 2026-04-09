@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zovotel Email Template Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a2e; font-family: 'Segoe UI', Roboto, sans-serif; color: #e0e0e0; }
+    .nav { display: flex; gap: 8px; padding: 20px; flex-wrap: wrap; justify-content: center; background: #16213e; border-bottom: 1px solid #0f3460; }
+    .nav button { padding: 10px 18px; border: 1px solid #0f3460; background: #16213e; color: #a0a0c0; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+    .nav button:hover { background: #0f3460; color: #fff; }
+    .nav button.active { background: #e94560; color: #fff; border-color: #e94560; }
+    .preview-container { max-width: 700px; margin: 30px auto; padding: 0 16px; }
+    .preview-label { text-align: center; color: #a0a0c0; font-size: 12px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    iframe { width: 100%; height: 800px; border: none; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.4); }
+  </style>
+</head>
+<body>
+  <div class="nav" id="nav"></div>
+  <div class="preview-container">
+    <p class="preview-label" id="label">Select a template to preview</p>
+    <iframe id="preview"></iframe>
+  </div>
+
+  <script>
+    const BRAND = {
+      name: 'Zovotel', tagline: 'Your trusted hotel booking partner', supportEmail: 'support@zovotel.com',
+      primaryColor: '#1a73e8', primaryDark: '#1557b0', successColor: '#0d9f6e', successLight: '#d1fae5',
+      dangerColor: '#dc2626', dangerLight: '#fee2e2', warningColor: '#f59e0b', warningLight: '#fef3c7',
+      infoColor: '#6366f1', infoLight: '#e0e7ff', textDark: '#1f2937', textMuted: '#6b7280',
+      textLight: '#9ca3af', bgBody: '#f3f4f6', bgCard: '#ffffff', bgSection: '#f9fafb',
+      borderColor: '#e5e7eb', fontStack: "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    };
+
+    const formatDate = (d) => { try { return new Date(d).toLocaleDateString('en-IN', { weekday:'short', year:'numeric', month:'long', day:'numeric' }); } catch { return d; } };
+    const calcNights = (a, b) => { try { return Math.max(1, Math.ceil((new Date(b) - new Date(a)) / 86400000)); } catch { return '—'; } };
+    const formatAmount = (a) => a == null ? '—' : '₹' + Number(a).toLocaleString('en-IN');
+
+    const wrapperOpen = () => `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${BRAND.name}</title></head><body style="margin:0;padding:0;background-color:${BRAND.bgBody};font-family:${BRAND.fontStack};"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${BRAND.bgBody};"><tr><td align="center" style="padding:32px 16px;"><table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color:${BRAND.bgCard};border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.06);max-width:600px;width:100%;">`;
+    const wrapperClose = () => `</table></td></tr></table></body></html>`;
+    const headerBanner = ({bgGradient, icon, title, subtitle}) => `<tr><td style="background:${bgGradient};padding:36px 32px;text-align:center;"><div style="width:52px;height:52px;background-color:rgba(255,255,255,0.2);border-radius:50%;margin:0 auto 14px;line-height:52px;font-size:26px;color:#ffffff;">${icon}</div><h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.3px;">${title}</h1>${subtitle ? `<p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">${subtitle}</p>` : ''}</td></tr>`;
+    const greetingBlock = (n) => `<tr><td style="padding:28px 32px 0;"><p style="margin:0;color:${BRAND.textDark};font-size:15px;line-height:1.6;">Dear <strong>${n||'Guest'}</strong>,</p></td></tr>`;
+    const textBlock = (h) => `<tr><td style="padding:12px 32px 0;"><p style="margin:0;color:${BRAND.textMuted};font-size:14px;line-height:1.7;">${h}</p></td></tr>`;
+    const detailRow = (l, v, {valueColor, valueFontSize, valueFont}={}) => `<tr><td style="padding:14px 24px;"><p style="margin:0;color:${BRAND.textMuted};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">${l}</p><p style="margin:3px 0 0;color:${valueColor||BRAND.textDark};font-size:${valueFontSize||'15px'};font-weight:600;${valueFont?`font-family:${valueFont};`:''}">${v}</p></td></tr>`;
+    const separator = () => `<tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid ${BRAND.borderColor};margin:0;"/></td></tr>`;
+    const footerBlock = () => `<tr><td style="background-color:${BRAND.bgSection};padding:24px 32px;text-align:center;border-top:1px solid ${BRAND.borderColor};"><p style="margin:0;color:${BRAND.textDark};font-size:16px;font-weight:700;letter-spacing:-0.3px;">${BRAND.name}</p><p style="margin:6px 0 0;color:${BRAND.textLight};font-size:12px;line-height:1.5;">${BRAND.tagline}<br/>Need help? <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.primaryColor};text-decoration:none;font-weight:600;">${BRAND.supportEmail}</a></p><p style="margin:12px 0 0;color:${BRAND.textLight};font-size:11px;">This is an auto-generated email. Please do not reply.<br/>&copy; 2026 ${BRAND.name}. All rights reserved.</p></td></tr>`;
+    const calloutBox = (h, {bgColor, borderColor, iconEmoji}={}) => `<tr><td style="padding:8px 32px 24px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${bgColor||BRAND.infoLight};border-radius:8px;border-left:4px solid ${borderColor||BRAND.infoColor};"><tr><td style="padding:14px 18px;"><p style="margin:0;color:${BRAND.textDark};font-size:13px;line-height:1.6;">${iconEmoji?iconEmoji+' ':''}${h}</p></td></tr></table></td></tr>`;
+    const ctaButton = (l, u, {bgColor}={}) => `<tr><td style="padding:8px 32px 24px;text-align:center;"><table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto;"><tr><td style="background-color:${bgColor||BRAND.primaryColor};border-radius:8px;"><a href="${u}" target="_blank" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.3px;">${l}</a></td></tr></table></td></tr>`;
+
+    const sampleData = {
+      customerName: 'Rahul Sharma',
+      hotelName: 'The Grand Palace, Jaipur',
+      checkIn: '2026-05-15',
+      checkOut: '2026-05-18',
+      bookingId: 'ZOV-2026-78432',
+      amount: 12499,
+      otp: '847291',
+    };
+
+    const templates = {
+      'Booking Confirmation': () => {
+        const {customerName, hotelName, checkIn, checkOut, bookingId, amount} = sampleData;
+        const nights = calcNights(checkIn, checkOut);
+        return `${wrapperOpen()}${headerBanner({bgGradient:'linear-gradient(135deg,#0d9f6e 0%,#10b981 50%,#34d399 100%)',icon:'✓',title:'Booking Confirmed!',subtitle:'Your reservation is all set'})}${greetingBlock(customerName)}${textBlock(`Great news! Your booking at <strong style="color:${BRAND.textDark};">${hotelName}</strong> has been confirmed. Here are your reservation details:`)}<tr><td style="padding:20px 32px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${BRAND.bgSection};border-radius:10px;border:1px solid ${BRAND.borderColor};">${detailRow('Booking ID', bookingId, {valueColor:BRAND.successColor, valueFontSize:'17px', valueFont:'monospace'})}${separator()}${detailRow('Hotel', hotelName)}${separator()}<tr><td style="padding:14px 24px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td width="50%" style="vertical-align:top;"><p style="margin:0;color:${BRAND.textMuted};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Check-in</p><p style="margin:3px 0 0;color:${BRAND.textDark};font-size:14px;font-weight:600;">${formatDate(checkIn)}</p></td><td width="50%" style="vertical-align:top;"><p style="margin:0;color:${BRAND.textMuted};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Check-out</p><p style="margin:3px 0 0;color:${BRAND.textDark};font-size:14px;font-weight:600;">${formatDate(checkOut)}</p></td></tr></table></td></tr>${separator()}${detailRow('Duration',`${nights} Night${nights!==1?'s':''}`)}${separator()}${detailRow('Amount Paid', formatAmount(amount), {valueColor:BRAND.textDark, valueFontSize:'20px'})}</table></td></tr>${calloutBox(`<strong>Tip:</strong> Please carry a valid photo ID at check-in.`,{bgColor:BRAND.successLight,borderColor:BRAND.successColor,iconEmoji:'💡'})}${footerBlock()}${wrapperClose()}`;
+      },
+      'Payment Success': () => {
+        const {customerName, hotelName, bookingId, amount} = sampleData;
+        return `${wrapperOpen()}${headerBanner({bgGradient:'linear-gradient(135deg,#1a73e8 0%,#4285f4 50%,#669df6 100%)',icon:'₹',title:'Payment Successful',subtitle:'Your payment has been received'})}${greetingBlock(customerName)}${textBlock(`We have successfully received your payment.`)}<tr><td style="padding:20px 32px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${BRAND.bgSection};border-radius:10px;border:1px solid ${BRAND.borderColor};">${detailRow('Amount Paid', formatAmount(amount), {valueColor:BRAND.successColor, valueFontSize:'22px'})}${separator()}${detailRow('Booking ID', bookingId, {valueFont:'monospace'})}${separator()}${detailRow('Hotel', hotelName)}${separator()}${detailRow('Status','<span style="display:inline-block;background-color:#d1fae5;color:#065f46;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;">PAID</span>')}</table></td></tr>${calloutBox(`A booking confirmation email will follow shortly.`,{bgColor:'#dbeafe',borderColor:BRAND.primaryColor,iconEmoji:'📧'})}${footerBlock()}${wrapperClose()}`;
+      },
+      'Payment Failed': () => {
+        const {customerName, bookingId, amount} = sampleData;
+        return `${wrapperOpen()}${headerBanner({bgGradient:'linear-gradient(135deg,#dc2626 0%,#ef4444 50%,#f87171 100%)',icon:'✕',title:'Payment Failed',subtitle:'We could not process your payment'})}${greetingBlock(customerName)}${textBlock(`Unfortunately, your payment could not be processed.`)}<tr><td style="padding:20px 32px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${BRAND.dangerLight};border-radius:10px;border:1px solid #fecaca;">${detailRow('Booking ID', bookingId, {valueFont:'monospace'})}${separator()}${detailRow('Attempted Amount', formatAmount(amount))}${separator()}${detailRow('Status','<span style="display:inline-block;background-color:#fee2e2;color:#991b1b;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;">FAILED</span>')}</table></td></tr>${textBlock(`<strong>What you can do:</strong>`)}<tr><td style="padding:4px 32px 16px;"><table role="presentation" width="100%"><tr><td style="color:${BRAND.textMuted};font-size:14px;line-height:1.7;">• Ensure sufficient funds<br/>• Try a different payment method<br/>• Wait and try again</td></tr></table></td></tr>${calloutBox(`If deducted, refund within 5–7 business days.`,{bgColor:BRAND.warningLight,borderColor:BRAND.warningColor,iconEmoji:'⚠️'})}${footerBlock()}${wrapperClose()}`;
+      },
+      'OTP Verification': () => {
+        const {customerName, otp} = sampleData;
+        return `${wrapperOpen()}${headerBanner({bgGradient:'linear-gradient(135deg,#6366f1 0%,#818cf8 50%,#a5b4fc 100%)',icon:'🔐',title:'Verify Your Identity',subtitle:'One-Time Password'})}${greetingBlock(customerName)}${textBlock(`Use the following OTP to complete your verification. Valid for <strong>10 minutes</strong>.`)}<tr><td style="padding:24px 32px;text-align:center;"><table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto;background-color:${BRAND.bgSection};border-radius:12px;border:2px dashed ${BRAND.infoColor};"><tr><td style="padding:20px 48px;"><p style="margin:0;color:${BRAND.textMuted};font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Your OTP</p><p style="margin:8px 0 0;color:${BRAND.infoColor};font-size:36px;font-weight:800;letter-spacing:8px;font-family:monospace;">${otp}</p></td></tr></table></td></tr>${calloutBox(`<strong>Important:</strong> Never share this OTP with anyone.`,{bgColor:BRAND.warningLight,borderColor:BRAND.warningColor,iconEmoji:'🔒'})}${footerBlock()}${wrapperClose()}`;
+      },
+      'Check-in Reminder': () => {
+        const {customerName, hotelName, checkIn, bookingId} = sampleData;
+        return `${wrapperOpen()}${headerBanner({bgGradient:'linear-gradient(135deg,#f59e0b 0%,#fbbf24 50%,#fcd34d 100%)',icon:'🔔',title:'Check-in Reminder',subtitle:'Your stay is approaching!'})}${greetingBlock(customerName)}${textBlock(`Friendly reminder: your check-in at <strong style="color:${BRAND.textDark};">${hotelName}</strong> is coming up soon!`)}<tr><td style="padding:20px 32px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${BRAND.bgSection};border-radius:10px;border:1px solid ${BRAND.borderColor};">${detailRow('Hotel', hotelName)}${separator()}${detailRow('Check-in Date', formatDate(checkIn), {valueColor:BRAND.warningColor, valueFontSize:'16px'})}${separator()}${detailRow('Booking ID', bookingId, {valueFont:'monospace'})}</table></td></tr>${textBlock(`<strong>Quick Checklist:</strong>`)}<tr><td style="padding:4px 32px 16px;"><table role="presentation" width="100%"><tr><td style="color:${BRAND.textMuted};font-size:14px;line-height:1.7;">✅ Carry a valid photo ID<br/>✅ Keep booking confirmation handy<br/>✅ Check hotel timings</td></tr></table></td></tr>${calloutBox(`Have a wonderful stay!`,{bgColor:BRAND.warningLight,borderColor:BRAND.warningColor,iconEmoji:'🌟'})}${footerBlock()}${wrapperClose()}`;
+      },
+      'Booking Cancellation': () => {
+        const {customerName, hotelName, bookingId, amount} = sampleData;
+        return `${wrapperOpen()}${headerBanner({bgGradient:'linear-gradient(135deg,#dc2626 0%,#ef4444 50%,#f87171 100%)',icon:'✕',title:'Booking Cancelled',subtitle:'Your reservation has been cancelled'})}${greetingBlock(customerName)}${textBlock(`Your booking at <strong style="color:${BRAND.textDark};">${hotelName}</strong> has been cancelled.`)}<tr><td style="padding:20px 32px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${BRAND.bgSection};border-radius:10px;border:1px solid ${BRAND.borderColor};">${detailRow('Booking ID', bookingId, {valueColor:BRAND.dangerColor, valueFontSize:'17px', valueFont:'monospace'})}${separator()}${detailRow('Hotel', hotelName)}${separator()}${detailRow('Status','<span style="display:inline-block;background-color:#fef3c7;color:#dc2626;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;">CANCELLED</span>')}${separator()}${detailRow('Refund Amount', formatAmount(amount), {valueColor:BRAND.successColor, valueFontSize:'20px'})}</table></td></tr>${calloutBox(`Refund of <strong>${formatAmount(amount)}</strong> will be processed within 5–7 business days.`,{bgColor:BRAND.successLight,borderColor:BRAND.successColor,iconEmoji:'💰'})}${footerBlock()}${wrapperClose()}`;
+      },
+      'Review Request': () => {
+        const {customerName, hotelName, bookingId} = sampleData;
+        return `${wrapperOpen()}${headerBanner({bgGradient:'linear-gradient(135deg,#8b5cf6 0%,#a78bfa 50%,#c4b5fd 100%)',icon:'⭐',title:'How Was Your Stay?',subtitle:"We'd love your feedback"})}${greetingBlock(customerName)}${textBlock(`We hope you enjoyed <strong style="color:${BRAND.textDark};">${hotelName}</strong>!`)}<tr><td style="padding:20px 32px;text-align:center;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${BRAND.bgSection};border-radius:10px;border:1px solid ${BRAND.borderColor};"><tr><td style="padding:28px 24px;"><p style="margin:0;font-size:36px;line-height:1;">⭐⭐⭐⭐⭐</p><p style="margin:12px 0 0;color:${BRAND.textDark};font-size:16px;font-weight:600;">Rate your experience</p><p style="margin:6px 0 0;color:${BRAND.textMuted};font-size:13px;">at ${hotelName}</p><p style="margin:6px 0 0;color:${BRAND.textLight};font-size:11px;font-family:monospace;">Booking: ${bookingId}</p></td></tr></table></td></tr>${textBlock(`Your review makes a big difference!`)}${calloutBox(`Questions? Reach out to us.`,{bgColor:'#ede9fe',borderColor:'#8b5cf6',iconEmoji:'💬'})}${footerBlock()}${wrapperClose()}`;
+      },
+      'Promo Offer': () => {
+        const {customerName, hotelName} = sampleData;
+        return `${wrapperOpen()}${headerBanner({bgGradient:'linear-gradient(135deg,#e11d48 0%,#f43f5e 50%,#fb7185 100%)',icon:'🎉',title:'20% OFF — Limited Time!',subtitle:'Exclusive deal just for you'})}${greetingBlock(customerName)}${textBlock(`Book at <strong style="color:${BRAND.textDark};">${hotelName}</strong> and enjoy amazing savings!`)}<tr><td style="padding:20px 32px;text-align:center;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:linear-gradient(135deg,#fff1f2 0%,#ffe4e6 100%);border-radius:10px;border:2px dashed #f43f5e;"><tr><td style="padding:32px 24px;"><p style="margin:0;color:#e11d48;font-size:48px;font-weight:800;line-height:1;">20%</p><p style="margin:4px 0 0;color:#e11d48;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">DISCOUNT</p><p style="margin:12px 0 0;color:${BRAND.textMuted};font-size:14px;">on your next booking at ${hotelName}</p></td></tr></table></td></tr>${ctaButton('Book Now →','#',{bgColor:'#e11d48'})}${calloutBox(`<strong>Hurry!</strong> Limited time only.`,{bgColor:BRAND.warningLight,borderColor:BRAND.warningColor,iconEmoji:'⏰'})}${footerBlock()}${wrapperClose()}`;
+      }
+    };
+
+    // Build nav buttons
+    const nav = document.getElementById('nav');
+    Object.keys(templates).forEach((name, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = name;
+      btn.onclick = () => {
+        document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('label').textContent = name + ' Template Preview';
+        const iframe = document.getElementById('preview');
+        iframe.srcdoc = templates[name]();
+      };
+      nav.appendChild(btn);
+      if (i === 0) btn.click(); // auto-select first
+    });
+  </script>
+</body>
+</html>
