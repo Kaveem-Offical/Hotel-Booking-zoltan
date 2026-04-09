@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
@@ -272,6 +272,12 @@ function AppRoutes() {
 }
 
 function App() {
+  useEffect(() => {
+    if (window.hideLoader) {
+      window.hideLoader();
+    }
+  }, []);
+
   return (
     <Router>
       <ThemeProvider>
