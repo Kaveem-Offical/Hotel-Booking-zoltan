@@ -12,7 +12,12 @@
  * @param {string} data.bookingId     – Unique booking reference ID
  * @param {string} [data.roomType]    – Room type (optional)
  * @param {number} [data.totalAmount] – Total amount paid (optional)
- * @param {string} [data.currency]    – Currency code (optional, default INR)
+ * @param {string} [data.currency]            – Currency code (optional, default INR)
+ * @param {string} [data.city]               – City (optional)
+ * @param {string} [data.hotelAddress]       – Hotel address (optional)
+ * @param {string} [data.locationLink]       – Hotel location link (optional)
+ * @param {string} [data.hotelPolicy]        – Hotel policy (optional)
+ * @param {string} [data.cancellationPolicy] – Hotel cancellation policy (optional)
  * @returns {string} HTML email string
  */
 const bookingConfirmedTemplate = (data) => {
@@ -25,6 +30,11 @@ const bookingConfirmedTemplate = (data) => {
     roomType = '',
     totalAmount = null,
     currency = 'INR',
+    city = '',
+    hotelAddress = '',
+    locationLink = '',
+    hotelPolicy = '',
+    cancellationPolicy = '',
   } = data;
 
   const formatDate = (dateStr) => {
@@ -113,6 +123,36 @@ const bookingConfirmedTemplate = (data) => {
                   </td>
                 </tr>
 
+                ${city ? `
+                <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid #e9ecef;margin:0;" /></td></tr>
+                <tr>
+                  <td style="padding:16px 24px;">
+                    <p style="margin:0;color:#636e72;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">City</p>
+                    <p style="margin:4px 0 0;color:#2d3436;font-size:14px;font-weight:600;">${city}</p>
+                  </td>
+                </tr>
+                ` : ''}
+
+                ${hotelAddress ? `
+                <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid #e9ecef;margin:0;" /></td></tr>
+                <tr>
+                  <td style="padding:16px 24px;">
+                    <p style="margin:0;color:#636e72;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Hotel Address</p>
+                    <p style="margin:4px 0 0;color:#2d3436;font-size:14px;font-weight:600;">${hotelAddress}</p>
+                  </td>
+                </tr>
+                ` : ''}
+
+                ${locationLink ? `
+                <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid #e9ecef;margin:0;" /></td></tr>
+                <tr>
+                  <td style="padding:16px 24px;">
+                    <p style="margin:0;color:#636e72;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Location</p>
+                    <a href="${locationLink}" style="margin:4px 0 0;color:#00b894;font-size:14px;font-weight:600;text-decoration:none;display:inline-block;">View on Map →</a>
+                  </td>
+                </tr>
+                ` : ''}
+
                 <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid #e9ecef;margin:0;" /></td></tr>
 
                 <!-- Dates Row -->
@@ -161,6 +201,26 @@ const bookingConfirmedTemplate = (data) => {
                   <td style="padding:16px 24px 20px;">
                     <p style="margin:0;color:#636e72;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Total Amount</p>
                     <p style="margin:4px 0 0;color:#2d3436;font-size:22px;font-weight:700;">${currency === 'INR' ? '₹' : currency + ' '}${Number(totalAmount).toLocaleString('en-IN')}</p>
+                  </td>
+                </tr>
+                ` : ''}
+
+                ${hotelPolicy ? `
+                <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid #e9ecef;margin:0;" /></td></tr>
+                <tr>
+                  <td style="padding:16px 24px 20px;">
+                    <p style="margin:0;color:#636e72;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Hotel Policy</p>
+                    <p style="margin:4px 0 0;color:#636e72;font-size:13px;line-height:1.5;">${hotelPolicy}</p>
+                  </td>
+                </tr>
+                ` : ''}
+
+                ${cancellationPolicy ? `
+                <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid #e9ecef;margin:0;" /></td></tr>
+                <tr>
+                  <td style="padding:16px 24px 20px;">
+                    <p style="margin:0;color:#636e72;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Cancellation Policy</p>
+                    <p style="margin:4px 0 0;color:#636e72;font-size:13px;line-height:1.5;">${cancellationPolicy}</p>
                   </td>
                 </tr>
                 ` : ''}
