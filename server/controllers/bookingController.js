@@ -14,7 +14,7 @@ exports.saveBookingData = async (data) => {
         // 1. Insert Main Booking
         const insertBookingQuery = `
             INSERT INTO bookings (
-                order_id, booking_code, booking_id, tbo_booking_id, booking_ref_no,
+                order_id, booking_code, tbo_booking_id, booking_ref_no,
                 confirmation_no, booking_status,
                 hotel_code, hotel_name, hotel_address, hotel_image, city_name, hotel_rating,
                 room_name, room_info,
@@ -27,7 +27,7 @@ exports.saveBookingData = async (data) => {
                 payment_id, payment_signature,
                 status, created_at, completed_at
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?,
                 ?, ?,
                 ?, ?, ?, ?, ?,
@@ -35,8 +35,7 @@ exports.saveBookingData = async (data) => {
                 ?, ?,
                 ?, ?, ?,
                 ?, ?, ?,
-                ?, ?, ?, ?,
-                ?, ?,
+                ?, ?, ?,
                 ?, ?, ?
             )
             ON DUPLICATE KEY UPDATE
@@ -54,7 +53,6 @@ exports.saveBookingData = async (data) => {
         const bookingValues = [
             data.orderId,
             data.bookingCode || null,
-            data.bookingId || null,
             data.tboBookingId || data.tboResponse?.bookingId || null,
             data.bookingRefNo || null,
             data.confirmationNo || null,
