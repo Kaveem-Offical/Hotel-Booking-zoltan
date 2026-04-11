@@ -9,6 +9,7 @@ import { fetchHotelDetails, searchHotels, fetchBasicHotelInfo } from '../service
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ErrorAlert from '../components/ErrorAlert';
+import { setInternalNavigation } from '../components/DirectAccessGuard';
 
 const HotelDetailsPage = () => {
     const { hotelId } = useParams();
@@ -256,6 +257,7 @@ const HotelDetailsPage = () => {
         }
 
         // Navigate to checkout page with all necessary data
+        setInternalNavigation();
         navigate('/checkout', {
             state: {
                 hotel: hotel,

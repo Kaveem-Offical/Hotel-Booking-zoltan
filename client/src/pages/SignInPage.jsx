@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, Hotel, Shield, Sparkles, Globe } from 'lucide-react';
+import { setInternalNavigation } from '../components/DirectAccessGuard';
 import logo from '../assets/logo.png';
 import '../styles/Auth.css';
 
@@ -57,6 +58,7 @@ const SignInPage = () => {
             if (pendingBooking) {
                 const bookingData = JSON.parse(pendingBooking);
                 localStorage.removeItem('pendingBooking');
+                setInternalNavigation();
                 navigate('/checkout', { state: bookingData });
             } else {
                 navigate('/');
@@ -79,6 +81,7 @@ const SignInPage = () => {
             if (pendingBooking) {
                 const bookingData = JSON.parse(pendingBooking);
                 localStorage.removeItem('pendingBooking');
+                setInternalNavigation();
                 navigate('/checkout', { state: bookingData });
             } else {
                 navigate('/');

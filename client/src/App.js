@@ -12,6 +12,7 @@ import SignInPage from './pages/SignInPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
+import DirectAccessGuard from './components/DirectAccessGuard';
 import HelpCenterPage from './pages/HelpCenterPage';
 import ContactUsPage from './pages/ContactUsPage';
 import CancellationPage from './pages/CancellationPage';
@@ -181,25 +182,31 @@ function AppRoutes() {
       <Route
         path="/hotel/:hotelId"
         element={
-          <Layout>
-            <HotelDetailsPage />
-          </Layout>
+          <DirectAccessGuard>
+            <Layout>
+              <HotelDetailsPage />
+            </Layout>
+          </DirectAccessGuard>
         }
       />
       <Route
         path="/checkout"
         element={
-          <Layout>
-            <GuestDetailsPage />
-          </Layout>
+          <DirectAccessGuard>
+            <Layout>
+              <GuestDetailsPage />
+            </Layout>
+          </DirectAccessGuard>
         }
       />
       <Route
         path="/payment"
         element={
-          <Layout>
-            <PaymentPage />
-          </Layout>
+          <DirectAccessGuard>
+            <Layout>
+              <PaymentPage />
+            </Layout>
+          </DirectAccessGuard>
         }
       />
       <Route path="/signup" element={<SignUpPage />} />

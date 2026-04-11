@@ -6,6 +6,7 @@ import HotelCard from '../components/HotelCard';
 import ErrorAlert from '../components/ErrorAlert';
 import { searchHotels, fetchHotels, fetchHotelCardInfo } from '../services/api';
 import { useAppContext } from '../context/AppContext';
+import { setInternalNavigation } from '../components/DirectAccessGuard';
 
 const CHUNK_SIZE = 100; // Number of hotel codes per API request
 
@@ -542,6 +543,7 @@ function HomePage() {
     }, [filteredHotels, sortBy]);
 
     const handleHotelSelect = (hotel) => {
+        setInternalNavigation();
         navigate(`/hotel/${hotel.HotelCode}`, {
             state: {
                 checkIn: searchParams?.checkInDate,

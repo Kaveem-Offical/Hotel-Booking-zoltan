@@ -1,0 +1,11 @@
+# Apache Rewrite Rules for React SPA
+# Enable rewrite engine
+RewriteEngine On
+
+# If the request is for a real file or directory, serve it
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Otherwise, serve index.html for all routes (SPA routing)
+RewriteRule ^ index.html [L]
