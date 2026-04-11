@@ -46,6 +46,9 @@ exports.createOrder = async (req, res) => {
             roomInfo,
             searchParams,
             contactDetails,
+            // Rate conditions and policies for email
+            rateConditions,
+            cancellationPolicies,
             // Markup tracking
             originalAmount,
             markupAmount,
@@ -96,6 +99,9 @@ exports.createOrder = async (req, res) => {
             roomInfo: roomInfo || null,
             searchParams: searchParams || null,
             contactDetails: contactDetails || null,
+            // Rate conditions and policies for email
+            rateConditions: rateConditions || null,
+            cancellationPolicies: cancellationPolicies || null,
             // Markup tracking
             originalAmount: originalAmount || amount,
             markupAmount: markupAmount || 0,
@@ -312,10 +318,14 @@ exports.verifyPayment = async (req, res) => {
             const emailData = {
                 customerName: fullName,
                 hotelName: pendingBooking.hotelInfo?.hotelName || pendingBooking.hotelInfo?.HotelName || 'Your Hotel',
+                hotelAddress: pendingBooking.hotelInfo?.address || '',
                 checkIn: pendingBooking.searchParams?.checkIn || '',
                 checkOut: pendingBooking.searchParams?.checkOut || '',
                 bookingId: bookResult.BookingId || bookResult.BookingRefNo || razorpay_order_id,
                 amount: pendingBooking.amount,
+                roomDetails: pendingBooking.hotelRoomsDetails || [],
+                rateConditions: pendingBooking.rateConditions || {},
+                cancellationPolicies: pendingBooking.cancellationPolicies || []
             };
 
             sendEmail({
@@ -597,10 +607,14 @@ exports.retryBookingWithUpdatedPrice = async (req, res) => {
             const emailData = {
                 customerName: fullName,
                 hotelName: pendingBooking.hotelInfo?.hotelName || pendingBooking.hotelInfo?.HotelName || 'Your Hotel',
+                hotelAddress: pendingBooking.hotelInfo?.address || '',
                 checkIn: pendingBooking.searchParams?.checkIn || '',
                 checkOut: pendingBooking.searchParams?.checkOut || '',
                 bookingId: bookResult.BookingId || bookResult.BookingRefNo || orderId,
                 amount: pendingBooking.amount,
+                roomDetails: pendingBooking.hotelRoomsDetails || [],
+                rateConditions: pendingBooking.rateConditions || {},
+                cancellationPolicies: pendingBooking.cancellationPolicies || []
             };
 
             sendEmail({

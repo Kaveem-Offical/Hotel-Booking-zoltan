@@ -93,6 +93,53 @@ const PaymentPage = () => {
         return preBookData?.Rooms?.[0]?.Name?.[0] || room?.Name?.[0] || 'Selected Room';
     };
 
+    // Parse rate conditions from preBookData
+    const getRateConditions = () => {
+        const conditions = preBookData?.RateConditions || [];
+        const parsed = {
+            checkInTimeBegin: '',
+            checkInTimeEnd: '',
+            checkOutTime: '',
+            checkInInstructions: '',
+            specialInstructions: '',
+            minimumCheckInAge: '',
+            optionalFees: '',
+            cardsAccepted: '',
+            otherPolicies: []
+        };
+
+        conditions.forEach(condition => {
+            const trimmed = condition.trim();
+            if (trimmed.startsWith('CheckIn Time-Begin:')) {
+                parsed.checkInTimeBegin = trimmed.replace('CheckIn Time-Begin:', '').trim();
+            } else if (trimmed.startsWith('CheckIn Time-End:')) {
+                parsed.checkInTimeEnd = trimmed.replace('CheckIn Time-End:', '').trim();
+            } else if (trimmed.startsWith('CheckOut Time:')) {
+                parsed.checkOutTime = trimmed.replace('CheckOut Time:', '').trim();
+            } else if (trimmed.startsWith('CheckIn Instructions:')) {
+                parsed.checkInInstructions = trimmed.replace('CheckIn Instructions:', '').trim();
+            } else if (trimmed.startsWith('Special Instructions')) {
+                parsed.specialInstructions = trimmed.replace(/Special Instructions\s*:?/, '').trim();
+            } else if (trimmed.startsWith('Minimum CheckIn Age')) {
+                parsed.minimumCheckInAge = trimmed.replace(/Minimum CheckIn Age\s*:?/, '').trim();
+            } else if (trimmed.startsWith('Optional Fees:')) {
+                parsed.optionalFees = trimmed.replace('Optional Fees:', '').trim();
+            } else if (trimmed.startsWith('Cards Accepted:')) {
+                parsed.cardsAccepted = trimmed.replace('Cards Accepted:', '').trim();
+            } else {
+                parsed.otherPolicies.push(trimmed);
+            }
+        });
+
+        return parsed;
+    };
+
+    // Get cancellation policies from preBookData
+    const getCancellationPolicies = () => {
+        const roomData = preBookData?.Rooms?.[0] || {};
+        return roomData.CancelPolicies || [];
+    };
+
     // Get currency and amount
     const getCurrency = () => preBookData?.Currency || 'INR';
     const getAmount = () => netAmount || preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare || 0;
@@ -249,7 +296,10 @@ const PaymentPage = () => {
                 markupPercentage: room?.MarkupPercentage || 0,
                 // Coupon tracking
                 couponCode: couponApplied?.code || null,
-                couponDiscount: couponApplied?.discount || 0
+                couponDiscount: couponApplied?.discount || 0,
+                // Rate conditions and cancellation policies for email
+                rateConditions: getRateConditions(),
+                cancellationPolicies: getCancellationPolicies()
             };
 
             // console.log('Creating payment order:', orderData);

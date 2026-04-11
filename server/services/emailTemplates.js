@@ -249,8 +249,137 @@ const ctaButton = (label, url, { bgColor } = {}) => `
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const getBookingConfirmationTemplate = (data) => {
-  const { customerName, hotelName, checkIn, checkOut, bookingId, amount } = data;
+  const {
+    customerName,
+    hotelName,
+    checkIn,
+    checkOut,
+    bookingId,
+    amount,
+    hotelAddress = '',
+    roomDetails = [],
+    rateConditions = {},
+    cancellationPolicies = []
+  } = data;
   const nights = calcNights(checkIn, checkOut);
+
+  // Build room details HTML
+  const buildRoomDetailsHtml = () => {
+    if (!roomDetails || roomDetails.length === 0) return '';
+
+    return roomDetails.map((room, index) => {
+      const passengerCount = room.HotelPassenger?.length || 0;
+      const adults = room.HotelPassenger?.filter(p => p.PaxType === 'Adult').length || 0;
+      const children = room.HotelPassenger?.filter(p => p.PaxType === 'Child').length || 0;
+
+      return `
+                <tr>
+                  <td style="padding:14px 24px;">
+                    <p style="margin:0;color:${BRAND.textMuted};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Room ${index + 1}</p>
+                    <p style="margin:4px 0 0;color:${BRAND.textDark};font-size:15px;font-weight:600;">${room.RoomTypeName || room.name || 'Standard Room'}</p>
+                    <p style="margin:2px 0 0;color:${BRAND.textMuted};font-size:13px;">${room.inclusion || room.mealType || 'Room Only'}</p>
+                    <p style="margin:4px 0 0;color:${BRAND.textDark};font-size:13px;">
+                      <strong>${adults}</strong> Adult${adults !== 1 ? 's' : ''}${children > 0 ? `, <strong>${children}</strong> Child${children !== 1 ? 'ren' : ''}` : ''}
+                    </p>
+                  </td>
+                </tr>
+                ${index < roomDetails.length - 1 ? `<tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid ${BRAND.borderColor};margin:0;" /></td></tr>` : ''}
+      `;
+    }).join('');
+  };
+
+  // Build hotel policy HTML
+  const buildHotelPolicyHtml = () => {
+    const policies = [];
+
+    if (rateConditions.checkInTimeBegin) {
+      policies.push(`<strong>Check-in Time:</strong> From ${rateConditions.checkInTimeBegin}${rateConditions.checkInTimeEnd ? ` - ${rateConditions.checkInTimeEnd}` : ''}`);
+    }
+    if (rateConditions.checkOutTime) {
+      policies.push(`<strong>Check-out Time:</strong> ${rateConditions.checkOutTime}`);
+    }
+    if (rateConditions.minimumCheckInAge) {
+      policies.push(`<strong>Minimum Check-in Age:</strong> ${rateConditions.minimumCheckInAge}`);
+    }
+    if (rateConditions.cardsAccepted) {
+      policies.push(`<strong>Cards Accepted:</strong> ${rateConditions.cardsAccepted}`);
+    }
+    if (rateConditions.specialInstructions) {
+      policies.push(`<strong>Special Instructions:</strong> ${rateConditions.specialInstructions}`);
+    }
+    if (rateConditions.checkInInstructions) {
+      // Strip HTML tags for email
+      const instructions = rateConditions.checkInInstructions.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      policies.push(`<strong>Check-in Instructions:</strong> ${instructions}`);
+    }
+    if (rateConditions.otherPolicies && rateConditions.otherPolicies.length > 0) {
+      rateConditions.otherPolicies.forEach(policy => {
+        if (policy && !policy.includes('Cancellation Policy')) {
+          policies.push(policy);
+        }
+      });
+    }
+
+    // Default early checkout policy
+    policies.push('Early check out will attract full cancellation charge unless otherwise specified');
+
+    if (policies.length === 0) return '';
+
+    return `
+                <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid ${BRAND.borderColor};margin:0;" /></td></tr>
+                <tr>
+                  <td style="padding:14px 24px;">
+                    <p style="margin:0;color:${BRAND.textMuted};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Hotel Policy</p>
+                    <div style="margin:8px 0 0;color:${BRAND.textDark};font-size:13px;line-height:1.6;">
+                      ${policies.map(p => `<p style="margin:0 0 6px 0;">• ${p}</p>`).join('')}
+                    </div>
+                  </td>
+                </tr>
+    `;
+  };
+
+  // Build cancellation policy HTML
+  const buildCancellationPolicyHtml = () => {
+    if (!cancellationPolicies || cancellationPolicies.length === 0) return '';
+
+    const policyRows = cancellationPolicies.map(policy => {
+      const fromDate = policy.FromDate ? formatDate(policy.FromDate) : '-';
+      const toDate = policy.ToDate ? formatDate(policy.ToDate) : '-';
+      const charge = policy.ChargeType === 'Percentage'
+        ? `${policy.CancellationCharge}%`
+        : `₹${policy.CancellationCharge || 0}`;
+
+      return `
+                      <tr>
+                        <td style="padding:8px;border:1px solid ${BRAND.borderColor};font-size:12px;color:${BRAND.textDark};">${fromDate}</td>
+                        <td style="padding:8px;border:1px solid ${BRAND.borderColor};font-size:12px;color:${BRAND.textDark};">${toDate}</td>
+                        <td style="padding:8px;border:1px solid ${BRAND.borderColor};font-size:12px;color:${BRAND.dangerColor};font-weight:600;">${charge}</td>
+                      </tr>
+      `;
+    }).join('');
+
+    return `
+                <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid ${BRAND.borderColor};margin:0;" /></td></tr>
+                <tr>
+                  <td style="padding:14px 24px;">
+                    <p style="margin:0;color:${BRAND.textMuted};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Cancellation Policy</p>
+                    <p style="margin:4px 0 8px 0;color:${BRAND.textDark};font-size:13px;font-weight:600;">Room 01: ${roomDetails?.[0]?.RoomTypeName || roomDetails?.[0]?.name || 'Standard Room'}</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-top:8px;">
+                      <thead>
+                        <tr style="background-color:${BRAND.bgSection};">
+                          <th style="padding:8px;border:1px solid ${BRAND.borderColor};font-size:11px;text-align:left;color:${BRAND.textMuted};font-weight:600;">Cancelled on or After</th>
+                          <th style="padding:8px;border:1px solid ${BRAND.borderColor};font-size:11px;text-align:left;color:${BRAND.textMuted};font-weight:600;">Cancelled on or Before</th>
+                          <th style="padding:8px;border:1px solid ${BRAND.borderColor};font-size:11px;text-align:left;color:${BRAND.textMuted};font-weight:600;">Cancellation Charges</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${policyRows}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+    `;
+  };
 
   return `${wrapperOpen()}
 ${headerBanner({
@@ -269,6 +398,15 @@ ${textBlock(`Great news! Your booking at <strong style="color:${BRAND.textDark};
 ${detailRow('Booking ID', bookingId, { valueColor: BRAND.successColor, valueFontSize: '17px', valueFont: 'monospace' })}
 ${separator()}
 ${detailRow('Hotel', hotelName)}
+${hotelAddress ? `
+${separator()}
+                <tr>
+                  <td style="padding:14px 24px;">
+                    <p style="margin:0;color:${BRAND.textMuted};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Hotel Address</p>
+                    <p style="margin:4px 0 0;color:${BRAND.textDark};font-size:14px;line-height:1.5;">${hotelAddress}</p>
+                  </td>
+                </tr>
+` : ''}
 ${separator()}
                 <!-- Check-in / Check-out side by side -->
                 <tr>
@@ -291,6 +429,17 @@ ${separator()}
 ${detailRow('Duration', `${nights} Night${nights !== 1 ? 's' : ''}`)}
 ${separator()}
 ${detailRow('Amount Paid', formatAmount(amount), { valueColor: BRAND.textDark, valueFontSize: '20px' })}
+${roomDetails && roomDetails.length > 0 ? `
+${separator()}
+                <tr>
+                  <td style="padding:14px 24px;">
+                    <p style="margin:0;color:${BRAND.textMuted};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Room Details</p>
+                  </td>
+                </tr>
+${buildRoomDetailsHtml()}
+` : ''}
+${buildHotelPolicyHtml()}
+${buildCancellationPolicyHtml()}
               </table>
             </td>
           </tr>

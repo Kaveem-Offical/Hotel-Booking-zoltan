@@ -23,6 +23,7 @@ exports.saveBookingData = async (data) => {
                 guest_nationality, contact_details,
                 is_package_fare, is_package_details_mandatory, is_voucher_booking,
                 tbo_response, hotel_rooms_details, search_params,
+                rate_conditions, cancellation_policies,
                 payment_id, payment_signature,
                 status, created_at, completed_at
             ) VALUES (
@@ -34,6 +35,7 @@ exports.saveBookingData = async (data) => {
                 ?, ?,
                 ?, ?, ?,
                 ?, ?, ?,
+                ?, ?, ?, ?,
                 ?, ?,
                 ?, ?, ?
             )
@@ -83,6 +85,8 @@ exports.saveBookingData = async (data) => {
             data.tboResponse ? JSON.stringify(data.tboResponse) : null,
             data.hotelRoomsDetails ? JSON.stringify(data.hotelRoomsDetails) : null,
             data.searchParams ? JSON.stringify(data.searchParams) : null,
+            data.rateConditions ? JSON.stringify(data.rateConditions) : null,
+            data.cancellationPolicies ? JSON.stringify(data.cancellationPolicies) : null,
             data.paymentId || null,
             data.paymentSignature || null,
             data.status || 'pending',
@@ -158,6 +162,8 @@ exports.getBookingData = async (orderId) => {
     if (row.search_params) booking.searchParams = typeof row.search_params === 'string' ? JSON.parse(row.search_params) : row.search_params;
     if (row.contact_details) booking.contactDetails = typeof row.contact_details === 'string' ? JSON.parse(row.contact_details) : row.contact_details;
     if (row.room_info) booking.roomInfo = typeof row.room_info === 'string' ? JSON.parse(row.room_info) : row.room_info;
+    if (row.rate_conditions) booking.rateConditions = typeof row.rate_conditions === 'string' ? JSON.parse(row.rate_conditions) : row.rate_conditions;
+    if (row.cancellation_policies) booking.cancellationPolicies = typeof row.cancellation_policies === 'string' ? JSON.parse(row.cancellation_policies) : row.cancellation_policies;
     
     // Legacy support mapping
     booking.hotelInfo = {
