@@ -14,7 +14,7 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
-const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+const SERVER_URL = process.env.REACT_APP_API_URL || 'https://hotel-booking-zoltan-1.onrender.com';
 const API = `${SERVER_URL}/api/users`;
 
 // Admin emails - add your admin email addresses here
@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
     };
 
     // Save user data to MySQL via API
-    const saveUserData = async (uid, data) => {
+    const saveUserData = async (uid, data, options = {}) => {
         try {
             await axios.post(`${API}/profile`, {
                 uid,
@@ -44,8 +44,14 @@ export function AuthProvider({ children }) {
                 provider: data.provider,
                 photoURL: data.photoURL || '',
             });
+            return { success: true };
         } catch (err) {
             console.error('Error saving user data:', err);
+            // Don't throw for network errors if silent mode is enabled
+            if (options.silent && (!err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED')) {
+                console.warn('Backend unavailable, user saved to Firebase only. Sync will be needed.');
+                return { success: false, error: err, needsSync: true };
+            }
             throw err;
         }
     };
@@ -73,13 +79,25 @@ export function AuthProvider({ children }) {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Save additional user data to database
-            await saveUserData(user.uid, {
+            // Save additional user data to database (silent mode - don't fail if backend is down)
+            const saveResult = await saveUserData(user.uid, {
                 email: user.email,
                 username,
                 phoneNumber,
                 provider: 'email',
-            });
+            }, { silent: true });
+
+            // If backend save failed, store pending sync flag
+            if (!saveResult.success && saveResult.needsSync) {
+                localStorage.setItem(`pending_user_sync_${user.uid}`, JSON.stringify({
+                    uid: user.uid,
+                    email: user.email,
+                    username,
+                    phoneNumber,
+                    provider: 'email',
+                    timestamp: Date.now()
+                }));
+            }
 
             return user;
         } catch (err) {
@@ -111,14 +129,27 @@ export function AuthProvider({ children }) {
             const existingData = await getUserData(user.uid);
 
             if (!existingData) {
-                // Save new user data
-                await saveUserData(user.uid, {
+                // Save new user data (silent mode)
+                const saveResult = await saveUserData(user.uid, {
                     email: user.email,
                     username: user.displayName || user.email.split('@')[0],
                     phoneNumber: user.phoneNumber || '',
                     provider: 'google',
                     photoURL: user.photoURL || '',
-                });
+                }, { silent: true });
+
+                // If backend save failed, store pending sync flag
+                if (!saveResult.success && saveResult.needsSync) {
+                    localStorage.setItem(`pending_user_sync_${user.uid}`, JSON.stringify({
+                        uid: user.uid,
+                        email: user.email,
+                        username: user.displayName || user.email.split('@')[0],
+                        phoneNumber: user.phoneNumber || '',
+                        provider: 'google',
+                        photoURL: user.photoURL || '',
+                        timestamp: Date.now()
+                    }));
+                }
             }
 
             return user;
@@ -299,11 +330,35 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
+    // Retry syncing pending user data to backend
+    const retryPendingSyncs = async () => {
+        try {
+            const keys = Object.keys(localStorage).filter(k => k.startsWith('pending_user_sync_'));
+            for (const key of keys) {
+                const data = JSON.parse(localStorage.getItem(key));
+                try {
+                    const result = await saveUserData(data.uid, data);
+                    if (result.success) {
+                        localStorage.removeItem(key);
+                        console.log(`Synced pending user data for ${data.uid}`);
+                    }
+                } catch (err) {
+                    console.warn(`Still failed to sync user ${data.uid}:`, err.message);
+                }
+            }
+        } catch (err) {
+            console.error('Error retrying pending syncs:', err);
+        }
+    };
+
     // Listen for auth state changes
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
             if (user) {
+                // Try to sync any pending user data first
+                await retryPendingSyncs();
+
                 const data = await getUserData(user.uid);
                 setUserData(data);
                 // Load liked hotels and bookings from MySQL
@@ -341,6 +396,7 @@ export function AuthProvider({ children }) {
         isHotelLiked,
         addBooking,
         updateBookingStatus,
+        retryPendingSyncs,
         isAdmin: userRole === 'admin' || userRole === 'support',
         role: userRole,
     };

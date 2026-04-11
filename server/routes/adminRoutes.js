@@ -20,6 +20,15 @@ router.get('/users/:uid', adminController.getUserDetails);
 // Update user role
 router.put('/users/:uid/role', adminController.updateUserRole);
 
+// Update user (email, username, phone, disabled status)
+router.put('/users/:uid', adminController.updateUser);
+
+// Delete user from both MySQL and Firebase
+router.delete('/users/:uid', adminController.deleteUser);
+
+// Sync all Firebase users to MySQL
+router.post('/users/sync', adminController.syncUsersFromFirebase);
+
 // Markup settings
 router.get('/markup', adminController.getMarkupSettings);
 router.post('/markup', adminController.setMarkupSettings);

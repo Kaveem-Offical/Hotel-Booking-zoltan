@@ -421,6 +421,33 @@ export const updateUserRole = async (uid, role) => {
 };
 
 /**
+ * Delete user from both Firebase and MySQL (Admin)
+ * @param {string} uid - User UID
+ */
+export const deleteUser = async (uid) => {
+  try {
+    const response = await axios.delete(`${SERVER_URL}/api/admin/users/${uid}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting user:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Sync all Firebase users to MySQL (Admin)
+ */
+export const syncUsersFromFirebase = async () => {
+  try {
+    const response = await axios.post(`${SERVER_URL}/api/admin/users/sync`);
+    return response.data;
+  } catch (error) {
+    console.error('Error syncing users from Firebase:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
  * Get markup settings
  */
 export const getMarkupSettings = async () => {

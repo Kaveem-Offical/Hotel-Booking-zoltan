@@ -2,6 +2,8 @@ const config = require('../config/config');
 const db = require('../config/db');
 const bookingService = require('./bookingController');
 const authService = require('../services/authService');
+const firebaseUserService = require('../services/firebaseUserService');
+const { admin } = require('../config/firebaseAdmin');
 const axios = require('axios');
 
 /**
@@ -479,24 +481,33 @@ exports.updateUserRole = async (req, res) => {
     try {
         const { uid } = req.params;
         const { role } = req.body;
-        
+
         if (!['admin', 'support', 'user'].includes(role)) {
             return res.status(400).json({ error: 'Invalid role specified. Must be admin, support, or user.' });
         }
-        
+
         console.log(`\n=== UpdateUserRole: ${uid} -> ${role} ===`);
-        
+
         const [existing] = await db.execute('SELECT uid FROM users WHERE uid = ?', [uid]);
         if (existing.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ error: 'User not found in MySQL' });
         }
-        
+
+        // Update MySQL
         await db.execute(
             `UPDATE users SET role = ?, is_admin = ?, updated_at = NOW() WHERE uid = ?`,
             [role, (role === 'admin' || role === 'support') ? 1 : 0, uid]
         );
-        
-        res.json({ success: true, role, message: 'User role updated successfully' });
+
+        // Sync to Firebase Auth custom claims
+        try {
+            await firebaseUserService.setCustomUserClaims(uid, { role, isAdmin: role === 'admin' || role === 'support' });
+        } catch (fbError) {
+            console.error('Warning: Failed to sync role to Firebase:', fbError.message);
+            // Don't fail the request if Firebase sync fails
+        }
+
+        res.json({ success: true, role, message: 'User role updated successfully in MySQL and Firebase' });
     } catch (error) {
         console.error('UpdateUserRole Error:', error.message);
         res.status(500).json({
@@ -912,5 +923,219 @@ exports.validateCoupon = async (req, res) => {
     } catch (error) {
         console.error('ValidateCoupon Error:', error.message);
         res.status(500).json({ error: 'Failed to validate coupon', message: error.message });
+    }
+};
+
+/**
+ * Delete user from both MySQL and Firebase Auth
+ */
+exports.deleteUser = async (req, res) => {
+    try {
+        const { uid } = req.params;
+        console.log(`\n=== DeleteUser: ${uid} ===`);
+
+        // Check if user exists in MySQL
+        const [existing] = await db.execute('SELECT uid, email FROM users WHERE uid = ?', [uid]);
+        const userExistsInMySQL = existing.length > 0;
+
+        // Delete from Firebase Auth
+        try {
+            await firebaseUserService.deleteUser(uid);
+        } catch (fbError) {
+            console.error('Firebase deletion error:', fbError.message);
+            // Continue even if Firebase deletion fails (user might not exist)
+        }
+
+        // Delete from MySQL if exists
+        if (userExistsInMySQL) {
+            // Delete related data first (liked_hotels, user_bookings via CASCADE or manually)
+            await db.execute('DELETE FROM liked_hotels WHERE user_id = ?', [uid]);
+
+            // Get user's bookings to clean up user_bookings
+            const [bookings] = await db.execute(
+                'SELECT order_id FROM user_bookings WHERE user_id = ?',
+                [uid]
+            );
+
+            // Delete user_bookings entries
+            await db.execute('DELETE FROM user_bookings WHERE user_id = ?', [uid]);
+
+            // Finally delete the user
+            await db.execute('DELETE FROM users WHERE uid = ?', [uid]);
+        }
+
+        res.json({
+            success: true,
+            message: 'User deleted successfully from MySQL and Firebase',
+            deletedFromMySQL: userExistsInMySQL,
+            deletedFromFirebase: true
+        });
+
+    } catch (error) {
+        console.error('DeleteUser Error:', error.message);
+        res.status(500).json({
+            error: 'Failed to delete user',
+            message: error.message
+        });
+    }
+};
+
+/**
+ * Sync all Firebase Auth users to MySQL database
+ * This is useful when Firebase has users but MySQL doesn't
+ */
+exports.syncUsersFromFirebase = async (req, res) => {
+    try {
+        console.log('\n=== SyncUsersFromFirebase ===');
+
+        // Get all users from Firebase Auth
+        const firebaseUsers = await firebaseUserService.listAllUsers();
+        console.log(`Found ${firebaseUsers.length} users in Firebase Auth`);
+
+        let synced = 0;
+        let failed = 0;
+        let skipped = 0;
+        const errors = [];
+
+        for (const firebaseUser of firebaseUsers) {
+            try {
+                // Check if user already exists in MySQL
+                const [existing] = await db.execute('SELECT uid FROM users WHERE uid = ?', [firebaseUser.uid]);
+
+                if (existing.length > 0) {
+                    // Update existing user
+                    await db.execute(
+                        `UPDATE users SET
+                            email = ?,
+                            username = COALESCE(?, username),
+                            photo_url = ?,
+                            provider = ?,
+                            updated_at = NOW()
+                        WHERE uid = ?`,
+                        [
+                            firebaseUser.email,
+                            firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+                            firebaseUser.photoURL,
+                            firebaseUser.providerData?.[0]?.providerId || 'email',
+                            firebaseUser.uid
+                        ]
+                    );
+                    skipped++;
+                } else {
+                    // Insert new user
+                    const userData = firebaseUserService.prepareUserDataForMySQL(firebaseUser);
+                    await db.execute(
+                        `INSERT INTO users (uid, email, username, phone_number, provider, photo_url, role, is_admin, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, 'user', 0, NOW())`,
+                        [
+                            userData.uid,
+                            userData.email,
+                            userData.username,
+                            userData.phoneNumber,
+                            userData.provider,
+                            userData.photoURL
+                        ]
+                    );
+                    synced++;
+                }
+            } catch (userError) {
+                console.error(`Error syncing user ${firebaseUser.uid}:`, userError.message);
+                failed++;
+                errors.push({ uid: firebaseUser.uid, error: userError.message });
+            }
+        }
+
+        res.json({
+            success: true,
+            message: 'User sync completed',
+            stats: {
+                totalFirebaseUsers: firebaseUsers.length,
+                synced,
+                skipped,
+                failed
+            },
+            errors: errors.length > 0 ? errors : undefined
+        });
+
+    } catch (error) {
+        console.error('SyncUsersFromFirebase Error:', error.message);
+        res.status(500).json({
+            error: 'Failed to sync users from Firebase',
+            message: error.message
+        });
+    }
+};
+
+/**
+ * Update user in both MySQL and Firebase
+ */
+exports.updateUser = async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { email, username, phoneNumber, disabled } = req.body;
+
+        console.log(`\n=== UpdateUser: ${uid} ===`);
+
+        // Check if user exists in MySQL
+        const [existing] = await db.execute('SELECT * FROM users WHERE uid = ?', [uid]);
+        if (existing.length === 0) {
+            return res.status(404).json({ error: 'User not found in MySQL' });
+        }
+
+        // Update MySQL
+        const updates = [];
+        const values = [];
+
+        if (email !== undefined) {
+            updates.push('email = ?');
+            values.push(email);
+        }
+        if (username !== undefined) {
+            updates.push('username = ?');
+            values.push(username);
+        }
+        if (phoneNumber !== undefined) {
+            updates.push('phone_number = ?');
+            values.push(phoneNumber);
+        }
+
+        if (updates.length > 0) {
+            updates.push('updated_at = NOW()');
+            values.push(uid);
+
+            await db.execute(
+                `UPDATE users SET ${updates.join(', ')} WHERE uid = ?`,
+                values
+            );
+        }
+
+        // Update Firebase
+        try {
+            const fbUpdates = {};
+            if (email !== undefined) fbUpdates.email = email;
+            if (disabled !== undefined) fbUpdates.disabled = disabled;
+
+            if (Object.keys(fbUpdates).length > 0) {
+                await admin.auth().updateUser(uid, fbUpdates);
+            }
+        } catch (fbError) {
+            console.error('Firebase update error:', fbError.message);
+            return res.status(500).json({
+                error: 'Failed to update Firebase user',
+                message: fbError.message
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'User updated successfully in MySQL and Firebase'
+        });
+
+    } catch (error) {
+        console.error('UpdateUser Error:', error.message);
+        res.status(500).json({
+            error: 'Failed to update user',
+            message: error.message
+        });
     }
 };

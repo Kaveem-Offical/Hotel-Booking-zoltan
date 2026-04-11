@@ -12,7 +12,7 @@ import {
     LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RePieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { getAgencyBalance, getDashboardStats, getAllAdminBookings, cancelBooking, getCancellationStatus, getUserDetails, updateUserRole, getMarkupSettings, setMarkupSettings as saveMarkupAPI, getCommissionStats, createCoupon as createCouponAPI, getAllCoupons, updateCoupon as updateCouponAPI, deleteCoupon as deleteCouponAPI, getPricingStrategies, updatePricingStrategies } from '../services/api';
+import { getAgencyBalance, getDashboardStats, getAllAdminBookings, cancelBooking, getCancellationStatus, getUserDetails, updateUserRole, deleteUser, syncUsersFromFirebase, getMarkupSettings, setMarkupSettings as saveMarkupAPI, getCommissionStats, createCoupon as createCouponAPI, getAllCoupons, updateCoupon as updateCouponAPI, deleteCoupon as deleteCouponAPI, getPricingStrategies, updatePricingStrategies } from '../services/api';
 import AdminChatSection from '../components/AdminChatSection';
 import '../styles/AdminDashboard.css';
 import logo from '../assets/logo.png';
@@ -43,6 +43,8 @@ const AdminPage = () => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [userDetail, setUserDetail] = useState(null);
     const [userDetailLoading, setUserDetailLoading] = useState(false);
+    const [userSyncLoading, setUserSyncLoading] = useState(false);
+    const [userDeleteLoading, setUserDeleteLoading] = useState(false);
 
     // Markup & Commission state
     const [markupPct, setMarkupPct] = useState(0);
@@ -185,6 +187,52 @@ const AdminPage = () => {
             navigate('/signin');
         } catch (error) {
             console.error('Logout error:', error);
+        }
+    };
+
+    const handleDeleteUser = async (uid, email) => {
+        if (!window.confirm(`Are you sure you want to delete user ${email || uid}? This will permanently delete the user from both Firebase and MySQL.`)) {
+            return;
+        }
+        setUserDeleteLoading(true);
+        try {
+            await deleteUser(uid);
+            alert('User deleted successfully from both Firebase and MySQL!');
+            setUsers(prev => prev.filter(u => u.uid !== uid));
+            if (selectedUser?.uid === uid) {
+                setSelectedUser(null);
+                setUserDetail(null);
+            }
+        } catch (error) {
+            alert('Failed to delete user: ' + (error.response?.data?.error || error.message));
+            console.error(error);
+        } finally {
+            setUserDeleteLoading(false);
+        }
+    };
+
+    const handleSyncUsers = async () => {
+        if (!window.confirm('This will sync all users from Firebase to MySQL. Users existing only in Firebase will be added to MySQL. Continue?')) {
+            return;
+        }
+        setUserSyncLoading(true);
+        try {
+            const result = await syncUsersFromFirebase();
+            if (result?.success) {
+                alert(`Sync completed! ${result.stats?.synced} new users added, ${result.stats?.skipped} users updated, ${result.stats?.failed} failed.`);
+                // Refresh user list
+                const unsubscribe = getAllUsers((usersData) => {
+                    setUsers(usersData);
+                });
+                if (typeof unsubscribe === 'function') unsubscribe();
+            } else {
+                alert('Sync failed: ' + (result?.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Failed to sync users: ' + (error.response?.data?.error || error.message));
+            console.error(error);
+        } finally {
+            setUserSyncLoading(false);
         }
     };
 
@@ -1063,6 +1111,7 @@ const AdminPage = () => {
                                                 </div>
                                                 
                                                 {role === 'admin' && (
+                                                    <>
                                                     <div style={{ padding: '0.5rem' }}>
                                                         <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>Change Role</label>
                                                         <select
@@ -1090,6 +1139,15 @@ const AdminPage = () => {
                                                             <option value="admin">Admin</option>
                                                         </select>
                                                     </div>
+                                                    <button
+                                                        className="action-btn cancel"
+                                                        style={{ marginLeft: 'auto', alignSelf: 'center' }}
+                                                        disabled={userDeleteLoading}
+                                                        onClick={() => handleDeleteUser(userDetail.user.uid, userDetail.user.email)}
+                                                    >
+                                                        <Trash2 size={14} /> {userDeleteLoading ? 'Deleting...' : 'Delete User'}
+                                                    </button>
+                                                    </>
                                                 )}
                                             </div>
 
@@ -1228,6 +1286,17 @@ const AdminPage = () => {
                                                 style={{ paddingLeft: '2.25rem' }}
                                             />
                                         </div>
+                                        {role === 'admin' && (
+                                            <button
+                                                className="action-btn view"
+                                                disabled={userSyncLoading}
+                                                onClick={handleSyncUsers}
+                                                title="Sync Firebase users to MySQL"
+                                            >
+                                                <RefreshCw size={12} className={userSyncLoading ? 'refresh-spin' : ''} />
+                                                {userSyncLoading ? 'Syncing...' : 'Sync Firebase'}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1292,9 +1361,21 @@ const AdminPage = () => {
                                                         {formatDate(user.createdAt)}
                                                     </td>
                                                     <td>
-                                                        <button className="action-btn view" onClick={(e) => { e.stopPropagation(); }}>
-                                                            <Eye size={12} /> View
-                                                        </button>
+                                                        <div style={{ display: 'flex', gap: '0.35rem' }}>
+                                                            <button className="action-btn view" onClick={(e) => { e.stopPropagation(); }}>
+                                                                <Eye size={12} /> View
+                                                            </button>
+                                                            {role === 'admin' && (
+                                                                <button
+                                                                    className="action-btn cancel"
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.uid, user.email); }}
+                                                                    disabled={userDeleteLoading}
+                                                                    title="Delete user from Firebase and MySQL"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
