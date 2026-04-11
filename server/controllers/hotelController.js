@@ -6,6 +6,7 @@ const pricingEngine = require('../services/pricingEngine');
 const db = require('../config/db');
 const { sendEmail } = require('../services/emailService');
 const { getBookingConfirmationTemplate, getBookingCancellationTemplate } = require('../services/emailTemplates');
+const bookingService = require('./bookingController');
 
 // Create axios instance with basic auth for static data endpoints
 const createStaticAxiosInstance = () => {
@@ -896,23 +897,77 @@ exports.sendChangeRequest = async (req, res) => {
       });
     }
 
+    // 📝 Update booking status to 'cancelled' in database
+    let orderIdToUse = null;
+    let refundedAmount = null;
+    let cancellationCharge = null;
+    try {
+      console.log(`[SQL UPDATE] Looking up booking by tbo_booking_id: ${BookingId}`);
+      // Use the dedicated tbo_booking_id column for reliable lookup
+      const [rows] = await db.execute(
+        `SELECT order_id FROM bookings WHERE tbo_booking_id = ? LIMIT 1`,
+        [String(BookingId)]
+      );
+      console.log(`[SQL UPDATE] Found ${rows.length} order(s) for tbo_booking_id: ${BookingId}`);
+
+      if (rows.length > 0) {
+        orderIdToUse = rows[0].order_id;
+
+        // Fetch cancellation status for refund details before updating
+        try {
+          const statusRequest = {
+            BookingMode: 5,
+            ChangeRequestId: result.ChangeRequestId,
+            EndUserIp: EndUserIp || process.env.TBO_END_USER_IP || req.ip || '127.0.0.1',
+            TokenId: tokenId
+          };
+          const axiosInstance = createSearchAxiosInstance();
+          const statusResponse = await axiosInstance.post(
+            config.tboApi.getChangeRequestStatusUrl,
+            statusRequest
+          );
+          const statusResult = statusResponse.data.HotelChangeRequestStatusResult || statusResponse.data;
+          if (statusResult.Error?.ErrorCode === 0 || statusResult.ResponseStatus === 1) {
+            refundedAmount = statusResult.RefundedAmount !== undefined ? statusResult.RefundedAmount : null;
+            cancellationCharge = statusResult.CancellationCharge !== undefined ? statusResult.CancellationCharge : null;
+          }
+        } catch (statusErr) {
+          console.error('[SQL UPDATE] Failed to fetch cancellation status for refund details:', statusErr.message);
+        }
+
+        // Update the booking status to 'cancelled' and store cancellation details
+        const cancellationDetails = {
+          changeRequestId: result.ChangeRequestId,
+          changeRequestStatus: result.ChangeRequestStatus,
+          cancelledAt: new Date().toISOString(),
+          remarks: Remarks,
+          refundedAmount,
+          cancellationCharge
+        };
+
+        await db.execute(
+          `UPDATE bookings SET status = 'cancelled', booking_status = 'Cancelled' WHERE order_id = ?`,
+          [orderIdToUse]
+        );
+        console.log(`[SQL UPDATE] ✅ Booking status updated to 'cancelled' for order_id: ${orderIdToUse}`);
+      }
+    } catch (dbErr) {
+      console.error('[SQL UPDATE] Failed to update booking status:', dbErr.message);
+      // Continue - TBO cancellation succeeded, DB update is secondary
+    }
+
     res.json({
       success: true,
-      changeRequestId: result.ChangeRequestId
+      changeRequestId: result.ChangeRequestId,
+      changeRequestStatus: result.ChangeRequestStatus,
+      refundedAmount,
+      cancellationCharge
     });
 
     // 🔔 Send cancellation email (non-blocking)
     // Attempt to fetch booking details from MySQL to get guest email
     try {
-      console.log(`[SQL FETCH] Looking up order_id for cancellation - bookingId: ${BookingId}`);
-      const [rows] = await db.execute(
-        `SELECT order_id FROM bookings WHERE JSON_UNQUOTE(JSON_EXTRACT(tbo_response, '$.bookingId')) = ? LIMIT 1`,
-        [Number(BookingId)]
-      );
-      console.log(`[SQL FETCH] Found ${rows.length} order(s) for bookingId: ${BookingId}`);
-
-      if (rows.length > 0) {
-        const orderIdToUse = rows[0].order_id;
+      if (orderIdToUse) {
         const booking = await bookingService.getBookingData(orderIdToUse);
         const email = booking?.contactDetails?.email;
         if (email) {
@@ -925,6 +980,7 @@ exports.sendChangeRequest = async (req, res) => {
             customerName: fullName,
             hotelName: booking.hotelInfo?.hotelName || booking.hotelInfo?.HotelName || 'Your Hotel',
             bookingId: BookingId,
+            amount: refundedAmount
           };
 
           sendEmail({

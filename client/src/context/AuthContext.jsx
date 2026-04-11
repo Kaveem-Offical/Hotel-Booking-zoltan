@@ -287,23 +287,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // Update booking status
-    const updateBookingStatus = async (bookingId, status, cancellationDetails = null) => {
-        if (!currentUser) throw new Error('Please sign in');
-        try {
-            // Update local state — actual status change happens via admin/cancel API
-            setBookings(prev => prev.map(b =>
-                (b.bookingId === bookingId || b.orderId === bookingId)
-                    ? { ...b, status, ...(cancellationDetails ? { cancellationDetails } : {}) }
-                    : b
-            ));
-            return true;
-        } catch (err) {
-            setError(err.message);
-            throw err;
-        }
-    };
-
     // Fetch liked hotels from API
     const fetchLikedHotels = useCallback(async (uid) => {
         try {
@@ -329,6 +312,25 @@ export function AuthProvider({ children }) {
             setBookings([]);
         }
     }, []);
+
+    // Update booking status
+    const updateBookingStatus = async (bookingId, status, cancellationDetails = null) => {
+        if (!currentUser) throw new Error('Please sign in');
+        try {
+            // Update local state — actual status change happens via admin/cancel API
+            setBookings(prev => prev.map(b =>
+                (b.bookingId === bookingId || b.orderId === bookingId)
+                    ? { ...b, status, ...(cancellationDetails ? { cancellationDetails } : {}) }
+                    : b
+            ));
+            // Refresh bookings from server to ensure we have the latest data
+            await fetchBookings(currentUser.uid);
+            return true;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        }
+    };
 
     // Retry syncing pending user data to backend
     const retryPendingSyncs = async () => {
