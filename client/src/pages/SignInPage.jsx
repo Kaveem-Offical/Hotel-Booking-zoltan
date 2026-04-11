@@ -51,7 +51,16 @@ const SignInPage = () => {
             setLoading(true);
             setError('');
             await signIn(formData.email, formData.password);
-            navigate('/');
+
+            // Check if there's a pending booking to complete
+            const pendingBooking = localStorage.getItem('pendingBooking');
+            if (pendingBooking) {
+                const bookingData = JSON.parse(pendingBooking);
+                localStorage.removeItem('pendingBooking');
+                navigate('/checkout', { state: bookingData });
+            } else {
+                navigate('/');
+            }
         } catch (err) {
             setError(getErrorMessage(err.code));
         } finally {
@@ -64,7 +73,16 @@ const SignInPage = () => {
             setLoading(true);
             setError('');
             await signInWithGoogle();
-            navigate('/');
+
+            // Check if there's a pending booking to complete
+            const pendingBooking = localStorage.getItem('pendingBooking');
+            if (pendingBooking) {
+                const bookingData = JSON.parse(pendingBooking);
+                localStorage.removeItem('pendingBooking');
+                navigate('/checkout', { state: bookingData });
+            } else {
+                navigate('/');
+            }
         } catch (err) {
             setError(getErrorMessage(err.code));
         } finally {

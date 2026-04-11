@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { fetchHotelDetails, searchHotels, fetchBasicHotelInfo } from '../services/api';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import ErrorAlert from '../components/ErrorAlert';
 
 const HotelDetailsPage = () => {
@@ -229,9 +230,30 @@ const HotelDetailsPage = () => {
         }
     };
 
+    const { currentUser } = useAuth();
+
     // Handle room reservation - navigate to checkout
     const handleReserve = (room) => {
         if (!room || !room.pricing) return;
+
+        // Check if user is signed in
+        if (!currentUser) {
+            // Store booking intent in localStorage
+            const bookingIntent = {
+                hotel: hotel,
+                room: room.pricing,
+                searchParams: searchParams,
+                bookingCode: room.pricing.BookingCode,
+                redirectTo: '/checkout'
+            };
+            localStorage.setItem('pendingBooking', JSON.stringify(bookingIntent));
+
+            // Show alert and redirect to signin
+            if (window.confirm('Please sign in to complete your booking. Click OK to go to the sign in page.')) {
+                navigate('/signin');
+            }
+            return;
+        }
 
         // Navigate to checkout page with all necessary data
         navigate('/checkout', {
