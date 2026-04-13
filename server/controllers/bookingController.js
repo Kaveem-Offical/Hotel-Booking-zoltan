@@ -35,7 +35,8 @@ exports.saveBookingData = async (data) => {
                 ?, ?,
                 ?, ?, ?,
                 ?, ?, ?,
-                ?, ?, ?,
+                ?, ?,
+                ?, ?,
                 ?, ?, ?
             )
             ON DUPLICATE KEY UPDATE

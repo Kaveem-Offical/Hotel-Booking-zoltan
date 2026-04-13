@@ -237,12 +237,12 @@ const GuestDetailsPage = () => {
             newErrors.billingCountry = 'Country is required';
         }
 
-        // Passport and PAN validation logic
+        // PAN validation logic - only required when billing country is NOT India
         guestDetails.forEach((guest, index) => {
             if (!isInternational && guest.isLead) {
                 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
                 if (!guest.panNumber?.trim()) {
-                    newErrors[`guest${index}Pan`] = 'PAN is required for domestic bookings';
+                    newErrors[`guest${index}Pan`] = 'PAN is required for international bookings';
                 } else if (!panRegex.test(guest.panNumber.trim().toUpperCase())) {
                     newErrors[`guest${index}Pan`] = 'Invalid PAN format';
                 }
@@ -1116,7 +1116,8 @@ const GuestDetailsPage = () => {
                                                     <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>
                                                 )}
                                             </div>
-                                            {!isInternational && guest.isLead && (
+                                            {/* PAN field - only shown when billing country is NOT India */}
+                                            {hotel?.CountryCode !== 'IN' && guest.isLead && (
                                                 <div>
                                                     <label className="block text-xs font-medium text-gray-600 mb-1">
                                                         PAN <span className="text-red-500">*</span>
@@ -1304,7 +1305,7 @@ const GuestDetailsPage = () => {
                                         <span className="font-bold text-gray-800">Total Amount</span>
                                         <div className="text-right">
                                             <div className="text-2xl font-bold text-blue-600">
-                                                ₹ {Math.round(pricing.netAmount).toLocaleString()}
+                                                ₹ {Math.round(pricing.totalFare).toLocaleString()}
                                             </div>
                                             <div className="text-xs text-gray-500">Inclusive of all taxes</div>
                                         </div>
@@ -1382,7 +1383,7 @@ const GuestDetailsPage = () => {
                 <div className="flex items-center justify-between">
                     <div>
                         <div className="text-xs text-gray-500">Total Amount</div>
-                        <div className="text-xl font-bold text-blue-600">₹ {Math.round(pricing.netAmount).toLocaleString()}</div>
+                        <div className="text-xl font-bold text-blue-600">₹ {Math.round(pricing.totalFare).toLocaleString()}</div>
                     </div>
                     <button
                         onClick={handleSubmit}
