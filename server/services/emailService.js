@@ -12,7 +12,7 @@ const { getTemplateByType } = require('./emailTemplates');
  *   ZEPTOMAIL_FROM_NAME – Sender display name (default: Zovotel)
  */
 
-const ZEPTOMAIL_URL = 'api.zeptomail.com/';
+const ZEPTOMAIL_URL = 'api.zeptomail.in/';
 const ZEPTOMAIL_TOKEN = process.env.ZEPTOMAIL_TOKEN;
 const FROM_EMAIL = process.env.ZEPTOMAIL_FROM || process.env.SES_FROM_EMAIL || 'support@zovotel.com';
 const FROM_NAME = process.env.ZEPTOMAIL_FROM_NAME || 'Zovotel';
@@ -21,14 +21,9 @@ const FROM_NAME = process.env.ZEPTOMAIL_FROM_NAME || 'Zovotel';
 let client;
 if (ZEPTOMAIL_TOKEN) {
   client = new SendMailClient({ url: ZEPTOMAIL_URL, token: ZEPTOMAIL_TOKEN });
-  console.log('✅ ZeptoMail client initialized successfully');
 } else {
   console.warn('⚠️  ZEPTOMAIL_TOKEN not set – emails will be logged but NOT sent.');
-  console.warn('   To enable email sending, add ZEPTOMAIL_TOKEN to your .env file');
 }
-
-// Log sender configuration
-console.log(`📧 Email FROM address: ${FROM_EMAIL}`);
 
 /**
  * Send an email via Zoho ZeptoMail
@@ -63,14 +58,7 @@ const sendEmail = async ({ to, subject, html, toName }) => {
   // If no token configured, log the email and return gracefully
   if (!client) {
     console.log(`📧  [DRY-RUN] Email to ${to} | Subject: "${subject}" (ZEPTOMAIL_TOKEN not configured)`);
-    console.log(`    Check server logs - email not sent because ZEPTOMAIL_TOKEN is missing`);
     return { dryRun: true, to, subject };
-  }
-
-  // Validate recipient email
-  if (!to || (Array.isArray(to) && to.length === 0) || (typeof to === 'string' && !to.includes('@'))) {
-    console.error(`❌ Email validation failed: invalid recipient "${to}"`);
-    throw new Error(`Invalid recipient email: ${to}`);
   }
 
   try {
