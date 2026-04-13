@@ -309,6 +309,7 @@ exports.verifyPayment = async (req, res) => {
         });
 
         // 🔔 Send booking confirmation email (non-blocking)
+        console.log(`📧 [Email Trigger] Payment verify - guest email: ${pendingBooking.contactDetails?.email || 'MISSING'}`);
         if (pendingBooking.contactDetails?.email) {
             const guestName = pendingBooking.hotelRoomsDetails?.[0]?.HotelPassenger?.[0];
             const fullName = guestName
@@ -328,11 +329,16 @@ exports.verifyPayment = async (req, res) => {
                 cancellationPolicies: pendingBooking.cancellationPolicies || []
             };
 
+            console.log(`📧 [Email Trigger] Sending confirmation to: ${pendingBooking.contactDetails.email}`);
             sendEmail({
                 to: pendingBooking.contactDetails.email,
                 subject: `Booking Confirmed – ${emailData.hotelName} | Zovotel`,
                 html: getBookingConfirmationTemplate(emailData),
-            }).catch(err => console.error('Non-blocking confirmation email error:', err.message));
+            }).then(() => {
+                console.log(`✅ [Email Trigger] Confirmation email sent to: ${pendingBooking.contactDetails.email}`);
+            }).catch(err => console.error('❌ [Email Trigger] Confirmation email error:', err.message));
+        } else {
+            console.warn(`⚠️ [Email Trigger] No guest email - cannot send confirmation email`);
         }
 
     } catch (error) {
@@ -598,6 +604,7 @@ exports.retryBookingWithUpdatedPrice = async (req, res) => {
         });
 
         // Send booking confirmation email (non-blocking)
+        console.log(`📧 [Email Trigger] Retry booking - guest email: ${pendingBooking.contactDetails?.email || 'MISSING'}`);
         if (pendingBooking.contactDetails?.email) {
             const guestName = pendingBooking.hotelRoomsDetails?.[0]?.HotelPassenger?.[0];
             const fullName = guestName
@@ -617,11 +624,16 @@ exports.retryBookingWithUpdatedPrice = async (req, res) => {
                 cancellationPolicies: pendingBooking.cancellationPolicies || []
             };
 
+            console.log(`📧 [Email Trigger] Sending retry confirmation to: ${pendingBooking.contactDetails.email}`);
             sendEmail({
                 to: pendingBooking.contactDetails.email,
                 subject: `Booking Confirmed – ${emailData.hotelName} | Zovotel`,
                 html: getBookingConfirmationTemplate(emailData),
-            }).catch(err => console.error('Non-blocking confirmation email error:', err.message));
+            }).then(() => {
+                console.log(`✅ [Email Trigger] Retry confirmation email sent to: ${pendingBooking.contactDetails.email}`);
+            }).catch(err => console.error('❌ [Email Trigger] Retry confirmation email error:', err.message));
+        } else {
+            console.warn(`⚠️ [Email Trigger] No guest email in retry - cannot send confirmation email`);
         }
 
     } catch (error) {

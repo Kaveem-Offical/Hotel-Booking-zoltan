@@ -630,6 +630,7 @@ exports.bookHotel = async (req, res) => {
     if (isBookSuccess && HotelRoomsDetails?.[0]?.HotelPassenger?.[0]) {
         const guest = HotelRoomsDetails[0].HotelPassenger[0];
         const guestEmail = guest.Email;
+        console.log(`📧 [Email Trigger] Booking confirmed. Guest email: ${guestEmail || 'MISSING'}`);
         if (guestEmail) {
             const emailData = {
                 customerName: `${guest.FirstName || ''} ${guest.LastName || ''}`.trim() || 'Guest',
@@ -639,13 +640,20 @@ exports.bookHotel = async (req, res) => {
                 bookingId: bookResult.BookingId || bookResult.BookingRefNo || BookingCode,
                 amount: NetAmount,
             };
+            console.log(`📧 [Email Trigger] Sending confirmation to: ${guestEmail}`);
 
             sendEmail({
                 to: guestEmail,
                 subject: `Booking Confirmed – ${emailData.hotelName} | Zovotel`,
                 html: getBookingConfirmationTemplate(emailData),
-            }).catch(err => console.error('Non-blocking confirmation email error:', err.message));
+            }).then(() => {
+                console.log(`✅ [Email Trigger] Confirmation email sent to: ${guestEmail}`);
+            }).catch(err => console.error('❌ [Email Trigger] Confirmation email error:', err.message));
+        } else {
+            console.warn(`⚠️ [Email Trigger] No guest email found - cannot send confirmation email`);
         }
+    } else {
+        console.log(`📧 [Email Trigger] Skipping email - Success: ${isBookSuccess}, HasGuestData: ${!!HotelRoomsDetails?.[0]?.HotelPassenger?.[0]}`);
     }
   } catch (error) {
     console.error('\n=== Book Error ===');
@@ -968,8 +976,10 @@ exports.sendChangeRequest = async (req, res) => {
     // Attempt to fetch booking details from MySQL to get guest email
     try {
       if (orderIdToUse) {
+        console.log(`📧 [Email Trigger] Cancellation - fetching booking: ${orderIdToUse}`);
         const booking = await bookingService.getBookingData(orderIdToUse);
         const email = booking?.contactDetails?.email;
+        console.log(`📧 [Email Trigger] Cancellation - guest email: ${email || 'MISSING'}`);
         if (email) {
           const guestName = booking.hotelRoomsDetails?.[0]?.HotelPassenger?.[0];
           const fullName = guestName
@@ -983,15 +993,22 @@ exports.sendChangeRequest = async (req, res) => {
             amount: refundedAmount
           };
 
+          console.log(`📧 [Email Trigger] Sending cancellation email to: ${email}`);
           sendEmail({
             to: email,
             subject: `Booking Cancelled – ${emailData.hotelName} | Zovotel`,
             html: getBookingCancellationTemplate(emailData),
-          }).catch(err => console.error('Non-blocking cancellation email error:', err.message));
+          }).then(() => {
+            console.log(`✅ [Email Trigger] Cancellation email sent to: ${email}`);
+          }).catch(err => console.error('❌ [Email Trigger] Cancellation email error:', err.message));
+        } else {
+          console.warn(`⚠️ [Email Trigger] No guest email found for cancellation`);
         }
+      } else {
+        console.log(`📧 [Email Trigger] Skipping cancellation email - no orderIdToUse`);
       }
     } catch (emailLookupErr) {
-      console.error('Non-blocking cancellation email lookup error:', emailLookupErr.message);
+      console.error('❌ [Email Trigger] Cancellation email lookup error:', emailLookupErr.message);
     }
   } catch (error) {
     console.error('\n=== SendChangeRequest Error ===');

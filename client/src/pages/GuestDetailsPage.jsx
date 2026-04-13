@@ -237,9 +237,9 @@ const GuestDetailsPage = () => {
             newErrors.billingCountry = 'Country is required';
         }
 
-        // PAN validation logic - only required when billing country is NOT India
+        // PAN validation logic - only required for international bookings (hotel country is NOT India)
         guestDetails.forEach((guest, index) => {
-            if (!isInternational && guest.isLead) {
+            if (isInternational && guest.isLead) {
                 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
                 if (!guest.panNumber?.trim()) {
                     newErrors[`guest${index}Pan`] = 'PAN is required for international bookings';
@@ -1116,8 +1116,8 @@ const GuestDetailsPage = () => {
                                                     <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>
                                                 )}
                                             </div>
-                                            {/* PAN field - only shown when billing country is NOT India */}
-                                            {hotel?.CountryCode !== 'IN' && guest.isLead && (
+                                            {/* PAN field - only shown for international bookings */}
+                                            {isInternational && guest.isLead && (
                                                 <div>
                                                     <label className="block text-xs font-medium text-gray-600 mb-1">
                                                         PAN <span className="text-red-500">*</span>

@@ -233,6 +233,19 @@ const ProfilePage = () => {
         return date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     };
 
+    // Helper to parse DD-MM-YYYY HH:MM:SS format from API
+    const parseCancellationDeadline = (dateStr) => {
+        if (!dateStr) return null;
+        // Format: "27-05-2026 23:59:59" -> DD-MM-YYYY HH:MM:SS
+        const match = dateStr.match(/(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})/);
+        if (match) {
+            const [, day, month, year, hour, minute, second] = match;
+            return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+        }
+        // Fallback to standard parsing if format differs
+        return new Date(dateStr);
+    };
+
     const copyToClipboard = (text, field) => {
         navigator.clipboard.writeText(text);
         setCopiedField(field);
@@ -555,7 +568,7 @@ const ProfilePage = () => {
                                             {/* Actions */}
                                             <div className="flex flex-wrap gap-2 items-center">
                                                 {booking.status === 'booked' && (() => {
-                                                    const deadline = booking.lastCancellationDeadline ? new Date(booking.lastCancellationDeadline) : null;
+                                                    const deadline = parseCancellationDeadline(booking.lastCancellationDeadline);
                                                     const now = new Date();
                                                     const canCancel = !deadline || now < deadline;
 
@@ -943,14 +956,14 @@ const ProfilePage = () => {
 
                             {/* Cancellation Deadline */}
                             {selectedBooking.lastCancellationDeadline && (
-                                <div className={`rounded-xl p-3 flex items-center gap-2 ${new Date() < new Date(selectedBooking.lastCancellationDeadline)
+                                <div className={`rounded-xl p-3 flex items-center gap-2 ${new Date() < parseCancellationDeadline(selectedBooking.lastCancellationDeadline)
                                         ? 'bg-green-50 text-green-700'
                                         : 'bg-red-50 text-red-600'
                                     }`}>
                                     <Clock size={16} />
                                     <div className="text-sm">
-                                        {new Date() < new Date(selectedBooking.lastCancellationDeadline)
-                                            ? <>Free cancellation until <strong>{formatBookingDate(selectedBooking.lastCancellationDeadline)}</strong></>
+                                        {new Date() < parseCancellationDeadline(selectedBooking.lastCancellationDeadline)
+                                            ? <>Free cancellation until <strong>{formatBookingDate(parseCancellationDeadline(selectedBooking.lastCancellationDeadline))}</strong></>
                                             : <>Cancellation deadline passed ({formatBookingDate(selectedBooking.lastCancellationDeadline)})</>
                                         }
                                     </div>
@@ -965,7 +978,7 @@ const ProfilePage = () => {
                             {/* Actions */}
                             <div className="flex gap-3">
                                 {selectedBooking.status === 'booked' && (() => {
-                                    const deadline = selectedBooking.lastCancellationDeadline ? new Date(selectedBooking.lastCancellationDeadline) : null;
+                                    const deadline = parseCancellationDeadline(selectedBooking.lastCancellationDeadline);
                                     const canCancel = !deadline || new Date() < deadline;
                                     return canCancel ? (
                                         <button
@@ -1063,7 +1076,7 @@ const ProfilePage = () => {
                                         </div>
                                     </div>
 
-                                    {showCancelDialog.lastCancellationDeadline && new Date() < new Date(showCancelDialog.lastCancellationDeadline) && (
+                                    {showCancelDialog.lastCancellationDeadline && new Date() < parseCancellationDeadline(showCancelDialog.lastCancellationDeadline) && (
                                         <div className="bg-green-50 rounded-lg p-3 mb-5 text-center">
                                             <p className="text-xs text-green-700">
                                                 <CheckCircle size={12} className="inline mr-1" />
