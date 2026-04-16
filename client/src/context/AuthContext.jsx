@@ -14,7 +14,7 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
-const SERVER_URL = process.env.REACT_APP_API_URL || 'https://hotel-booking-zoltan-1.onrender.com';
+const SERVER_URL = 'https://api.zovotel.com';
 const API = `${SERVER_URL}/api/users`;
 
 // Admin emails - add your admin email addresses here

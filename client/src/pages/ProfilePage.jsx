@@ -240,7 +240,9 @@ const ProfilePage = () => {
         const match = dateStr.match(/(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})/);
         if (match) {
             const [, day, month, year, hour, minute, second] = match;
-            return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+            // Create date using local timezone components to avoid UTC conversion issues
+            const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
+            return date;
         }
         // Fallback to standard parsing if format differs
         return new Date(dateStr);

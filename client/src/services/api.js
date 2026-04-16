@@ -6,7 +6,7 @@ import {
   getCachedHotelDetails
 } from './staticDataService';
 
-const SERVER_URL = process.env.REACT_APP_API_URL || 'https://hotel-booking-zoltan-1.onrender.com';
+const SERVER_URL = 'https://api.zovotel.com';
 const API_BASE_URL = `${SERVER_URL}/api/hotels`;
 
 const api = axios.create({

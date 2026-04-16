@@ -81,8 +81,8 @@ const GuestDetailsPage = () => {
     const childrenCount = searchParams?.children || 0;
     const totalGuests = adultsCount + childrenCount;
 
-    // Check if international booking
-    const isInternational = hotel?.CountryCode !== 'IN';
+    // Check if international booking - only true when hotel data is loaded AND country is not India
+    const isInternational = !!hotel && hotel.CountryCode !== 'IN';
 
     // Initialize guest details
     useEffect(() => {
