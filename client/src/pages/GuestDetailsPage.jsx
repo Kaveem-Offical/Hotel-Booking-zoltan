@@ -300,6 +300,16 @@ const GuestDetailsPage = () => {
         setSubmitting(true);
 
         try {
+            // Calculate netAmount with TDS if applicable
+            const prebookRoom = preBookData?.Rooms?.[0];
+            const priceBreakUp = prebookRoom?.PriceBreakUp?.[0];
+            const taxBreakup = priceBreakUp?.TaxBreakup || [];
+            const tdsTax = taxBreakup.find(tax => tax.TaxType === 'Tax_TDS');
+            const tdsAmount = tdsTax ? tdsTax.TaxAmount : 0;
+
+            // Use NetAmount from API (includes TDS) or calculate manually
+            const finalNetAmount = prebookRoom?.NetAmount || (prebookRoom?.TotalFare + tdsAmount) || prebookRoom?.TotalFare || room?.TotalFare;
+
             // Navigate to payment page with all collected data
             navigate('/payment', {
                 state: {
@@ -312,7 +322,7 @@ const GuestDetailsPage = () => {
                     contactDetails,
                     billingDetails,
                     isInternational,
-                    netAmount: preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare,
+                    netAmount: finalNetAmount,
                     isVoucherBooking
                 }
             });
@@ -367,20 +377,37 @@ const GuestDetailsPage = () => {
         const roomData = preBookData?.Rooms?.[0] || room;
         const priceBreakUp = roomData?.PriceBreakUp?.[0] || {};
         const dayRates = roomData?.DayRates?.[0] || [];
+        const taxBreakup = priceBreakUp?.TaxBreakup || [];
+
+        // Extract TDS from TaxBreakup if present
+        const tdsTax = taxBreakup.find(tax => tax.TaxType === 'Tax_TDS');
+        const tdsAmount = tdsTax ? tdsTax.TaxAmount : 0;
+        const tdsPercentage = tdsTax ? tdsTax.TaxPercentage : 0;
+
+        // Calculate base price from TotalFare (room rate + taxes, excluding TDS)
+        const totalFare = roomData?.TotalFare || 0;
+        const totalTax = roomData?.TotalTax || priceBreakUp?.RoomTax || 0;
+
+        // Use NetAmount from API (TotalFare + TDS) as the final payable amount
+        // If NetAmount not available, calculate it manually
+        const netAmount = roomData?.NetAmount || (totalFare + tdsAmount) || totalFare;
 
         return {
-            basePrice: roomData?.RSP ? (roomData.RSP - (roomData?.TotalTax || 0)) : (dayRates[0]?.BasePrice || priceBreakUp?.RoomRate || roomData?.TotalFare - (roomData?.TotalTax || 0) || 0),
-            totalTax: roomData?.TotalTax || priceBreakUp?.RoomTax || 0,
-            totalFare: roomData?.RSP || roomData?.TotalFare || 0,
-            netAmount: roomData?.RSP || roomData?.NetAmount || roomData?.TotalFare || 0,
+            basePrice: dayRates[0]?.BasePrice || priceBreakUp?.RoomRate || (totalFare - totalTax) || 0,
+            totalTax: totalTax,
+            totalFare: totalFare, // TotalFare = room rate + taxes (without TDS)
+            netAmount: netAmount, // NetAmount = TotalFare + TDS (final payable)
             netTax: roomData?.NetTax || 0,
             currency: preBookData?.Currency || 'INR',
             isRefundable: roomData?.IsRefundable ?? true,
             agentCommission: priceBreakUp?.AgentCommission || 0,
             roomRate: priceBreakUp?.RoomRate || 0,
             roomTax: priceBreakUp?.RoomTax || 0,
-            taxBreakup: priceBreakUp?.TaxBreakup || [],
-            dayRates: dayRates
+            taxBreakup: taxBreakup,
+            dayRates: dayRates,
+            tdsAmount: tdsAmount,
+            tdsPercentage: tdsPercentage,
+            hasTDS: !!tdsTax
         };
     };
 
@@ -1289,10 +1316,12 @@ const GuestDetailsPage = () => {
                                         <span className="font-medium">₹ {Math.round(pricing.totalTax).toLocaleString()}</span>
                                     </div>
 
-                                    {/* Tax Breakdown if available */}
+                                    {/* Tax Breakdown if available (excluding TDS which is shown separately) */}
                                     {pricing.taxBreakup.length > 0 && (
                                         <div className="pl-4 space-y-1 border-l-2 border-gray-200">
-                                            {pricing.taxBreakup.map((tax, idx) => (
+                                            {pricing.taxBreakup
+                                                .filter(tax => tax.TaxType !== 'Tax_TDS')
+                                                .map((tax, idx) => (
                                                 <div key={idx} className="flex justify-between text-xs text-gray-500">
                                                     <span>{tax.TaxType.replace(/_/g, ' ')} ({tax.TaxPercentage}%)</span>
                                                     <span>₹ {Math.round(tax.TaxAmount).toLocaleString()}</span>
@@ -1301,11 +1330,21 @@ const GuestDetailsPage = () => {
                                         </div>
                                     )}
 
+                                    {/* TDS - shown only when applicable */}
+                                    {pricing.hasTDS && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">TDS ({pricing.tdsPercentage}%)</span>
+                                            <span className="font-medium">₹ {Math.round(pricing.tdsAmount).toLocaleString()}</span>
+                                        </div>
+                                    )}
+
                                     <div className="border-t pt-3 flex justify-between">
-                                        <span className="font-bold text-gray-800">Total Amount</span>
+                                        <span className="font-bold text-gray-800">
+                                            {pricing.hasTDS ? 'Total Amount (incl. TDS)' : 'Total Amount'}
+                                        </span>
                                         <div className="text-right">
                                             <div className="text-2xl font-bold text-blue-600">
-                                                ₹ {Math.round(pricing.totalFare).toLocaleString()}
+                                                ₹ {Math.round(pricing.netAmount).toLocaleString()}
                                             </div>
                                             <div className="text-xs text-gray-500">Inclusive of all taxes</div>
                                         </div>
@@ -1382,8 +1421,10 @@ const GuestDetailsPage = () => {
             <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-50">
                 <div className="flex items-center justify-between">
                     <div>
-                        <div className="text-xs text-gray-500">Total Amount</div>
-                        <div className="text-xl font-bold text-blue-600">₹ {Math.round(pricing.totalFare).toLocaleString()}</div>
+                        <div className="text-xs text-gray-500">
+                            {pricing.hasTDS ? 'Total (incl. TDS)' : 'Total Amount'}
+                        </div>
+                        <div className="text-xl font-bold text-blue-600">₹ {Math.round(pricing.netAmount).toLocaleString()}</div>
                     </div>
                     <button
                         onClick={handleSubmit}

@@ -13,7 +13,11 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: "*"
+  origin: [
+    "https://zovotel.com",
+    "http://localhost:3000"
+  ],
+  credentials: true
 }))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -62,13 +66,12 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = config.port;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('='.repeat(60));
   console.log('TBO Hotels Proxy Server Started');
   console.log('='.repeat(60));
-  console.log(`Server running on: http://localhost:${PORT}`);
-  console.log(`API Base URL: ${config.tboApi.baseUrl}`);
-  console.log(`Health Check: http://localhost:${PORT}/health`);
+  console.log(`Server running on: http://0.0.0.0:${PORT}`);
+  console.log(`Health Check: http://0.0.0.0:${PORT}/health`);
   console.log('='.repeat(60));
 });
 

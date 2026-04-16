@@ -145,6 +145,22 @@ const PaymentPage = () => {
     const getAmount = () => netAmount || preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare || 0;
     const getFinalAmount = () => couponApplied ? couponApplied.finalAmount : getAmount();
 
+    // Get TDS information from preBookData
+    const getTDSInfo = () => {
+        const roomData = preBookData?.Rooms?.[0];
+        const priceBreakUp = roomData?.PriceBreakUp?.[0];
+        const taxBreakup = priceBreakUp?.TaxBreakup || [];
+        const tdsTax = taxBreakup.find(tax => tax.TaxType === 'Tax_TDS');
+
+        return {
+            hasTDS: !!tdsTax,
+            amount: tdsTax ? tdsTax.TaxAmount : 0,
+            percentage: tdsTax ? tdsTax.TaxPercentage : 0,
+            totalFare: roomData?.TotalFare || 0,
+            netAmount: roomData?.NetAmount || roomData?.TotalFare || 0
+        };
+    };
+
     // Handle coupon apply
     const handleApplyCoupon = async () => {
         if (!couponCode.trim()) return;
@@ -812,41 +828,61 @@ const PaymentPage = () => {
                             </h2>
 
                             {/* Price Breakdown */}
-                            <div className="space-y-3 mb-4">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Room ({nights} night{nights > 1 ? 's' : ''})</span>
-                                    <span className="text-gray-800">
-                                        {currency} {(amount * 0.82).toFixed(2)}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Taxes & Fees</span>
-                                    <span className="text-gray-800">
-                                        {currency} {(amount * 0.18).toFixed(2)}
-                                    </span>
-                                </div>
-                                {couponApplied && (
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-green-600 flex items-center gap-1">
-                                            <Tag size={12} /> Coupon ({couponApplied.code})
-                                        </span>
-                                        <span className="text-green-600 font-semibold">- {currency} {couponApplied.discount.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                <div className="border-t pt-3 flex justify-between font-bold">
-                                    <span className="text-gray-800">Total Amount</span>
-                                    <div className="text-right">
-                                        {couponApplied && (
-                                            <div className="text-xs text-gray-400 line-through">
-                                                {currency} {amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            {(() => {
+                                const tdsInfo = getTDSInfo();
+                                const roomData = preBookData?.Rooms?.[0] || room;
+                                const totalFare = roomData?.TotalFare || amount;
+                                const totalTax = roomData?.TotalTax || 0;
+                                const roomRate = totalFare - totalTax;
+
+                                return (
+                                    <div className="space-y-3 mb-4">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Room ({nights} night{nights > 1 ? 's' : ''})</span>
+                                            <span className="text-gray-800">
+                                                {currency} {roomRate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Taxes & Fees</span>
+                                            <span className="text-gray-800">
+                                                {currency} {totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        {tdsInfo.hasTDS && (
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-gray-600">TDS ({tdsInfo.percentage}%)</span>
+                                                <span className="text-gray-800">
+                                                    {currency} {tdsInfo.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </span>
                                             </div>
                                         )}
-                                        <span className="text-xl text-blue-600">
-                                            {currency} {getFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </span>
+                                        {couponApplied && (
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-green-600 flex items-center gap-1">
+                                                    <Tag size={12} /> Coupon ({couponApplied.code})
+                                                </span>
+                                                <span className="text-green-600 font-semibold">- {currency} {couponApplied.discount.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        <div className="border-t pt-3 flex justify-between font-bold">
+                                            <span className="text-gray-800">
+                                                {tdsInfo.hasTDS ? 'Total Amount (incl. TDS)' : 'Total Amount'}
+                                            </span>
+                                            <div className="text-right">
+                                                {couponApplied && (
+                                                    <div className="text-xs text-gray-400 line-through">
+                                                        {currency} {amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </div>
+                                                )}
+                                                <span className="text-xl text-blue-600">
+                                                    {currency} {getFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
+                                );
+                            })()}
 
                             {/* Coupon Code Input */}
                             <div className="mb-6">
