@@ -260,7 +260,7 @@ exports.verifyPayment = async (req, res) => {
             const errorMessage = bookResult.Error?.ErrorMessage ||
                 'Booking failed';
 
-            return res.status(400).json({
+            return res.status(200).json({
                 success: false,
                 error: 'Hotel booking failed',
                 message: errorMessage,
@@ -548,7 +548,7 @@ exports.retryBookingWithUpdatedPrice = async (req, res) => {
 
         if (!isSuccess) {
             const errorMessage = bookResult.Error?.ErrorMessage || 'Booking failed';
-            return res.status(400).json({
+            return res.status(200).json({
                 success: false,
                 error: 'Hotel booking failed',
                 message: errorMessage,

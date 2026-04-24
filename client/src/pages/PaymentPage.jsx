@@ -33,6 +33,8 @@ const PaymentPage = () => {
     const [error, setError] = useState(null);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [bookingResult, setBookingResult] = useState(null);
+    const [bookingFailedButPaid, setBookingFailedButPaid] = useState(false);
+    const [failedBookingResult, setFailedBookingResult] = useState(null);
     const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
     // Price/Cancellation change dialog state
@@ -415,12 +417,20 @@ const PaymentPage = () => {
 
             if (verifyResponse.success) {
                 await processSuccessfulBooking(verifyResponse, razorpayResponse);
+            } else if (verifyResponse.paymentCompleted) {
+                setBookingFailedButPaid(true);
+                setFailedBookingResult(verifyResponse);
             } else {
                 setError(verifyResponse.message || 'Booking failed after payment. Please contact support.');
             }
         } catch (err) {
             console.error('Verification error:', err);
-            setError(err.response?.data?.message || 'Payment verification failed. Please contact support.');
+            if (err.response?.data?.paymentCompleted) {
+                setBookingFailedButPaid(true);
+                setFailedBookingResult(err.response.data);
+            } else {
+                setError(err.response?.data?.message || 'Payment verification failed. Please contact support.');
+            }
         } finally {
             setLoading(false);
         }
@@ -487,12 +497,20 @@ const PaymentPage = () => {
             if (retryResponse.success) {
                 setPriceChangeDialog(null);
                 await processSuccessfulBooking(retryResponse, razorpayResponse);
+            } else if (retryResponse.paymentCompleted) {
+                setBookingFailedButPaid(true);
+                setFailedBookingResult(retryResponse);
             } else {
                 setError(retryResponse.message || 'Booking retry failed. Please contact support.');
             }
         } catch (err) {
             console.error('Retry booking error:', err);
-            setError(err.response?.data?.message || 'Failed to retry booking. Please contact support.');
+            if (err.response?.data?.paymentCompleted) {
+                setBookingFailedButPaid(true);
+                setFailedBookingResult(err.response.data);
+            } else {
+                setError(err.response?.data?.message || 'Failed to retry booking. Please contact support.');
+            }
         } finally {
             setRetryingBooking(false);
         }
@@ -561,6 +579,46 @@ const PaymentPage = () => {
                         className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700"
                     >
                         Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Payment Successful but Booking Failed state
+    if (bookingFailedButPaid && failedBookingResult) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-lg w-full text-center border-t-4 border-red-500">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AlertCircle size={32} className="text-red-500" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Booking Failed</h2>
+                    <p className="text-gray-600 mb-6">
+                        Your payment was processed successfully, but the hotel reservation failed. 
+                        <strong> Your money will be refunded within 3-5 business days.</strong>
+                    </p>
+                    
+                    <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left space-y-3">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Payment ID</span>
+                            <span className="font-mono text-xs text-gray-700">{failedBookingResult.paymentId}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Order ID</span>
+                            <span className="font-mono text-xs text-gray-700">{failedBookingResult.orderId}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Reason</span>
+                            <span className="font-medium text-red-600">{failedBookingResult.message || 'Failed at hotel provider'}</span>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => navigate('/')}
+                        className="bg-gray-800 text-white w-full py-3 rounded-lg font-semibold hover:bg-gray-900 transition"
+                    >
+                        Return to Home
                     </button>
                 </div>
             </div>
