@@ -11,6 +11,7 @@ module.exports = {
     bookUrl: process.env.TBO_BOOK_URL || 'https://HotelBE.tektravels.com/hotelservice.svc/rest/book/',
     sendChangeRequestUrl: process.env.TBO_SEND_CHANGE_REQUEST_URL || 'https://HotelBE.tektravels.com/hotelservice.svc/rest/SendChangeRequest',
     getChangeRequestStatusUrl: process.env.TBO_GET_CHANGE_REQUEST_STATUS_URL || 'https://HotelBE.tektravels.com/hotelservice.svc/rest/GetChangeRequestStatus',
+    generateVoucherUrl: process.env.TBO_GENERATE_VOUCHER_URL || 'https://HotelBE.tektravels.com/hotelservice.svc/rest/GenerateVoucher',
     getAgencyBalanceUrl: process.env.TBO_GET_AGENCY_BALANCE_URL || 'http://Sharedapi.tektravels.com/SharedData.svc/rest/GetAgencyBalance',
     // Static data endpoints credentials
     staticAuth: {

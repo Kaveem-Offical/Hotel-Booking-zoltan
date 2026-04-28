@@ -129,9 +129,9 @@ const HotelDetailsPage = () => {
 
             // Step 3: Fetch room availability and pricing (always needed)
             try {
-                const totalAdults = searchParams.adults;
-                const totalChildren = searchParams.children;
                 const expectedRooms = Math.max(1, searchParams.rooms || 1);
+                const totalAdults = Math.max(expectedRooms, searchParams.adults || 2);
+                const totalChildren = searchParams.children || 0;
                 
                 const paxRooms = Array.from({ length: expectedRooms }).map((_, index) => {
                     const baseAdults = Math.floor(totalAdults / expectedRooms);
@@ -158,6 +158,11 @@ const HotelDetailsPage = () => {
                         ChildrenAges: assignedAges
                     };
                 });
+                
+                // Attach paxRooms directly to searchParams so it carries over to GuestDetailsPage
+                searchParams.paxRooms = paxRooms;
+                searchParams.adults = totalAdults;
+                searchParams.rooms = expectedRooms;
 
                 const payload = {
                     checkIn: searchParams.checkIn,

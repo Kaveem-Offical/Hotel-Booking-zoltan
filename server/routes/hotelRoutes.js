@@ -22,6 +22,7 @@ router.get('/search-names', hotelController.searchHotelNames);
 router.post('/prebook', hotelController.preBookHotel);
 router.post('/book', hotelController.bookHotel);
 router.post('/get-booking-details', hotelController.getBookingDetails);
+router.post('/generate-voucher', hotelController.generateVoucher);
 
 // Authenticate route (for testing/debugging token)
 router.post('/authenticate', hotelController.authenticate);

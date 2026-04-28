@@ -316,8 +316,11 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchP
       const newGuests = { ...prev };
       if (type === 'rooms') {
         newGuests.rooms = operation === 'inc' ? Math.min(prev.rooms + 1, 4) : Math.max(prev.rooms - 1, 1);
+        if (newGuests.adults < newGuests.rooms) {
+            newGuests.adults = newGuests.rooms;
+        }
       } else if (type === 'adults') {
-        newGuests.adults = operation === 'inc' ? Math.min(prev.adults + 1, 8) : Math.max(prev.adults - 1, 1);
+        newGuests.adults = operation === 'inc' ? Math.min(prev.adults + 1, 8) : Math.max(prev.adults - 1, prev.rooms);
       } else if (type === 'children') {
         const newCount = operation === 'inc' ? Math.min(prev.children + 1, 4) : Math.max(prev.children - 1, 0);
         newGuests.children = newCount;
@@ -465,7 +468,7 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchP
                   <div className="flex items-center justify-between mb-6">
                     <span className="text-gray-700 dark:text-slate-300 font-medium">Adults</span>
                     <div className="flex items-center gap-4">
-                      <button onClick={() => handleGuestChange('adults', 'dec')} disabled={guests.adults <= 1} className="p-2 rounded-full border border-gray-200 dark:border-slate-600 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 disabled:hover:bg-transparent transition-all duration-200 active:scale-95">
+                      <button onClick={() => handleGuestChange('adults', 'dec')} disabled={guests.adults <= guests.rooms} className="p-2 rounded-full border border-gray-200 dark:border-slate-600 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-400 disabled:hover:bg-transparent transition-all duration-200 active:scale-95">
                         <Minus className="w-4 h-4" />
                       </button>
                       <span className="w-4 text-center font-bold text-gray-800 dark:text-white">{guests.adults}</span>

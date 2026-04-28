@@ -144,7 +144,7 @@ const PaymentPage = () => {
 
     // Get currency and amount
     const getCurrency = () => preBookData?.Currency || 'INR';
-    const getAmount = () => netAmount || preBookData?.Rooms?.[0]?.NetAmount || room?.TotalFare || 0;
+    const getAmount = () => netAmount || preBookData?.Rooms?.[0]?.TotalFare || room?.TotalFare || 0;
     const getFinalAmount = () => couponApplied ? couponApplied.finalAmount : getAmount();
 
     // Get TDS information from preBookData
@@ -204,74 +204,70 @@ const PaymentPage = () => {
 
         try {
             // Build hotel rooms details for TBO API
-            const hotelPassengers = guestDetails.map((guest) => {
-                let title = guest.title;
-                if (title === 'Master') title = 'Mr';
-                
-                const pax = {
-                    Title: title,
-                    FirstName: guest.firstName.trim().substring(0, 25),
-                    MiddleName: guest.middleName?.trim() || '',
-                    LastName: guest.lastName.trim().substring(0, 25),
-                    Phoneno: guest.isLead ? contactDetails.phone : '',
-                    Email: guest.isLead ? contactDetails.email : '',
-                    PaxType: guest.type === 'adult' ? 1 : 2,
-                    LeadPassenger: guest.isLead,
-                    Age: parseInt(guest.age) || (guest.type === 'child' ? 5 : 25)
-                };
-
-                if (!isInternational && guest.isLead && guest.panNumber) {
-                    pax.PAN = guest.panNumber;
-                }
-
-                // Remove strictly empty fields completely
-                Object.keys(pax).forEach(key => {
-                    if (pax[key] === '' || pax[key] === null || pax[key] === undefined) {
-                        delete pax[key];
-                    }
-                });
-
-                return pax;
-            });
-
-            // Map pax onto correct rooms dynamically
+            // Map pax onto correct rooms dynamically based on roomIndex
             const numRooms = searchParams?.rooms || 1;
             const hotelRoomsDetails = [];
             
-            const adultPassengers = hotelPassengers.filter(p => p.PaxType === 1);
-            const childPassengers = hotelPassengers.filter(p => p.PaxType === 2);
-            
-            let aIdx = 0;
-            let cIdx = 0;
+            const prebookRooms = preBookData?.Rooms || [];
             
             for (let i = 0; i < numRooms; i++) {
-                const totalAdults = searchParams?.adults || 2;
-                const totalChildren = searchParams?.children || 0;
+                // For bundled rooms (1 room object for multiple rooms), fallback to index 0
+                const roomIndexData = prebookRooms[i] || prebookRooms[0] || {};
                 
-                const baseAdults = Math.floor(totalAdults / numRooms);
-                const extraAdults = totalAdults % numRooms;
-                const adultsForThisRoom = baseAdults + (i < extraAdults ? 1 : 0);
+                // Extract RoomTypeName safely (can be an array if bundled)
+                let roomTypeName = roomIndexData.RoomTypeName;
+                if (!roomTypeName && roomIndexData.Name) {
+                    if (Array.isArray(roomIndexData.Name)) {
+                        roomTypeName = roomIndexData.Name[i] || roomIndexData.Name[0];
+                    } else {
+                        roomTypeName = roomIndexData.Name;
+                    }
+                }
 
-                const baseChildren = Math.floor(totalChildren / numRooms);
-                const extraChildren = totalChildren % numRooms;
-                const childrenForThisRoom = baseChildren + (i < extraChildren ? 1 : 0);
+                const roomPax = guestDetails
+                    .filter(g => g.roomIndex === (i + 1))
+                    .map((guest) => {
+                        let title = guest.title;
+                        if (title === 'Master') title = 'Mr';
+                        
+                        const pax = {
+                            Title: title,
+                            FirstName: guest.firstName.trim().substring(0, 25),
+                            MiddleName: guest.middleName?.trim() || '',
+                            LastName: guest.lastName.trim().substring(0, 25),
+                            Phoneno: guest.isRoomLead ? contactDetails.phone : '',
+                            Email: guest.isRoomLead ? contactDetails.email : '',
+                            PaxType: guest.type === 'adult' ? 1 : 2,
+                            LeadPassenger: guest.isRoomLead,
+                            Age: parseInt(guest.age) || (guest.type === 'child' ? 5 : 25)
+                        };
+
+                        if (!isInternational && guest.isLead && guest.panNumber) {
+                            pax.PAN = guest.panNumber;
+                        }
+
+                        // Remove strictly empty fields completely
+                        Object.keys(pax).forEach(key => {
+                            if (pax[key] === '' || pax[key] === null || pax[key] === undefined) {
+                                delete pax[key];
+                            }
+                        });
+
+                        return pax;
+                    });
                 
-                const roomPax = [];
-                for(let j=0; j < adultsForThisRoom; j++) {
-                    if (adultPassengers[aIdx]) roomPax.push(adultPassengers[aIdx++]);
-                }
-                for(let j=0; j < childrenForThisRoom; j++) {
-                    if (childPassengers[cIdx]) roomPax.push(childPassengers[cIdx++]);
-                }
-                
-                hotelRoomsDetails.push({
+                const roomDetail = {
                     RoomIndex: (i + 1),
-                    RoomTypeCode: preBookData?.Rooms?.[i]?.RoomTypeCode,
-                    RoomTypeName: preBookData?.Rooms?.[i]?.RoomTypeName,
-                    RatePlanCode: preBookData?.Rooms?.[i]?.RatePlanCode,
-                    Price: preBookData?.Rooms?.[i]?.Price,
                     HotelPassenger: roomPax
-                });
+                };
+
+                // Add optional fields that TBO might require if provided by PreBook
+                if (roomIndexData.RoomTypeCode) roomDetail.RoomTypeCode = roomIndexData.RoomTypeCode;
+                if (roomTypeName) roomDetail.RoomTypeName = roomTypeName;
+                if (roomIndexData.RatePlanCode) roomDetail.RatePlanCode = roomIndexData.RatePlanCode;
+                if (roomIndexData.Price) roomDetail.Price = roomIndexData.Price;
+
+                hotelRoomsDetails.push(roomDetail);
             }
 
             // Create payment order
@@ -737,6 +733,7 @@ const PaymentPage = () => {
     const nights = calculateNights();
     const amount = getAmount();
     const currency = getCurrency();
+    const numRooms = searchParams?.rooms || 1;
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -826,9 +823,9 @@ const PaymentPage = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 mb-1">Duration</div>
+                                    <div className="text-xs text-gray-500 mb-1">Duration & Rooms</div>
                                     <div className="font-semibold text-sm text-gray-800">
-                                        {nights} night{nights > 1 ? 's' : ''}
+                                        {nights} night{nights > 1 ? 's' : ''} • {numRooms} room{numRooms > 1 ? 's' : ''}
                                     </div>
                                 </div>
                             </div>
@@ -907,16 +904,8 @@ const PaymentPage = () => {
                                                 {currency} {totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
-                                        {tdsInfo.hasTDS && (
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-gray-600">TDS ({tdsInfo.percentage}%)</span>
-                                                <span className="text-gray-800">
-                                                    {currency} {tdsInfo.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </span>
-                                            </div>
-                                        )}
                                         {couponApplied && (
-                                            <div className="flex justify-between text-sm">
+                                            <div className="flex justify-between text-sm mt-2">
                                                 <span className="text-green-600 flex items-center gap-1">
                                                     <Tag size={12} /> Coupon ({couponApplied.code})
                                                 </span>
@@ -925,7 +914,7 @@ const PaymentPage = () => {
                                         )}
                                         <div className="border-t pt-3 flex justify-between font-bold">
                                             <span className="text-gray-800">
-                                                {tdsInfo.hasTDS ? 'Total Amount (incl. TDS)' : 'Total Amount'}
+                                                Total Amount
                                             </span>
                                             <div className="text-right">
                                                 {couponApplied && (

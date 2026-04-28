@@ -77,9 +77,11 @@ const GuestDetailsPage = () => {
     const [errors, setErrors] = useState({});
 
     // Calculate number of guests needed
-    const adultsCount = searchParams?.adults || 2;
+    const numRooms = searchParams?.rooms || 1;
+    const adultsCount = Math.max(numRooms, searchParams?.adults || 2);
     const childrenCount = searchParams?.children || 0;
     const totalGuests = adultsCount + childrenCount;
+    const paxRooms = searchParams?.paxRooms;
 
     // Check if international booking - only true when hotel data is loaded AND country is not India
     const isInternational = !!hotel && hotel.CountryCode !== 'IN';
@@ -87,30 +89,84 @@ const GuestDetailsPage = () => {
     // Initialize guest details
     useEffect(() => {
         const guests = [];
-        for (let i = 0; i < adultsCount; i++) {
-            guests.push({
-                type: 'adult',
-                title: 'Mr',
-                firstName: '',
-                middleName: '',
-                lastName: '',
-                age: '',
-                isLead: i === 0
+        let globalLeadAssigned = false;
+        
+        if (paxRooms && paxRooms.length > 0) {
+            paxRooms.forEach((room, rIdx) => {
+                let roomLeadAssigned = false;
+                for (let i = 0; i < room.Adults; i++) {
+                    guests.push({
+                        type: 'adult',
+                        title: 'Mr',
+                        firstName: '',
+                        middleName: '',
+                        lastName: '',
+                        age: '',
+                        isLead: !globalLeadAssigned,
+                        isRoomLead: !roomLeadAssigned,
+                        roomIndex: rIdx + 1
+                    });
+                    globalLeadAssigned = true;
+                    roomLeadAssigned = true;
+                }
+                for (let i = 0; i < room.Children; i++) {
+                    guests.push({
+                        type: 'child',
+                        title: 'Mr',
+                        firstName: '',
+                        middleName: '',
+                        lastName: '',
+                        age: room.ChildrenAges[i] || 5,
+                        isLead: false,
+                        isRoomLead: false,
+                        roomIndex: rIdx + 1
+                    });
+                }
             });
-        }
-        for (let i = 0; i < childrenCount; i++) {
-            guests.push({
-                type: 'child',
-                title: 'Mr',
-                firstName: '',
-                middleName: '',
-                lastName: '',
-                age: 5,
-                isLead: false
-            });
+        } else {
+            // Fallback mathematically
+            for (let r = 0; r < numRooms; r++) {
+                const baseAdults = Math.floor(adultsCount / numRooms);
+                const extraAdults = adultsCount % numRooms;
+                const adultsForThisRoom = baseAdults + (r < extraAdults ? 1 : 0);
+
+                const baseChildren = Math.floor(childrenCount / numRooms);
+                const extraChildren = childrenCount % numRooms;
+                const childrenForThisRoom = baseChildren + (r < extraChildren ? 1 : 0);
+                
+                let roomLeadAssigned = false;
+                for(let a=0; a < adultsForThisRoom; a++) {
+                    guests.push({
+                        type: 'adult',
+                        title: 'Mr',
+                        firstName: '',
+                        middleName: '',
+                        lastName: '',
+                        age: '',
+                        isLead: !globalLeadAssigned,
+                        isRoomLead: !roomLeadAssigned,
+                        roomIndex: r + 1
+                    });
+                    globalLeadAssigned = true;
+                    roomLeadAssigned = true;
+                }
+                for(let c=0; c < childrenForThisRoom; c++) {
+                    guests.push({
+                        type: 'child',
+                        title: 'Mr',
+                        firstName: '',
+                        middleName: '',
+                        lastName: '',
+                        age: 5,
+                        isLead: false,
+                        isRoomLead: false,
+                        roomIndex: r + 1
+                    });
+                }
+            }
         }
         setGuestDetails(guests);
-    }, [adultsCount, childrenCount]);
+    }, [adultsCount, childrenCount, numRooms, paxRooms]);
 
     // Call PreBook API on mount
     useEffect(() => {
@@ -300,15 +356,9 @@ const GuestDetailsPage = () => {
         setSubmitting(true);
 
         try {
-            // Calculate netAmount with TDS if applicable
+            // Calculate payable amount (Published Price / TotalFare)
             const prebookRoom = preBookData?.Rooms?.[0];
-            const priceBreakUp = prebookRoom?.PriceBreakUp?.[0];
-            const taxBreakup = priceBreakUp?.TaxBreakup || [];
-            const tdsTax = taxBreakup.find(tax => tax.TaxType === 'Tax_TDS');
-            const tdsAmount = tdsTax ? tdsTax.TaxAmount : 0;
-
-            // Use NetAmount from API (includes TDS) or calculate manually
-            const finalNetAmount = prebookRoom?.NetAmount || (prebookRoom?.TotalFare + tdsAmount) || prebookRoom?.TotalFare || room?.TotalFare;
+            const payableAmount = prebookRoom?.TotalFare || room?.TotalFare || 0;
 
             // Navigate to payment page with all collected data
             navigate('/payment', {
@@ -322,7 +372,8 @@ const GuestDetailsPage = () => {
                     contactDetails,
                     billingDetails,
                     isInternational,
-                    netAmount: finalNetAmount,
+                    specialRequests,
+                    netAmount: payableAmount, // Continuing to pass it as 'netAmount' prop to avoid refactoring PaymentPage prop everywhere, but its value is TotalFare
                     isVoucherBooking
                 }
             });
@@ -388,15 +439,14 @@ const GuestDetailsPage = () => {
         const totalFare = roomData?.TotalFare || 0;
         const totalTax = roomData?.TotalTax || priceBreakUp?.RoomTax || 0;
 
-        // Use NetAmount from API (TotalFare + TDS) as the final payable amount
-        // If NetAmount not available, calculate it manually
-        const netAmount = roomData?.NetAmount || (totalFare + tdsAmount) || totalFare;
+        // We want to display and charge the Published Price (TotalFare)
+        const payableAmount = totalFare;
 
         return {
             basePrice: dayRates[0]?.BasePrice || priceBreakUp?.RoomRate || (totalFare - totalTax) || 0,
             totalTax: totalTax,
-            totalFare: totalFare, // TotalFare = room rate + taxes (without TDS)
-            netAmount: netAmount, // NetAmount = TotalFare + TDS (final payable)
+            totalFare: totalFare, 
+            payableAmount: payableAmount,
             netTax: roomData?.NetTax || 0,
             currency: preBookData?.Currency || 'INR',
             isRefundable: roomData?.IsRefundable ?? true,
@@ -665,9 +715,9 @@ const GuestDetailsPage = () => {
                                     </div>
                                 </div>
                                 <div className="bg-gray-50 rounded-lg p-3">
-                                    <div className="text-xs text-gray-500 mb-1">Duration</div>
-                                    <div className="font-semibold text-gray-800">{nights} night{nights > 1 ? 's' : ''}</div>
-                                    <div className="text-xs text-gray-500">{totalGuests} guest{totalGuests > 1 ? 's' : ''}</div>
+                                    <div className="text-xs text-gray-500 mb-1">Duration & Rooms</div>
+                                    <div className="font-semibold text-gray-800">{nights} night{nights > 1 ? 's' : ''} • {numRooms} room{numRooms > 1 ? 's' : ''}</div>
+                                    <div className="text-xs text-gray-500">{totalGuests} guest{totalGuests > 1 ? 's' : ''} total</div>
                                 </div>
                             </div>
 
@@ -1059,111 +1109,137 @@ const GuestDetailsPage = () => {
                                 Enter names exactly as they appear on government-issued ID.
                             </p>
 
-                            <div className="space-y-6">
-                                {guestDetails.map((guest, index) => (
-                                    <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <User size={16} className="text-blue-600" />
-                                            <span className="font-semibold text-gray-800">
-                                                {guest.type === 'adult' ? `Adult ${index + 1}` : `Child ${index - adultsCount + 1}`}
-                                            </span>
-                                            {guest.isLead && (
-                                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                                                    Lead Guest
-                                                </span>
-                                            )}
-                                        </div>
+                            <div className="space-y-8">
+                                {Array.from({length: searchParams?.rooms || 1}).map((_, rIdx) => {
+                                    const roomGuests = guestDetails
+                                        .map((g, i) => ({ ...g, originalIndex: i }))
+                                        .filter(g => g.roomIndex === rIdx + 1);
+                                    
+                                    if (roomGuests.length === 0) return null;
 
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
-                                                <select
-                                                    value={guest.title}
-                                                    onChange={(e) => updateGuest(index, 'title', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                                >
-                                                    {TITLES.map(title => (
-                                                        <option key={title} value={title}>{title}</option>
-                                                    ))}
-                                                </select>
+                                    return (
+                                        <div key={`room-group-${rIdx}`} className="border border-gray-200 rounded-lg overflow-hidden">
+                                            <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                                                <h3 className="font-bold text-gray-800">Room {rIdx + 1} Passengers</h3>
                                             </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                    First Name <span className="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={guest.firstName}
-                                                    onChange={(e) => updateGuest(index, 'firstName', e.target.value)}
-                                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}FirstName`] ? 'border-red-500' : 'border-gray-300'}`}
-                                                    placeholder="First name"
-                                                />
-                                                {errors[`guest${index}FirstName`] && (
-                                                    <p className="text-red-500 text-xs mt-1">{errors[`guest${index}FirstName`]}</p>
-                                                )}
+                                            <div className="p-4 space-y-6">
+                                                {roomGuests.map((guest, idx) => {
+                                                    const index = guest.originalIndex;
+                                                    const isAdult = guest.type === 'adult';
+                                                    const localAdultIdx = roomGuests.slice(0, idx).filter(g => g.type === 'adult').length + 1;
+                                                    const localChildIdx = roomGuests.slice(0, idx).filter(g => g.type === 'child').length + 1;
+
+                                                    return (
+                                                        <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100 shadow-sm relative">
+                                                            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+                                                                <User size={16} className="text-blue-600" />
+                                                                <span className="font-semibold text-gray-800">
+                                                                    {isAdult ? `Adult ${localAdultIdx}` : `Child ${localChildIdx}`}
+                                                                </span>
+                                                                {guest.isLead && (
+                                                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full ml-auto">
+                                                                        Lead Guest
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                                                <div>
+                                                                    <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+                                                                    <select
+                                                                        value={guest.title}
+                                                                        onChange={(e) => updateGuest(index, 'title', e.target.value)}
+                                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                                                    >
+                                                                        {TITLES.map(title => (
+                                                                            <option key={title} value={title}>{title}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                                        First Name <span className="text-red-500">*</span>
+                                                                    </label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={guest.firstName}
+                                                                        onChange={(e) => updateGuest(index, 'firstName', e.target.value)}
+                                                                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}FirstName`] ? 'border-red-500' : 'border-gray-300'}`}
+                                                                        placeholder="First name"
+                                                                    />
+                                                                    {errors[`guest${index}FirstName`] && (
+                                                                        <p className="text-red-500 text-xs mt-1">{errors[`guest${index}FirstName`]}</p>
+                                                                    )}
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs font-medium text-gray-600 mb-1">Middle Name</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={guest.middleName}
+                                                                        onChange={(e) => updateGuest(index, 'middleName', e.target.value)}
+                                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                                                        placeholder="Middle name"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                                        Last Name <span className="text-red-500">*</span>
+                                                                    </label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={guest.lastName}
+                                                                        onChange={(e) => updateGuest(index, 'lastName', e.target.value)}
+                                                                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}LastName`] ? 'border-red-500' : 'border-gray-300'}`}
+                                                                        placeholder="Last name"
+                                                                    />
+                                                                    {errors[`guest${index}LastName`] && (
+                                                                        <p className="text-red-500 text-xs mt-1">{errors[`guest${index}LastName`]}</p>
+                                                                    )}
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                                        Age <span className="text-red-500">*</span>
+                                                                    </label>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        value={guest.age || ''}
+                                                                        onChange={(e) => !(!isAdult) && updateGuest(index, 'age', e.target.value)}
+                                                                        readOnly={!isAdult}
+                                                                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}Age`] ? 'border-red-500' : 'border-gray-300'} ${!isAdult ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                                                                        placeholder="Age"
+                                                                        title={!isAdult ? "Child age is fixed based on your search criteria" : ""}
+                                                                    />
+                                                                    {errors[`guest${index}Age`] && (
+                                                                        <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>
+                                                                    )}
+                                                                </div>
+                                                                {/* PAN field - only shown for international bookings */}
+                                                                {isInternational && guest.isLead && (
+                                                                    <div>
+                                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                                            PAN <span className="text-red-500">*</span>
+                                                                        </label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={guest.panNumber || ''}
+                                                                            onChange={(e) => updateGuest(index, 'panNumber', e.target.value.toUpperCase())}
+                                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}Pan`] ? 'border-red-500' : 'border-gray-300'}`}
+                                                                            placeholder="ABCDE1234F"
+                                                                        />
+                                                                        {errors[`guest${index}Pan`] && (
+                                                                            <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Pan`]}</p>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-600 mb-1">Middle Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={guest.middleName}
-                                                    onChange={(e) => updateGuest(index, 'middleName', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                                    placeholder="Middle name"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                    Last Name <span className="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={guest.lastName}
-                                                    onChange={(e) => updateGuest(index, 'lastName', e.target.value)}
-                                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}LastName`] ? 'border-red-500' : 'border-gray-300'}`}
-                                                    placeholder="Last name"
-                                                />
-                                                {errors[`guest${index}LastName`] && (
-                                                    <p className="text-red-500 text-xs mt-1">{errors[`guest${index}LastName`]}</p>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                    Age <span className="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    value={guest.age || ''}
-                                                    onChange={(e) => updateGuest(index, 'age', e.target.value)}
-                                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}Age`] ? 'border-red-500' : 'border-gray-300'}`}
-                                                    placeholder="Age"
-                                                />
-                                                {errors[`guest${index}Age`] && (
-                                                    <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>
-                                                )}
-                                            </div>
-                                            {/* PAN field - only shown for international bookings */}
-                                            {isInternational && guest.isLead && (
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                        PAN <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={guest.panNumber || ''}
-                                                        onChange={(e) => updateGuest(index, 'panNumber', e.target.value.toUpperCase())}
-                                                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}Pan`] ? 'border-red-500' : 'border-gray-300'}`}
-                                                        placeholder="ABCDE1234F"
-                                                    />
-                                                    {errors[`guest${index}Pan`] && (
-                                                        <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Pan`]}</p>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -1340,11 +1416,11 @@ const GuestDetailsPage = () => {
 
                                     <div className="border-t pt-3 flex justify-between">
                                         <span className="font-bold text-gray-800">
-                                            {pricing.hasTDS ? 'Total Amount (incl. TDS)' : 'Total Amount'}
+                                            {pricing.hasTDS ? 'Total Amount' : 'Total Amount'}
                                         </span>
                                         <div className="text-right">
                                             <div className="text-2xl font-bold text-blue-600">
-                                                ₹ {Math.round(pricing.netAmount).toLocaleString()}
+                                                ₹ {Math.round(pricing.payableAmount).toLocaleString()}
                                             </div>
                                             <div className="text-xs text-gray-500">Inclusive of all taxes</div>
                                         </div>

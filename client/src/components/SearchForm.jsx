@@ -132,11 +132,11 @@ export function SearchForm({ hotelCode, onSearch, loading }) {
           </label>
           <select
             value={formData.adults}
-            onChange={(e) => setFormData({ ...formData, adults: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, adults: Math.max(formData.rooms, parseInt(e.target.value)) })}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
-              <option key={num} value={num}>{num} {num === 1 ? 'Adult' : 'Adults'}</option>
+              <option key={num} value={num} disabled={num < formData.rooms}>{num} {num === 1 ? 'Adult' : 'Adults'}</option>
             ))}
           </select>
         </div>
@@ -162,7 +162,14 @@ export function SearchForm({ hotelCode, onSearch, loading }) {
           </label>
           <select
             value={formData.rooms}
-            onChange={(e) => setFormData({ ...formData, rooms: e.target.value })}
+            onChange={(e) => {
+                const newRooms = parseInt(e.target.value);
+                setFormData({ 
+                    ...formData, 
+                    rooms: newRooms,
+                    adults: Math.max(newRooms, formData.adults)
+                });
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {[1, 2, 3, 4].map(num => (

@@ -331,38 +331,76 @@ exports.searchHotel = async (req, res) => {
     const hotelCodesArray = typeof hotelCodes === 'string' ? hotelCodes.split(',') : (Array.isArray(hotelCodes) ? hotelCodes : []);
     const requestResponseTime = 15; // Set to 15 for TBO Certification
 
-    // Prepare search request - Match TBO documentation exactly
-    const searchRequest = {
-      CheckIn: checkIn,
-      CheckOut: checkOut,
-      HotelCodes: hotelCodes,
-      GuestNationality: guestNationality || 'IN', 
-      PaxRooms: paxRooms.map(room => ({
-        Adults: room.Adults,
-        Children: room.Children || 0,
-        ChildrenAges: room.ChildrenAges || []
-      })),
-      ResponseTime: requestResponseTime,
-      IsDetailedResponse: isDetailedResponse,
-      Filters: {
-        Refundable: false,
-        NoOfRooms: 0,
-        MealType: 'All'
-      }
-    };
+    const CHUNK_SIZE = 100;
+    const hotelCodeChunks = [];
+    for (let i = 0; i < hotelCodesArray.length; i += CHUNK_SIZE) {
+      hotelCodeChunks.push(hotelCodesArray.slice(i, i + CHUNK_SIZE).join(','));
+    }
 
-    console.log("SEARCH PAYLOAD", JSON.stringify(searchRequest, null, 2));
-
-    // Use Basic Auth with API credentials - ALWAYS call TBO API for live pricing
     const axiosInstance = createSearchAxiosInstance();
+    console.log(`Using credentials: ${config.tboApi.apiAuth.username}`);
+    console.log(`Splitting ${hotelCodesArray.length} hotel codes into ${hotelCodeChunks.length} parallel requests of size ${CHUNK_SIZE}...`);
 
-    console.log('Sending request to:', config.tboApi.searchUrl);
-    console.log('Using credentials:', config.tboApi.apiAuth.username);
+    let mergedHotelResult = [];
+    let baseResponseTemplate = null;
 
-    const response = await axiosInstance.post(
-      config.tboApi.searchUrl,
-      searchRequest
-    );
+    // Fire parallel requests
+    const searchPromises = hotelCodeChunks.map(async (chunk, index) => {
+      const searchRequest = {
+        CheckIn: checkIn,
+        CheckOut: checkOut,
+        HotelCodes: chunk,
+        GuestNationality: guestNationality || 'IN', 
+        PaxRooms: paxRooms.map(room => ({
+          Adults: room.Adults,
+          Children: room.Children || 0,
+          ChildrenAges: room.ChildrenAges || []
+        })),
+        ResponseTime: requestResponseTime,
+        IsDetailedResponse: isDetailedResponse,
+        Filters: {
+          Refundable: false,
+          NoOfRooms: 0,
+          MealType: 'All'
+        }
+      };
+
+      try {
+        const response = await axiosInstance.post(
+          config.tboApi.searchUrl,
+          searchRequest
+        );
+        
+        if (response.data && response.data.HotelResult) {
+            mergedHotelResult.push(...response.data.HotelResult);
+        }
+        
+        if (!baseResponseTemplate && response.data) {
+            baseResponseTemplate = JSON.parse(JSON.stringify(response.data));
+        }
+        
+        return { status: 'success', data: response.data };
+      } catch (err) {
+        console.error(`Chunk ${index} failed:`, err.message);
+        return { status: 'failed', error: err };
+      }
+    });
+
+    const chunkResults = await Promise.all(searchPromises);
+
+    // If every single chunk failed, error out using the first error's signature
+    if (chunkResults.every(res => res.status === 'failed') && chunkResults.length > 0) {
+        throw chunkResults[0].error; 
+    }
+
+    // Build the synthesized response matching local variables downstream
+    const response = {
+        data: {
+             ...(baseResponseTemplate || {}),
+             HotelResult: mergedHotelResult,
+             Status: baseResponseTemplate?.Status || { Code: 200, Description: "Successful" }
+        }
+    };
 
     console.log('Search Response Status:', response.data.Status);
     console.log('Hotels in response:', response.data.HotelResult?.length || 0);
@@ -832,6 +870,84 @@ exports.searchHotelNames = async (req, res) => {
     console.error('Search hotel names error:', error.message);
     res.status(500).json({
       error: 'Failed to search hotel names',
+      message: error.message
+    });
+  }
+};
+
+// GenerateVoucher - Confirm a hold booking via TBO API
+exports.generateVoucher = async (req, res) => {
+  try {
+    const { BookingId, EndUserIp } = req.body;
+
+    if (!BookingId) {
+      return res.status(400).json({ error: 'Missing required field', required: ['BookingId'] });
+    }
+
+    console.log(`\n=== GenerateVoucher Request ===`);
+    console.log(`BookingId: ${BookingId}`);
+
+    const tokenId = await authService.getTokenId();
+
+    const voucherRequest = {
+      BookingId,
+      EndUserIp: EndUserIp || process.env.TBO_END_USER_IP || req.ip || '127.0.0.1',
+      TokenId: tokenId
+    };
+
+    const axiosInstance = createSearchAxiosInstance();
+    const response = await axiosInstance.post(
+      config.tboApi.generateVoucherUrl,
+      voucherRequest
+    );
+
+    console.log('GenerateVoucher Response:', JSON.stringify(response.data, null, 2));
+
+    let result = response.data.HotelBookingDetails || response.data;
+
+    // TBO responses often wrap data in different elements, check if error exists inside result
+    if (response.data.Status && response.data.Status.Code !== 200) {
+        return res.status(400).json({
+          error: 'Voucher generation failed',
+          message: response.data.Status.Description,
+          details: response.data
+        });
+    }
+
+    if (result.Error && result.Error.ErrorCode !== 0) {
+      return res.status(400).json({
+        error: 'Voucher generation failed',
+        message: result.Error.ErrorMessage,
+        details: result
+      });
+    }
+
+    // Attempt to update database to reflect vouchered status
+    try {
+        await db.execute(
+            `UPDATE bookings SET booking_status = 'Vouchered' WHERE tbo_booking_id = ? LIMIT 1`,
+            [String(BookingId)]
+        );
+        console.log(`[SQL UPDATE] Booking ${BookingId} successfully marked as Vouchered.`);
+    } catch (dbError) {
+        console.error(`[SQL UPDATE] Warning: Successfully hit GenerateVoucher, but failed to update status locally: ${dbError.message}`);
+    }
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('\n=== GenerateVoucher Error ===');
+    console.error('Error Message:', error.message);
+    
+    if (error.response) {
+      return res.status(error.response.status).json({
+        error: 'Voucher generation failed',
+        message: error.response.data?.Status?.Description || error.message,
+        details: error.response.data
+      });
+    }
+    
+    res.status(500).json({
+      error: 'Failed to generate voucher',
       message: error.message
     });
   }
