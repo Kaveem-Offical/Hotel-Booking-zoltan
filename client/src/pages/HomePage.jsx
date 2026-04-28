@@ -386,20 +386,22 @@ function HomePage() {
                     return;
                 }
 
-                // Store all hotel codes and search params for pagination
+                // Store all hotel codes and search params
                 setAllHotelCodes(hotelCodesList);
                 setSearchParams(searchData);
 
-                // Get first chunk (first 100 hotels)
-                const firstChunk = hotelCodesList.slice(0, CHUNK_SIZE);
-                // console.log(`Searching first ${firstChunk.length} hotels...`);
-
-                await searchHotelChunk(firstChunk, searchData, staticMap, false);
-
-                // Check if there are more hotels to load
-                if (hotelCodesList.length <= CHUNK_SIZE) {
-                    setHasMore(false);
+                // Split into chunks of CHUNK_SIZE (100) and fire multiple API calls in parallel
+                const frontendChunks = [];
+                for (let i = 0; i < hotelCodesList.length; i += CHUNK_SIZE) {
+                    frontendChunks.push(hotelCodesList.slice(i, i + CHUNK_SIZE));
                 }
+
+                // Fire all chunk requests at once without artificial delay
+                await Promise.all(frontendChunks.map(chunk => 
+                    searchHotelChunk(chunk, searchData, staticMap, true) // append = true handles concurrent state updates safely
+                ));
+
+                setHasMore(false);
             } else {
                 setError('Please select a city or hotel to search.');
                 setLoading(false);

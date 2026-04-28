@@ -344,7 +344,8 @@ exports.searchHotel = async (req, res) => {
     let mergedHotelResult = [];
     let baseResponseTemplate = null;
 
-    // Fire parallel requests
+    // Fire parallel requests for all chunks at once, without delay
+    const chunkResults = [];
     const searchPromises = hotelCodeChunks.map(async (chunk, index) => {
       const searchRequest = {
         CheckIn: checkIn,
@@ -386,7 +387,8 @@ exports.searchHotel = async (req, res) => {
       }
     });
 
-    const chunkResults = await Promise.all(searchPromises);
+    const finalResults = await Promise.all(searchPromises);
+    chunkResults.push(...finalResults);
 
     // If every single chunk failed, error out using the first error's signature
     if (chunkResults.every(res => res.status === 'failed') && chunkResults.length > 0) {
