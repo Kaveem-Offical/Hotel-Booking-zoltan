@@ -269,8 +269,9 @@ const getBookingConfirmationTemplate = (data) => {
 
     return roomDetails.map((room, index) => {
       const passengerCount = room.HotelPassenger?.length || 0;
-      const adults = room.HotelPassenger?.filter(p => p.PaxType === 'Adult').length || 0;
-      const children = room.HotelPassenger?.filter(p => p.PaxType === 'Child').length || 0;
+      // PaxType: 1 = Adult, 2 = Child (numeric values from PaymentPage.jsx)
+      const adults = room.HotelPassenger?.filter(p => p.PaxType === 1 || p.PaxType === 'Adult').length || 0;
+      const children = room.HotelPassenger?.filter(p => p.PaxType === 2 || p.PaxType === 'Child').length || 0;
 
       return `
                 <tr>
