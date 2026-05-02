@@ -295,12 +295,23 @@ const GuestDetailsPage = () => {
 
         // PAN validation logic - only required for international bookings (hotel country is NOT India)
         guestDetails.forEach((guest, index) => {
-            if (isInternational && guest.isLead) {
+            if (isInternational) {
                 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-                if (!guest.panNumber?.trim()) {
-                    newErrors[`guest${index}Pan`] = 'PAN is required for international bookings';
-                } else if (!panRegex.test(guest.panNumber.trim().toUpperCase())) {
-                    newErrors[`guest${index}Pan`] = 'Invalid PAN format';
+                // For lead passengers, validate their own PAN
+                if (guest.isLead) {
+                    if (!guest.panNumber?.trim()) {
+                        newErrors[`guest${index}Pan`] = 'PAN is required for international bookings';
+                    } else if (!panRegex.test(guest.panNumber.trim().toUpperCase())) {
+                        newErrors[`guest${index}Pan`] = 'Invalid PAN format';
+                    }
+                }
+                // For child passengers, validate Guardian PAN
+                if (guest.type === 'child') {
+                    if (!guest.guardianPan?.trim()) {
+                        newErrors[`guest${index}GuardianPan`] = 'Guardian PAN is required for child passengers in international bookings';
+                    } else if (!panRegex.test(guest.guardianPan.trim().toUpperCase())) {
+                        newErrors[`guest${index}GuardianPan`] = 'Invalid Guardian PAN format';
+                    }
                 }
             }
         });
@@ -965,15 +976,13 @@ const GuestDetailsPage = () => {
                                         <select
                                             value={contactDetails.nationality}
                                             onChange={(e) => setContactDetails(prev => ({ ...prev, nationality: e.target.value }))}
-                                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition appearance-none bg-white"
+                                            disabled={true}
+                                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition appearance-none bg-gray-100 cursor-not-allowed"
                                         >
-                                            {COUNTRY_CODES.map(country => (
-                                                <option key={country.code} value={country.code}>
-                                                    {country.name} ({country.code})
-                                                </option>
-                                            ))}
+                                            <option value="IN">India (IN)</option>
                                         </select>
                                     </div>
+                                    <p className="text-xs text-gray-500 mt-1">Only Indian nationals can book</p>
                                 </div>
                                 {/* Passport fields removed as they are optional for bookings */}
                             </div>
@@ -1214,7 +1223,7 @@ const GuestDetailsPage = () => {
                                                                         <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>
                                                                     )}
                                                                 </div>
-                                                                {/* PAN field - only shown for international bookings */}
+                                                                {/* PAN field - only shown for lead passengers in international bookings */}
                                                                 {isInternational && guest.isLead && (
                                                                     <div>
                                                                         <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -1232,6 +1241,24 @@ const GuestDetailsPage = () => {
                                                                         )}
                                                                     </div>
                                                                 )}
+                                                                {/* Guardian PAN field - only shown for child passengers in international bookings */}
+                                                                {isInternational && guest.type === 'child' && (
+                                                                    <div>
+                                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                                            Guardian PAN <span className="text-red-500">*</span>
+                                                                        </label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={guest.guardianPan || ''}
+                                                                            onChange={(e) => updateGuest(index, 'guardianPan', e.target.value.toUpperCase())}
+                                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}GuardianPan`] ? 'border-red-500' : 'border-gray-300'}`}
+                                                                            placeholder="ABCDE1234F"
+                                                                        />
+                                                                        {errors[`guest${index}GuardianPan`] && (
+                                                                            <p className="text-red-500 text-xs mt-1">{errors[`guest${index}GuardianPan`]}</p>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     );
@@ -1244,59 +1271,7 @@ const GuestDetailsPage = () => {
                         </div>
 
                         {/* Hold Booking Option */}
-                        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                                <CreditCard size={20} className="mr-2 text-blue-600" />
-                                Hold Booking
-                            </h2>
-                            <div className="flex items-center gap-4 mb-4">
-                                <span className="text-gray-700 font-medium">Hold this booking?</span>
-                                <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsVoucherBooking(true)}
-                                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                                            isVoucherBooking
-                                                ? 'bg-white text-blue-600 shadow-sm'
-                                                : 'text-gray-600 hover:text-gray-800'
-                                        }`}
-                                    >
-                                        No
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsVoucherBooking(false)}
-                                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                                            !isVoucherBooking
-                                                ? 'bg-white text-blue-600 shadow-sm'
-                                                : 'text-gray-600 hover:text-gray-800'
-                                        }`}
-                                    >
-                                        Yes
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            {/* Warning for Hold Booking */}
-                            {!isVoucherBooking && (
-                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-3">
-                                    <div className="flex items-start gap-2">
-                                        <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                                        <div className="text-sm text-amber-800">
-                                            <p className="font-semibold mb-1">Important:</p>
-                                            <p>
-                                                If you hold this booking and do not cancel before the cancellation deadline
-                                                {roomDetails.lastCancellationDeadline && (
-                                                    <span className="font-semibold"> ({roomDetails.lastCancellationDeadline})</span>
-                                                )}, 
-                                                the booking will be automatically cancelled.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
+           
                         {/* Special Requests */}
                         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                             <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
@@ -1389,10 +1364,10 @@ const GuestDetailsPage = () => {
 
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Taxes & Fees</span>
-                                        <span className="font-medium">₹ {Math.round(pricing.totalTax).toLocaleString()}</span>
+                                        <span className="font-medium">₹ {Math.round(pricing.totalTax - pricing.tdsAmount).toLocaleString()}</span>
                                     </div>
 
-                                    {/* Tax Breakdown if available (excluding TDS which is shown separately) */}
+                                    {/* Tax Breakdown if available (excluding TDS as it's not a customer charge) */}
                                     {pricing.taxBreakup.length > 0 && (
                                         <div className="pl-4 space-y-1 border-l-2 border-gray-200">
                                             {pricing.taxBreakup
@@ -1406,18 +1381,8 @@ const GuestDetailsPage = () => {
                                         </div>
                                     )}
 
-                                    {/* TDS - shown only when applicable */}
-                                    {pricing.hasTDS && (
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-gray-600">TDS ({pricing.tdsPercentage}%)</span>
-                                            <span className="font-medium">₹ {Math.round(pricing.tdsAmount).toLocaleString()}</span>
-                                        </div>
-                                    )}
-
                                     <div className="border-t pt-3 flex justify-between">
-                                        <span className="font-bold text-gray-800">
-                                            {pricing.hasTDS ? 'Total Amount' : 'Total Amount'}
-                                        </span>
+                                        <span className="font-bold text-gray-800">Total Amount</span>
                                         <div className="text-right">
                                             <div className="text-2xl font-bold text-blue-600">
                                                 ₹ {Math.round(pricing.payableAmount).toLocaleString()}
@@ -1497,10 +1462,8 @@ const GuestDetailsPage = () => {
             <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-50">
                 <div className="flex items-center justify-between">
                     <div>
-                        <div className="text-xs text-gray-500">
-                            {pricing.hasTDS ? 'Total (incl. TDS)' : 'Total Amount'}
-                        </div>
-                        <div className="text-xl font-bold text-blue-600">₹ {Math.round(pricing.netAmount).toLocaleString()}</div>
+                        <div className="text-xs text-gray-500">Total Amount</div>
+                        <div className="text-xl font-bold text-blue-600">₹ {Math.round(pricing.payableAmount).toLocaleString()}</div>
                     </div>
                     <button
                         onClick={handleSubmit}

@@ -242,8 +242,18 @@ const PaymentPage = () => {
                             Age: parseInt(guest.age) || (guest.type === 'child' ? 5 : 25)
                         };
 
-                        if (!isInternational && guest.isLead && guest.panNumber) {
+                        if (isInternational && guest.isLead && guest.panNumber) {
                             pax.PAN = guest.panNumber;
+                        }
+
+                        // For child passengers in international bookings, include GuardianDetail with PAN
+                        if (isInternational && guest.type === 'child' && guest.guardianPan) {
+                            pax.GuardianDetail = {
+                                Title: 'Mr',
+                                FirstName: 'Guardian',
+                                LastName: 'Parent',
+                                PAN: guest.guardianPan
+                            };
                         }
 
                         // Remove strictly empty fields completely
@@ -888,6 +898,8 @@ const PaymentPage = () => {
                                 const roomData = preBookData?.Rooms?.[0] || room;
                                 const totalFare = roomData?.TotalFare || amount;
                                 const totalTax = roomData?.TotalTax || 0;
+                                // TDS is not part of what customer pays - it's deducted from hotel payout
+                                const taxExcludingTDS = Math.max(0, totalTax - tdsInfo.amount);
                                 const roomRate = totalFare - totalTax;
 
                                 return (
@@ -901,7 +913,7 @@ const PaymentPage = () => {
                                         <div className="flex justify-between text-sm">
                                             <span className="text-gray-600">Taxes & Fees</span>
                                             <span className="text-gray-800">
-                                                {currency} {totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                {currency} {taxExcludingTDS.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                         {couponApplied && (
