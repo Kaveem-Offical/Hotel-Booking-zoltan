@@ -297,20 +297,13 @@ const GuestDetailsPage = () => {
         guestDetails.forEach((guest, index) => {
             if (isInternational) {
                 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-                // For lead passengers, validate their own PAN
-                if (guest.isLead) {
+                // PAN is required for ALL adults in international bookings
+                // Children will automatically use their room's lead passenger PAN as guardian PAN
+                if (guest.type === 'adult') {
                     if (!guest.panNumber?.trim()) {
                         newErrors[`guest${index}Pan`] = 'PAN is required for international bookings';
                     } else if (!panRegex.test(guest.panNumber.trim().toUpperCase())) {
                         newErrors[`guest${index}Pan`] = 'Invalid PAN format';
-                    }
-                }
-                // For child passengers, validate Guardian PAN
-                if (guest.type === 'child') {
-                    if (!guest.guardianPan?.trim()) {
-                        newErrors[`guest${index}GuardianPan`] = 'Guardian PAN is required for child passengers in international bookings';
-                    } else if (!panRegex.test(guest.guardianPan.trim().toUpperCase())) {
-                        newErrors[`guest${index}GuardianPan`] = 'Invalid Guardian PAN format';
                     }
                 }
             }
@@ -338,12 +331,12 @@ const GuestDetailsPage = () => {
                 newErrors[`guest${index}LastName`] = 'Special characters are not allowed';
             }
 
-            if (guest.type === 'child' && (!guest.age || guest.age < 0 || guest.age > 12)) {
-                newErrors[`guest${index}Age`] = 'Valid child age (0-12) is required';
+            if (guest.type === 'child' && (!guest.age || guest.age < 0 || guest.age > 18)) {
+                newErrors[`guest${index}Age`] = 'Valid child age (0-18) is required';
             }
 
-            if (guest.type === 'adult' && (!guest.age || guest.age < 12)) {
-                newErrors[`guest${index}Age`] = 'Valid adult age (12+) is required';
+            if (guest.type === 'adult' && (!guest.age || guest.age < 18)) {
+                newErrors[`guest${index}Age`] = 'Valid adult age (18+) is required';
             }
         });
 
@@ -1139,7 +1132,7 @@ const GuestDetailsPage = () => {
                                                     const localChildIdx = roomGuests.slice(0, idx).filter(g => g.type === 'child').length + 1;
 
                                                     return (
-                                                        <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100 shadow-sm relative">
+                                                        <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100 shadow-sm relative overflow-hidden">
                                                             <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
                                                                 <User size={16} className="text-blue-600" />
                                                                 <span className="font-semibold text-gray-800">
@@ -1152,7 +1145,7 @@ const GuestDetailsPage = () => {
                                                                 )}
                                                             </div>
 
-                                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                                                 <div>
                                                                     <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
                                                                     <select
@@ -1223,8 +1216,8 @@ const GuestDetailsPage = () => {
                                                                         <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>
                                                                     )}
                                                                 </div>
-                                                                {/* PAN field - only shown for lead passengers in international bookings */}
-                                                                {isInternational && guest.isLead && (
+                                                                {/* PAN field - shown for all adult passengers in international bookings */}
+                                                                {isInternational && guest.type === 'adult' && (
                                                                     <div>
                                                                         <label className="block text-xs font-medium text-gray-600 mb-1">
                                                                             PAN <span className="text-red-500">*</span>
@@ -1238,24 +1231,6 @@ const GuestDetailsPage = () => {
                                                                         />
                                                                         {errors[`guest${index}Pan`] && (
                                                                             <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Pan`]}</p>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                                {/* Guardian PAN field - only shown for child passengers in international bookings */}
-                                                                {isInternational && guest.type === 'child' && (
-                                                                    <div>
-                                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                                            Guardian PAN <span className="text-red-500">*</span>
-                                                                        </label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={guest.guardianPan || ''}
-                                                                            onChange={(e) => updateGuest(index, 'guardianPan', e.target.value.toUpperCase())}
-                                                                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${errors[`guest${index}GuardianPan`] ? 'border-red-500' : 'border-gray-300'}`}
-                                                                            placeholder="ABCDE1234F"
-                                                                        />
-                                                                        {errors[`guest${index}GuardianPan`] && (
-                                                                            <p className="text-red-500 text-xs mt-1">{errors[`guest${index}GuardianPan`]}</p>
                                                                         )}
                                                                     </div>
                                                                 )}

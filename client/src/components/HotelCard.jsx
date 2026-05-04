@@ -89,14 +89,14 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
 
   return (
     <div
-      className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-2xl dark:hover:shadow-slate-700/50 transition-all duration-300 ease-out flex flex-col md:flex-row overflow-hidden cursor-pointer group mb-4 animate-fade-in-up hover:-translate-y-1 theme-transition"
-      style={{ animationDelay: `${animationDelay}ms`, animationFillMode: 'both' }}
+      className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-2xl dark:hover:shadow-slate-700/50 transition-all duration-300 ease-out flex flex-col md:flex-row overflow-hidden cursor-pointer group mb-4 animate-fade-in-up hover:-translate-y-1 theme-transition box-border"
+      style={{ animationDelay: `${animationDelay}ms`, animationFillMode: 'both', maxWidth: '100%', width: '100%' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelect && onSelect(hotel)}
     >
       {/* Image Section */}
-      <div className="relative w-full md:w-[280px] h-[200px] md:h-auto flex-shrink-0 bg-gray-200 dark:bg-slate-700 overflow-hidden">
+      <div className="relative w-full md:w-[240px] lg:w-[280px] h-[200px] md:h-auto flex-shrink-0 bg-gray-200 dark:bg-slate-700 overflow-hidden">
         {showLottieFallback ? (
           <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-slate-800">
             <DotLottieReact
@@ -162,13 +162,13 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
       </div>
 
       {/* Content Section */}
-      <div className="flex-1 flex flex-col md:flex-row p-4 gap-4">
+      <div className="flex-1 flex flex-col md:flex-row p-4 gap-4 min-w-0">
 
         {/* Info Column */}
-        <div className="flex-1 flex flex-col gap-2">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-xl font-bold text-gray-800 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 line-clamp-2">
+        <div className="flex-1 flex flex-col gap-2 min-w-0">
+          <div className="flex items-start justify-between min-w-0">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 line-clamp-2 break-words">
                 {name}
               </h3>
               <div className="flex items-center mt-1">
@@ -187,9 +187,9 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
             </div>
           </div>
 
-          <div className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium mt-1">
-            <MapPin className="w-4 h-4 mr-1" />
-            <span className="underline hover:text-blue-800 dark:hover:text-blue-300 line-clamp-1" title={location}>{location}</span>
+          <div className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium mt-1 min-w-0">
+            <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
+            <span className="underline hover:text-blue-800 dark:hover:text-blue-300 line-clamp-1 truncate" title={location}>{location}</span>
             {/* <span className="text-gray-500 no-underline ml-2 text-xs">• {distance}</span> */}
           </div>
 
@@ -201,9 +201,9 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
           )}
 
           {/* Amenities */}
-          <div className="flex flex-wrap gap-2 mt-2">
+          <div className="flex flex-wrap gap-2 mt-2 overflow-hidden">
             {amenities.slice(0, 4).map((amenity, idx) => (
-              <div key={idx} className="flex items-center text-xs text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-600 rounded px-2 py-1">
+              <div key={idx} className="flex items-center text-xs text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-600 rounded px-2 py-1 flex-shrink-0 max-w-full truncate">
                 {typeof amenity === 'string' && amenity.includes('WiFi') && <Wifi className="w-3 h-3 mr-1" />}
                 {typeof amenity === 'string' && amenity.includes('Parking') && <Car className="w-3 h-3 mr-1" />}
                 {typeof amenity === 'string' && amenity.includes('Breakfast') && <Coffee className="w-3 h-3 mr-1" />}
@@ -215,8 +215,8 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
           </div>
 
           {/* Room & Badges */}
-          <div className="mt-auto pt-3 border-t border-dashed border-gray-200 dark:border-slate-600">
-            <p className="text-sm font-bold text-gray-700 dark:text-slate-200 line-clamp-1">{roomType}</p>
+          <div className="mt-auto pt-3 border-t border-dashed border-gray-200 dark:border-slate-600 min-w-0">
+            <p className="text-sm font-bold text-gray-700 dark:text-slate-200 line-clamp-1 truncate">{roomType}</p>
             <div className="flex flex-wrap gap-2 mt-1">
               {freeCancellation && (
                 <span className="text-xs text-green-700 font-medium flex items-center">
@@ -233,7 +233,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
         </div>
 
         {/* Pricing Column */}
-        <div className="w-full md:w-48 flex flex-col justify-between border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4">
+        <div className="w-full md:w-44 lg:w-48 flex flex-col justify-between border-t md:border-t-0 md:border-l border-gray-100 dark:border-slate-600 pt-3 md:pt-0 md:pl-4 flex-shrink-0">
 
           {/* Rating Badge */}
           <div className="flex items-center justify-between md:justify-end mb-4">

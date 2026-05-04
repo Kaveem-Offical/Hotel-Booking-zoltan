@@ -576,7 +576,7 @@ function HomePage() {
                     </div>
 
                     {/* Main Content */}
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0 max-w-full overflow-hidden">
                         <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-4 mb-4 flex flex-wrap justify-between items-center gap-4 theme-transition">
                             <h2 className="text-xl font-bold text-gray-800 dark:text-white">
                                 {loading ? 'Searching...' :

@@ -224,9 +224,12 @@ const PaymentPage = () => {
                     }
                 }
 
-                const roomPax = guestDetails
-                    .filter(g => g.roomIndex === (i + 1))
-                    .map((guest) => {
+                // Get all guests for this room and find the lead passenger's PAN
+                const roomGuests = guestDetails.filter(g => g.roomIndex === (i + 1));
+                const leadPassenger = roomGuests.find(g => g.isRoomLead);
+                const leadPassengerPan = leadPassenger?.panNumber || '';
+
+                const roomPax = roomGuests.map((guest) => {
                         let title = guest.title;
                         if (title === 'Master') title = 'Mr';
                         
@@ -242,17 +245,18 @@ const PaymentPage = () => {
                             Age: parseInt(guest.age) || (guest.type === 'child' ? 5 : 25)
                         };
 
-                        if (isInternational && guest.isLead && guest.panNumber) {
+                        // PAN is required for ALL adults in international bookings
+                        if (isInternational && guest.type === 'adult' && guest.panNumber) {
                             pax.PAN = guest.panNumber;
                         }
 
-                        // For child passengers in international bookings, include GuardianDetail with PAN
-                        if (isInternational && guest.type === 'child' && guest.guardianPan) {
+                        // For child passengers in international bookings, automatically use lead passenger's PAN as guardian PAN
+                        if (isInternational && guest.type === 'child' && leadPassengerPan) {
                             pax.GuardianDetail = {
-                                Title: 'Mr',
-                                FirstName: 'Guardian',
-                                LastName: 'Parent',
-                                PAN: guest.guardianPan
+                                Title: leadPassenger?.title || 'Mr',
+                                FirstName: leadPassenger?.firstName || 'Guardian',
+                                LastName: leadPassenger?.lastName || 'Parent',
+                                PAN: leadPassengerPan
                             };
                         }
 
