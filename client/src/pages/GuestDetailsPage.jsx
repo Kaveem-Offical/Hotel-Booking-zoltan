@@ -86,6 +86,10 @@ const GuestDetailsPage = () => {
     // Check if international booking - only true when hotel data is loaded AND country is not India
     const isInternational = !!hotel && hotel.CountryCode !== 'IN';
 
+    // Format number as Indian Rupee string (e.g. 1,23,456)
+    const formatINR = (amount) =>
+        new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Math.round(amount));
+
     // Initialize guest details
     useEffect(() => {
         const guests = [];
@@ -186,7 +190,7 @@ const GuestDetailsPage = () => {
                     const hotelResult = response.HotelResult[0];
                     const prebookRoom = hotelResult.Rooms?.[0];
                     if (prebookRoom && room && prebookRoom.TotalFare !== room.TotalFare) {
-                        setPriceNotice(`The price has been updated by the hotel from ₹${room.TotalFare} to ₹${prebookRoom.TotalFare}.`);
+                        setPriceNotice(`The price has been updated by the hotel from ₹${formatINR(room.TotalFare)} to ₹${formatINR(prebookRoom.TotalFare)}.`);
                     }
                     setPreBookData(hotelResult);
 
@@ -1326,7 +1330,7 @@ const GuestDetailsPage = () => {
                                             {pricing.dayRates.map((day, idx) => (
                                                 <div key={idx} className="flex justify-between text-xs text-gray-500">
                                                     <span>Night {idx + 1}</span>
-                                                    <span>₹ {Math.round(day.BasePrice).toLocaleString()}</span>
+                                                    <span>₹ {formatINR(day.BasePrice)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1334,12 +1338,12 @@ const GuestDetailsPage = () => {
 
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Room Rate ({nights} night{nights > 1 ? 's' : ''})</span>
-                                        <span className="font-medium">₹ {Math.round(pricing.basePrice).toLocaleString()}</span>
+                                        <span className="font-medium">₹ {formatINR(pricing.basePrice)}</span>
                                     </div>
 
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Taxes & Fees</span>
-                                        <span className="font-medium">₹ {Math.round(pricing.totalTax - pricing.tdsAmount).toLocaleString()}</span>
+                                        <span className="font-medium">₹ {formatINR(pricing.totalTax - pricing.tdsAmount)}</span>
                                     </div>
 
                                     {/* Tax Breakdown if available (excluding TDS as it's not a customer charge) */}
@@ -1350,7 +1354,7 @@ const GuestDetailsPage = () => {
                                                 .map((tax, idx) => (
                                                 <div key={idx} className="flex justify-between text-xs text-gray-500">
                                                     <span>{tax.TaxType.replace(/_/g, ' ')} ({tax.TaxPercentage}%)</span>
-                                                    <span>₹ {Math.round(tax.TaxAmount).toLocaleString()}</span>
+                                                    <span>₹ {formatINR(tax.TaxAmount)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1360,7 +1364,7 @@ const GuestDetailsPage = () => {
                                         <span className="font-bold text-gray-800">Total Amount</span>
                                         <div className="text-right">
                                             <div className="text-2xl font-bold text-blue-600">
-                                                ₹ {Math.round(pricing.payableAmount).toLocaleString()}
+                                                ₹ {formatINR(pricing.payableAmount)}
                                             </div>
                                             <div className="text-xs text-gray-500">Inclusive of all taxes</div>
                                         </div>
@@ -1438,7 +1442,7 @@ const GuestDetailsPage = () => {
                 <div className="flex items-center justify-between">
                     <div>
                         <div className="text-xs text-gray-500">Total Amount</div>
-                        <div className="text-xl font-bold text-blue-600">₹ {Math.round(pricing.payableAmount).toLocaleString()}</div>
+                        <div className="text-xl font-bold text-blue-600">₹ {formatINR(pricing.payableAmount)}</div>
                     </div>
                     <button
                         onClick={handleSubmit}

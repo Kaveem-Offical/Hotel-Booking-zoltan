@@ -44,6 +44,9 @@ function HomePage() {
     const [searchParams, setSearchParams] = useState(cachedSearch?.searchParams || null);
     const [currentStaticMap, setCurrentStaticMap] = useState(cachedSearch?.currentStaticMap || {});
 
+    // Ref to track if the loading spinner has already been dismissed
+    const loadingDismissedRef = useRef(false);
+
     // Ref for infinite scroll sentinel
     const sentinelRef = useRef(null);
     // Ref for auto-scrolling to results after search
@@ -252,48 +255,67 @@ function HomePage() {
                 .filter(result => result.Rooms && result.Rooms.length > 0)
                 .map(result => String(result.HotelCode));
 
-            // Fetch card info for these hotels (images, amenities, rating, reviews)
-            let hotelCardInfo = {};
-            if (resultHotelCodes.length > 0) {
-                try {
-                    const cardInfoResponse = await fetchHotelCardInfo(resultHotelCodes);
-                    hotelCardInfo = cardInfoResponse.hotelInfo || {};
-                } catch (infoError) {
-                    console.error('Failed to fetch hotel card info:', infoError);
-                }
-            }
-
-            const mergedHotels = data.HotelResult
+            // Step 1: Append the raw search results immediately so the UI can render ASAP.
+            // We'll enrich them with card info (images, ratings) in a second pass.
+            const partialMerged = data.HotelResult
                 .filter(result => result.Rooms && result.Rooms.length > 0)
                 .map(result => {
                     const staticData = staticMap[result.HotelCode] || {};
-                    const cachedInfo = hotelCardInfo[String(result.HotelCode)] || {};
                     return {
                         ...staticData,
                         ...result,
                         HotelName: staticData.HotelName || result.HotelName,
                         StarRating: staticData.HotelRating || staticData.StarRating || result.StarRating,
                         HotelAddress: staticData.Address || result.HotelAddress,
-                        // Priority: cached data > static data > result data
-                        HotelPicture: cachedInfo.imageUrl || staticData.HotelPicture || result.HotelPicture,
-                        HotelDescription: cachedInfo.description || staticData.Description || result.HotelDescription,
-                        // Merge amenities/facilities from cached info
-                        Facilities: cachedInfo.amenities?.length > 0 ? cachedInfo.amenities : (staticData.Facilities || result.Facilities),
-                        // Merge rating and reviews from cached info
-                        Rating: cachedInfo.rating || staticData.Rating || result.Rating,
-                        reviews: cachedInfo.reviews || staticData.reviews || 0,
-                        ratingText: cachedInfo.ratingText || staticData.ratingText,
+                        HotelPicture: staticData.HotelPicture || result.HotelPicture,
+                        HotelDescription: staticData.Description || result.HotelDescription,
+                        Facilities: staticData.Facilities || result.Facilities,
+                        Rating: staticData.Rating || result.Rating,
+                        reviews: staticData.reviews || 0,
+                        ratingText: staticData.ratingText,
                         Latitude: staticData.Latitude || result.Latitude,
                         Longitude: staticData.Longitude || result.Longitude
                     };
                 });
 
             if (appendResults) {
-                setHotels(prev => [...prev, ...mergedHotels]);
+                setHotels(prev => [...prev, ...partialMerged]);
             } else {
-                setHotels(mergedHotels);
+                setHotels(partialMerged);
             }
-            return mergedHotels;
+
+            // Dismiss the initial loading spinner as soon as the first chunk lands
+            if (!loadingDismissedRef.current) {
+                loadingDismissedRef.current = true;
+                setLoading(false);
+            }
+
+            // Step 2: Fetch card info (images, amenities, ratings) and enrich in the background
+            if (resultHotelCodes.length > 0) {
+                try {
+                    const cardInfoResponse = await fetchHotelCardInfo(resultHotelCodes);
+                    const hotelCardInfo = cardInfoResponse.hotelInfo || {};
+
+                    // Enrich the already-rendered hotels with card info
+                    setHotels(prev => prev.map(hotel => {
+                        const cachedInfo = hotelCardInfo[String(hotel.HotelCode)];
+                        if (!cachedInfo) return hotel;
+                        return {
+                            ...hotel,
+                            HotelPicture: cachedInfo.imageUrl || hotel.HotelPicture,
+                            HotelDescription: cachedInfo.description || hotel.HotelDescription,
+                            Facilities: cachedInfo.amenities?.length > 0 ? cachedInfo.amenities : hotel.Facilities,
+                            Rating: cachedInfo.rating || hotel.Rating,
+                            reviews: cachedInfo.reviews || hotel.reviews,
+                            ratingText: cachedInfo.ratingText || hotel.ratingText,
+                        };
+                    }));
+                } catch (infoError) {
+                    console.error('Failed to fetch hotel card info:', infoError);
+                }
+            }
+
+            return partialMerged;
         }
         return [];
     }, []);
@@ -302,6 +324,7 @@ function HomePage() {
     const handleSearch = async (searchData) => {
         // console.log('Search Data:', searchData);
         setLoading(true);
+        loadingDismissedRef.current = false; // Reset the flag for the new search
         setHasSearched(true);
         setError(null);
         setHotels([]);
@@ -396,12 +419,30 @@ function HomePage() {
                     frontendChunks.push(hotelCodesList.slice(i, i + CHUNK_SIZE));
                 }
 
-                // Fire all chunk requests at once without artificial delay
-                await Promise.all(frontendChunks.map(chunk => 
-                    searchHotelChunk(chunk, searchData, staticMap, true) // append = true handles concurrent state updates safely
-                ));
+                if (frontendChunks.length > 0) {
+                    // Fire all chunk requests in parallel.
+                    // Each chunk dismisses the loading spinner itself (via loadingDismissedRef)
+                    // the moment it appends results to state — no need to wait for all.
+                    const promises = frontendChunks.map(chunk =>
+                        searchHotelChunk(chunk, searchData, staticMap, true).catch(err => {
+                            console.error('Chunk search error:', err);
+                            return [];
+                        })
+                    );
 
-                setHasMore(false);
+                    // Await all chunks so `finally` doesn't run prematurely.
+                    // The spinner is already gone (dismissed by the first successful chunk).
+                    const allResults = await Promise.all(promises);
+                    setHasMore(false);
+
+                    // If every chunk came back empty, show a message
+                    const totalResults = allResults.flat().length;
+                    if (totalResults === 0) {
+                        setError('No hotels found for the selected dates. Try different dates.');
+                    }
+                } else {
+                    setHasMore(false);
+                }
             } else {
                 setError('Please select a city or hotel to search.');
                 setLoading(false);
@@ -412,7 +453,11 @@ function HomePage() {
             console.error('Search failed:', err);
             setError('Failed to fetch hotels. Please try again.');
         } finally {
-            setLoading(false);
+            // Safety net: dismiss loading if no chunk ever did (e.g. all errored)
+            if (!loadingDismissedRef.current) {
+                loadingDismissedRef.current = true;
+                setLoading(false);
+            }
         }
     };
 
@@ -566,7 +611,7 @@ function HomePage() {
             <div ref={resultsRef} className="container mx-auto px-4 py-8">
                 <div className="flex flex-col lg:flex-row gap-6">
                     {/* Sidebar */}
-                    <div className="lg:w-72 flex-shrink-0 z-9">
+                    <div className="lg:w-72 flex-shrink-0">
                         <FilterSidebar
                             filters={filters}
                             onFilterChange={handleFilterChange}
@@ -581,7 +626,7 @@ function HomePage() {
                             <h2 className="text-xl font-bold text-gray-800 dark:text-white">
                                 {loading ? 'Searching...' :
                                     totalCount > 0
-                                        ? `Showing ${sortedHotels.length} of ${loadedCount}`
+                                        ? `Showing ${sortedHotels.length} properties`
                                         : `Showing ${sortedHotels.length} properties`
                                 }
                             </h2>
@@ -625,7 +670,7 @@ function HomePage() {
                         )}
 
                         {/* Hotel Cards with staggered animation */}
-                        {!loading && sortedHotels.map((hotel, index) => (
+                        {sortedHotels.map((hotel, index) => (
                             <HotelCard
                                 key={hotel.HotelCode || index}
                                 hotel={hotel}
@@ -663,7 +708,12 @@ function HomePage() {
 
                         {!loading && sortedHotels.length === 0 && !error && (
                             <div className="text-center py-12 text-gray-500">
-                                {hotels.length > 0 ? 'No hotels match your filters. Try adjusting your filters.' : 'Use the search bar to find hotels.'}
+                                {hotels.length > 0
+                                    ? 'No hotels match your filters. Try adjusting your filters.'
+                                    : hasSearched
+                                        ? 'No hotels found for the selected criteria.'
+                                        : 'Use the search bar to find hotels.'
+                                }
                             </div>
                         )}
                     </div>

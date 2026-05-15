@@ -17,6 +17,8 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchP
   const [selectedHotelCode, setSelectedHotelCode] = useState(null);
   const [selectedHotelInfo, setSelectedHotelInfo] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
   const [checkInDate, setCheckInDate] = useState(() => {
@@ -231,38 +233,59 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchP
   // Fetch suggestions (Cities across countries + Hotels)
   useEffect(() => {
     const getSuggestions = async () => {
+      if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+      }
+
       if (destination.length > 1) {
+        setIsSearching(true);
         try {
           const searchLower = destination.toLowerCase();
 
-          // Search cities across all cached countries
+          // Match countries from the country list
+          const matchedCountryCodes = countriesRef.current
+            .filter(c => c.Name.toLowerCase().includes(searchLower))
+            .slice(0, 3)
+            .map(c => c.Code);
+
+          const countriesToSearch = Array.from(new Set([
+            ...Object.keys(citiesCacheRef.current),
+            ...TOP_COUNTRIES,
+            ...matchedCountryCodes
+          ]));
+
           let citySuggestions = [];
-          const countriesToSearch = Object.keys(citiesCacheRef.current).length > 0
-            ? Object.keys(citiesCacheRef.current)
-            : TOP_COUNTRIES;
+          const fetchPromises = [];
 
           // Search from cache first
           for (const code of countriesToSearch) {
+            const countryNameLower = getCountryName(code).toLowerCase();
+            const isCountryMatch = countryNameLower.includes(searchLower);
+
             if (citiesCacheRef.current[code]) {
               const filtered = citiesCacheRef.current[code]
-                .filter(c => c.Name.toLowerCase().includes(searchLower))
+                .filter(c => c.Name.toLowerCase().includes(searchLower) || isCountryMatch)
                 .slice(0, 3)
                 .map(c => ({ ...c, type: 'City', countryCode: code, countryName: getCountryName(code) }));
               citySuggestions = [...citySuggestions, ...filtered];
-            } else {
-              // Fetch and cache if not yet loaded
-              try {
-                const cityData = await fetchCities(code);
+            } else if (isCountryMatch || TOP_COUNTRIES.includes(code)) {
+              // Fetch and cache if not yet loaded and it's a direct country match or top country
+              const promise = fetchCities(code).then(cityData => {
                 if (cityData?.CityList) {
                   citiesCacheRef.current[code] = cityData.CityList;
                   const filtered = cityData.CityList
-                    .filter(c => c.Name.toLowerCase().includes(searchLower))
+                    .filter(c => c.Name.toLowerCase().includes(searchLower) || isCountryMatch)
                     .slice(0, 3)
                     .map(c => ({ ...c, type: 'City', countryCode: code, countryName: getCountryName(code) }));
                   citySuggestions = [...citySuggestions, ...filtered];
                 }
-              } catch (e) { /* skip this country */ }
+              }).catch(() => {});
+              fetchPromises.push(promise);
             }
+          }
+
+          if (fetchPromises.length > 0) {
+            await Promise.all(fetchPromises);
           }
 
           // Deduplicate by city code and limit
@@ -298,17 +321,30 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchP
           setSuggestions(combined);
           setShowDropdown(true);
 
+          if (combined.length === 0) {
+            searchTimeoutRef.current = setTimeout(() => {
+              setIsSearching(false);
+            }, 5000);
+          } else {
+            setIsSearching(false);
+          }
         } catch (error) {
           console.error("Failed to fetch suggestions", error);
+          setIsSearching(false);
         }
       } else {
         setSuggestions([]);
         setShowDropdown(false);
+        setIsSearching(false);
       }
     };
 
     const timeoutId = setTimeout(getSuggestions, 300);
-    return () => clearTimeout(timeoutId);
+    return () => {
+        clearTimeout(timeoutId);
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+    }};
   }, [destination, getCountryName]);
 
   const handleGuestChange = (type, operation) => {
@@ -585,6 +621,9 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchP
                   value={destination}
                   onChange={(e) => {
                     setDestination(e.target.value);
+                    if (e.target.value.length <= 1) {
+                        setIsSearching(false);
+                    }
                     setSelectedCityCode(null);
                     setSelectedCountryCode(null);
                     setSelectedHotelCode(null);
@@ -667,10 +706,18 @@ const HeroSearchBar = ({ onSearch, compact = false, locationState, cachedSearchP
                     </div>
                   ) : destination.length <= 1 ? (
                     <p className="text-gray-500 animate-pulse">Keep typing to see suggestions...</p>
-                  ) : (
+                  ) : isSearching ? (
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
                       <p className="text-gray-500">Searching...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3 animate-fade-in">
+                      <div className="w-12 h-12 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-2">
+                        <Search className="w-6 h-6 text-gray-400 dark:text-slate-500" />
+                      </div>
+                      <p className="text-gray-600 dark:text-slate-400 text-lg font-medium">No results found for "{destination}"</p>
+                      <p className="text-gray-500 dark:text-slate-500 text-sm">Try checking for typos or searching for a different destination</p>
                     </div>
                   )}
                 </div>

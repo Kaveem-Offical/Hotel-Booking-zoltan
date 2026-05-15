@@ -133,6 +133,8 @@ const LandingPage = () => {
     const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
     const [isCalendarOverlayOpen, setIsCalendarOverlayOpen] = useState(false);
     const [suggestions, setSuggestions] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const searchTimeoutRef = useRef(null);
     const [showDropdown, setShowDropdown] = useState(false);
     const overlayInputRef = useRef(null);
     const countriesRef = useRef([]);
@@ -198,33 +200,56 @@ const LandingPage = () => {
 
     useEffect(() => {
         const getSuggestions = async () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+
             if (destination.length > 1) {
+                setIsSearching(true);
                 try {
                     const searchLower = destination.toLowerCase();
+                    
+                    const matchedCountryCodes = countriesRef.current
+                        .filter(c => c.Name.toLowerCase().includes(searchLower))
+                        .slice(0, 3)
+                        .map(c => c.Code);
+
+                    const countriesToSearch = Array.from(new Set([
+                        ...Object.keys(citiesCacheRef.current),
+                        ...TOP_COUNTRIES,
+                        ...matchedCountryCodes
+                    ]));
+
                     let citySuggestions = [];
-                    const countriesToSearch = Object.keys(citiesCacheRef.current).length > 0
-                        ? Object.keys(citiesCacheRef.current) : TOP_COUNTRIES;
+                    const fetchPromises = [];
 
                     for (const code of countriesToSearch) {
+                        const countryNameLower = getCountryName(code).toLowerCase();
+                        const isCountryMatch = countryNameLower.includes(searchLower);
+
                         if (citiesCacheRef.current[code]) {
                             const filtered = citiesCacheRef.current[code]
-                                .filter(c => c.Name.toLowerCase().includes(searchLower))
+                                .filter(c => c.Name.toLowerCase().includes(searchLower) || isCountryMatch)
                                 .slice(0, 3)
                                 .map(c => ({ ...c, type: 'City', countryCode: code, countryName: getCountryName(code) }));
                             citySuggestions = [...citySuggestions, ...filtered];
-                        } else {
-                            try {
-                                const cityData = await fetchCities(code);
+                        } else if (isCountryMatch || TOP_COUNTRIES.includes(code)) {
+                            const promise = fetchCities(code).then(cityData => {
                                 if (cityData?.CityList) {
                                     citiesCacheRef.current[code] = cityData.CityList;
                                     const filtered = cityData.CityList
-                                        .filter(c => c.Name.toLowerCase().includes(searchLower))
+                                        .filter(c => c.Name.toLowerCase().includes(searchLower) || isCountryMatch)
                                         .slice(0, 3)
                                         .map(c => ({ ...c, type: 'City', countryCode: code, countryName: getCountryName(code) }));
                                     citySuggestions = [...citySuggestions, ...filtered];
                                 }
-                            } catch (e) { }
+                            }).catch(() => {});
+                            fetchPromises.push(promise);
                         }
+                    }
+
+                    if (fetchPromises.length > 0) {
+                        await Promise.all(fetchPromises);
                     }
 
                     const seenCodes = new Set();
@@ -251,12 +276,25 @@ const LandingPage = () => {
                         }
                     } catch (e) { }
 
-                    setSuggestions([...citySuggestions, ...hotelSuggestions]);
+                    const combined = [...citySuggestions, ...hotelSuggestions];
+                    setSuggestions(combined);
                     setShowDropdown(true);
-                } catch (error) { console.error("Failed to fetch suggestions", error); }
+
+                    if (combined.length === 0) {
+                        searchTimeoutRef.current = setTimeout(() => {
+                            setIsSearching(false);
+                        }, 5000);
+                    } else {
+                        setIsSearching(false);
+                    }
+                } catch (error) { 
+                    console.error("Failed to fetch suggestions", error);
+                    setIsSearching(false);
+                }
             } else {
                 setSuggestions([]);
                 setShowDropdown(false);
+                setIsSearching(false);
             }
         };
         const timeoutId = setTimeout(getSuggestions, 300);
@@ -508,7 +546,7 @@ const LandingPage = () => {
                             { ref: guestRef, value: `${guestCount}M+`, label: 'Happy Guests' },
                             { ref: ratingRef, value: (ratingCount / 10).toFixed(1), label: 'Average Rating' },
                         ].map((stat, i) => (
-                            <div key={i} className={`stat-item reveal delay-${i * 100}`} ref={stat.ref}>
+                            <div style={{ width: 'fit-content' }} key={i} className={`stat-item reveal delay-${i * 100}`} ref={stat.ref}>
                                 <div className="stat-number">{stat.value}</div>
                                 <p className="text-white/50 mt-1 text-sm font-medium">{stat.label}</p>
                             </div>
@@ -678,6 +716,9 @@ const LandingPage = () => {
                                 value={destination}
                                 onChange={(e) => {
                                     setDestination(e.target.value);
+                                    if (e.target.value.length <= 1) {
+                                        setIsSearching(false);
+                                    }
                                     setSelectedCityCode(null); setSelectedCountryCode(null);
                                     setSelectedHotelCode(null); setSelectedHotelInfo(null);
                                 }}
@@ -732,10 +773,18 @@ const LandingPage = () => {
                                     </>
                                 ) : destination.length === 1 ? (
                                     <p className="lp-hint-text">Keep typing to see suggestions…</p>
-                                ) : (
+                                ) : isSearching ? (
                                     <div className="lp-loading">
                                         <div className="lp-spinner" />
                                         <p>Searching…</p>
+                                    </div>
+                                ) : (
+                                    <div className="lp-empty-results">
+                                        <div className="lp-empty-icon">
+                                            <Search className="w-6 h-6 text-indigo-400/50" />
+                                        </div>
+                                        <p className="text-white/80 font-medium mb-1">No results found for "{destination}"</p>
+                                        <p className="text-white/50 text-sm">Try checking for typos or searching for a different destination</p>
                                     </div>
                                 )}
                             </div>

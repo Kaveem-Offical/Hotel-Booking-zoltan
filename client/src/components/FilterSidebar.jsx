@@ -59,6 +59,16 @@ const FilterSidebar = ({
 
     const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+    // Lock page scroll when mobile filter drawer is open
+    React.useEffect(() => {
+        if (isMobileOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [isMobileOpen]);
+
     const toggleSection = (section) => {
         setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
     };
@@ -135,7 +145,7 @@ const FilterSidebar = ({
 
             {/* Sidebar Container with smooth slide animation */}
             <div className={`
-        fixed inset-0 z-9 bg-white dark:bg-slate-900 transform transition-transform duration-300 ease-out lg:relative lg:transform-none lg:block lg:w-72 lg:bg-transparent
+        fixed inset-0 z-50 bg-white dark:bg-slate-900 transform transition-transform duration-300 ease-out lg:relative lg:inset-auto lg:transform-none lg:block lg:w-72 lg:bg-transparent lg:z-auto
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
                 <div className="h-full overflow-y-auto p-4 lg:p-0 bg-white dark:bg-slate-900 lg:bg-transparent dark:lg:bg-transparent lg:sticky lg:top-4">
@@ -372,7 +382,7 @@ const FilterSidebar = ({
                 </div>
             </div>
 
-            {/* Mobile Overlay with fade */}
+            {/* Mobile Overlay with fade — sits behind the drawer (z-40 < z-50) */}
             {isMobileOpen && (
                 <div
                     className="fixed inset-0 bg-black/50 z-40 lg:hidden animate-fade-in"

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, MapPin, Star, ThumbsUp, Wifi, Car, Coffee, Utensils, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   const navigate = useNavigate();
@@ -61,10 +60,13 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   const basePrice = totalFare ? totalFare : null;
   const originalPrice = basePrice ? Math.round(basePrice) : "NA";
 
+  const formatINR = (amount) => {
+    return new Intl.NumberFormat('en-IN').format(amount);
+  };
   // If we have a price, we can try to show a discount if applicable, or just show the price.
   // The prompt asked for "real data", so if no discount info is in API, we shouldn't fake it.
   // However, to keep the UI looking similar, we can show just the price.
-  const finalPrice = originalPrice;
+  const finalPrice = formatINR(originalPrice);
   const discount = 0; // No discount data in provided API response example
 
   const freeCancellation = roomData.IsRefundable === true;
@@ -85,7 +87,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   const tax = roomData.TotalTax ? Math.round(roomData.TotalTax) : "NA";
 
   // Calculate animation delay based on index for staggered effect
-  const animationDelay = Math.min(index * 100, 500);
+  const animationDelay = Math.min(index * 30, 150);
 
   return (
     <div
@@ -98,12 +100,10 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
       {/* Image Section */}
       <div className="relative w-full md:w-[240px] lg:w-[280px] h-[200px] md:h-auto flex-shrink-0 bg-gray-200 dark:bg-slate-700 overflow-hidden">
         {showLottieFallback ? (
-          <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-slate-800">
-            <DotLottieReact
-              src="https://lottie.host/888a11b0-a45c-4059-b8b5-0f73090ccf40/HPPlB3hGG2.lottie"
-              loop
-              autoplay
-            />
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-800">
+            <svg className="w-16 h-16 text-gray-300 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
           </div>
         ) : (
           <img
@@ -256,7 +256,7 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
             {/* Only show original price if there is a discount, otherwise it's confusing */}
             {discount > 0 && (
               <div className="text-gray-400 text-sm line-through decoration-red-500">
-                ₹ {originalPrice}
+                ₹ {formatINR(originalPrice)}
               </div>
             )}
 
@@ -277,4 +277,4 @@ const HotelCard = ({ hotel, onSelect, index = 0 }) => {
   );
 };
 
-export default HotelCard;
+export default memo(HotelCard);

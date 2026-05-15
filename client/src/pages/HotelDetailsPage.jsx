@@ -26,6 +26,11 @@ const HotelDetailsPage = () => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [roomImageIndices, setRoomImageIndices] = useState({});
     const [showAllRooms, setShowAllRooms] = useState(false);
+    const [showSignInModal, setShowSignInModal] = useState(false);
+
+    // Format number as Indian Rupee string (e.g. 1,23,456)
+    const formatINR = (amount) =>
+        new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Math.round(amount));
 
     const location = useLocation();
 
@@ -254,10 +259,8 @@ const HotelDetailsPage = () => {
             };
             localStorage.setItem('pendingBooking', JSON.stringify(bookingIntent));
 
-            // Show alert and redirect to signin
-            if (window.confirm('Please sign in to complete your booking. Click OK to go to the sign in page.')) {
-                navigate('/signin');
-            }
+            // Show beautiful sign-in modal instead of browser alert
+            setShowSignInModal(true);
             return;
         }
 
@@ -273,16 +276,28 @@ const HotelDetailsPage = () => {
         });
     };
 
+    // Lock / unlock body scroll whenever the gallery opens or closes,
+    // and always restore on component unmount (e.g. navigating away).
+    useEffect(() => {
+        if (showGallery) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            // Cleanup: always restore scroll when this effect re-runs or component unmounts
+            document.body.style.overflow = '';
+        };
+    }, [showGallery]);
+
     // Gallery functions
     const openGallery = (index = 0) => {
         setCurrentImageIndex(index);
         setShowGallery(true);
-        document.body.style.overflow = 'hidden';
     };
 
     const closeGallery = () => {
         setShowGallery(false);
-        document.body.style.overflow = 'auto';
     };
 
     const nextImage = (images) => {
@@ -597,6 +612,81 @@ const HotelDetailsPage = () => {
                 )}
             </div>
 
+            {/* ─── Sign-In Required Modal ─── */}
+            {showSignInModal && (
+                <div
+                    className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+                    style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.55)' }}
+                    onClick={() => setShowSignInModal(false)}
+                >
+                    <div
+                        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                        style={{
+                            animation: 'signInModalIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Gradient header strip */}
+                        <div style={{ background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)' }} className="h-2 w-full" />
+
+                        {/* Close button */}
+                        <button
+                            onClick={() => setShowSignInModal(false)}
+                            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+                        >
+                            <X size={16} />
+                        </button>
+
+                        <div className="px-8 pt-8 pb-8 text-center">
+                            {/* Icon */}
+                            <div
+                                className="mx-auto mb-5 w-16 h-16 rounded-full flex items-center justify-center"
+                                style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)', border: '2px solid #e0e7ff' }}
+                            >
+                                <User size={28} style={{ color: '#2563eb' }} />
+                            </div>
+
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">Sign in to continue</h2>
+                            <p className="text-sm text-gray-500 leading-relaxed mb-7">
+                                You need to be signed in to complete your booking.
+                                Your selected room has been saved — just sign in and you'll be ready to go!
+                            </p>
+
+                            {/* CTA buttons */}
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={() => { setShowSignInModal(false); navigate('/signin'); }}
+                                    className="w-full py-3 rounded-xl font-semibold text-white text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+                                    style={{ background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', boxShadow: '0 4px 15px rgba(37,99,235,0.35)' }}
+                                >
+                                    Sign In
+                                </button>
+                                <button
+                                    onClick={() => { setShowSignInModal(false); navigate('/signup'); }}
+                                    className="w-full py-3 rounded-xl font-semibold text-sm border-2 border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-all active:scale-[0.98]"
+                                >
+                                    Create an account
+                                </button>
+                                <button
+                                    onClick={() => setShowSignInModal(false)}
+                                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors mt-1"
+                                >
+                                    Maybe later
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Keyframe style injected inline */}
+                    <style>{`
+                        @keyframes signInModalIn {
+                            from { opacity: 0; transform: scale(0.85) translateY(20px); }
+                            to   { opacity: 1; transform: scale(1)   translateY(0);    }
+                        }
+                    `}</style>
+                </div>
+            )}
+
             {/* Full Screen Gallery Modal */}
             {showGallery && (
                 <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
@@ -688,7 +778,7 @@ const HotelDetailsPage = () => {
                                 <span className="text-xs text-gray-500 block">Starting from</span>
                                 <div className="flex flex-col">
                                     <span className="text-xl font-bold text-red-600 leading-none mt-1">
-                                        ₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].RSP || rooms[0].TotalFare) : 'N/A'}
+                                        ₹ {rooms[0]?.TotalFare ? formatINR(rooms[0].RSP || rooms[0].TotalFare) : 'N/A'}
                                     </span>
                                     <span className="text-[10px] text-gray-500 mt-0.5">Includes taxes & fees</span>
                                 </div>
@@ -987,7 +1077,7 @@ const HotelDetailsPage = () => {
                                                                 {room.available && room.pricing && (
                                                                     <div className="mb-2 md:mb-0">
                                                                         <div className="text-2xl font-bold text-red-600">
-                                                                            ₹ {Math.round(room.pricing.RSP || room.pricing.TotalFare)}
+                                                                            ₹ {formatINR(room.pricing.RSP || room.pricing.TotalFare)}
                                                                         </div>
                                                                         <div className="text-xs text-gray-500">
                                                                             Includes taxes & fees
@@ -1129,7 +1219,7 @@ const HotelDetailsPage = () => {
                         <div className="text-xs text-gray-500">Starting from</div>
                         <div className="flex flex-col">
                             <div className="text-xl font-bold text-red-600 leading-none mt-1">
-                                ₹ {rooms[0]?.TotalFare ? Math.round(rooms[0].RSP || rooms[0].TotalFare) : 'N/A'}
+                                ₹ {rooms[0]?.TotalFare ? formatINR(rooms[0].RSP || rooms[0].TotalFare) : 'N/A'}
                             </div>
                             <div className="text-[10px] text-gray-500 mt-0.5">Includes taxes & fees</div>
                         </div>
